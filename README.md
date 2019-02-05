@@ -1,4 +1,4 @@
-Lumen Laragram
+Laragram
 =====
 
 This is best package extends the capabilities of Laravel and Lumen for rapid implementation in Telegram chatbot within the MVC pattern with Authentication.
@@ -34,7 +34,7 @@ php artisan migrate
 Receive your bot authorization token from [@BotFather](https://telegram.me/botfather) and set it in `.env`:
 
 ```php
-LARAGRAM_BOT_TOKEN=your_bot_api_token
+LARAGRAM_BOT_TOKEN=bot_api_token
 ```
 
 Use this command to specify a url and receive incoming updates via an outgoing webhook:
