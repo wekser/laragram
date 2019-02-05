@@ -17,6 +17,20 @@ First, you need to install the package via Composer:
 composer require wekser/laragram
 ```
 
+In **Laravel 5.5+**, the service provider and facade will automatically get registered. For **Lumen** register the service provider and facades, and also enable Eloquent in `bootstrap/app.php`:
+
+```php
+$app->withFacades(true, [
+    'Wekser\Laragram\Facades\BotAuth' => 'BotAuth',
+    'Wekser\Laragram\Facades\BotClient' => 'BotClient',
+    'Wekser\Laragram\Facades\BotResponse' => 'BotResponse',
+]);
+
+$app->withEloquent();
+
+$app->register(Wekser\Laragram\Providers\LaragramServiceProvider::class);
+```
+
 Run setup Laragram for publish the controllers, migrations, routes and views:
 
 ```winbatch

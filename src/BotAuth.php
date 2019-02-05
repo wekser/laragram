@@ -74,7 +74,9 @@ class BotAuth
      */
     public function authenticate()
     {
-        $this->defineSender();
+        if (empty($this->defineSender())) {
+            return $this;
+        }
 
         $user = $this->getUser();
 
@@ -86,11 +88,11 @@ class BotAuth
     /**
      * Define sender from request.
      *
-     * @return void
+     * @return array|null
      */
     protected function defineSender()
     {
-        $this->sender = array_get(array_get($this->request->all(), array_get(array_keys($this->request->all()), 1)), 'from');
+        return $this->sender = array_get(array_get($this->request->all(), array_get(array_keys($this->request->all()), 1)), 'from');
     }
 
     /**
@@ -152,7 +154,7 @@ class BotAuth
     /**
      * Get current authorized user.
      *
-     * @return \Wekser\Laragram\Models\User
+     * @return \Wekser\Laragram\Models\User|null
      */
     public function user()
     {

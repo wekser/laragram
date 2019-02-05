@@ -49,7 +49,7 @@ class SetWebhookCommand extends Command
     {
         $url = trim(env('APP_URL'), '/') . '/' . BotClient::getPrefix() . '/' . BotClient::getSecret();
 
-        if (in_array(env('APP_URL'), ['http://localhost', null])) {
+        if (env('APP_URL') != $_SERVER['APP_URL']) {
             return $this->error('Invalid current APP URL in .env file');
         }
 

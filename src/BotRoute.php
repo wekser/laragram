@@ -79,13 +79,13 @@ class BotRoute
     {
         $directory = '\\' . $this->getAppNamespace() . 'Http\Controllers';
         $namespace = $directory . chr(92) . $route['controller'];
-        $method = $route['method'];
 
         if (!class_exists($namespace)) {
             throw new Exception('The ' . $route['controller'] . ' controller not exists.', 500);
         }
 
         $controller = new $namespace();
+        $method = $route['method'];
 
         if (!method_exists($controller, $method)) {
             throw new Exception('The ' . $route['method'] . ' method not exists in ' . $route['controller'] . '.', 405);
