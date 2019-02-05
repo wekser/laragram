@@ -1,0 +1,40 @@
+<?php
+
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
+
+class CreateLaragramSessionsTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('laragram_sessions', function (Blueprint $table) {
+            $table->increments('id');
+            $table->integer('user_id');
+            $table->bigInteger('update_id')->unique();
+            $table->string('event')->nullable();
+            $table->string('listener')->nullable();
+            $table->string('hook')->nullable();
+            $table->string('controller')->nullable();
+            $table->string('method')->nullable();
+            $table->text('payload')->nullable();
+            $table->string('last_state')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('laragram_sessions');
+    }
+}

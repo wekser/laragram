@@ -1,0 +1,8 @@
+<?php
+
+return [
+    "method" => "sendMessage",
+    "chat_id" => $user->uid,
+    "text" => "*Hello, $user->first_name!*\nThank you for using Laragram! 😘 \nTry to write something and I will answer you the same.",
+    "parse_mode" => "Markdown"
+];

@@ -1,0 +1,19 @@
+<?php
+
+namespace {{namespace}}Http\Controllers;
+
+use Wekser\Laragram\BotRequest;
+use Wekser\Laragram\Facades\BotResponse;
+
+class BotController extends Controller
+{
+    public function start()
+    {
+        return BotResponse::redirect('home')->view('start');
+    }
+
+    public function home(BotRequest $request)
+    {
+        return BotResponse::view('home', ['input' => $request->input()]);
+    }
+}

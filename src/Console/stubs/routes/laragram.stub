@@ -1,0 +1,10 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Create Laragram Routes
+|--------------------------------------------------------------------------
+*/
+
+$bot->bind('message', 'text')->catch('/start')->call('BotController@start');
+$bot->bind('message', 'text')->alias('home')->call('BotController@home');
