@@ -63,7 +63,7 @@ class RouteCollection
      */
     public function bind(string $event, ?string $listener = null)
     {
-        if (! array_has($this->defaultEvents, strtolower($event))) {
+        if (! in_array($event, $this->defaultEvents)) {
             throw new Exception('Invalid route event bind', 500);
         }
 
