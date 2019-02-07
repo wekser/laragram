@@ -12,9 +12,33 @@
 namespace Wekser\Laragram\Support;
 
 use Exception;
+use Illuminate\Support\Str;
 
 class RouteCollection
 {
+    /**
+     * Default request events.
+     *
+     * @var array
+     */
+    protected $defaultEvents = ['message', 'edited_message', 'channel_post', 'edited_channel_post', 'inline_query', 'chosen_inline_result', 'callback_query', 'shipping_query', 'pre_checkout_query'];
+
+    /**
+     * Default listener of inbound events.
+     *
+     * @var array
+     */
+    protected $defaultListeners = [
+        'message' => 'text',
+        'edited_message' => 'text',
+        'channel_post' => 'text',
+        'edited_channel_post' => ' text',
+        'inline_query' => 'query',
+        'chosen_inline_result' => 'result_id',
+        'callback_query' => 'data',
+        'shipping_query' => 'invoice_payload',
+        'pre_checkout_query' => 'invoice_payload'
+    ];
     /**
      * The router instance used by the route.
      *
@@ -33,11 +57,20 @@ class RouteCollection
      * Register a new webhook event route with the router.
      *
      * @param string $event
-     * @param string $listener
+     * @param string|null $listener
      * @return $this
+     * @throws Exception
      */
-    public function bind(string $event, string $listener)
+    public function bind(string $event, ?string $listener = null)
     {
+        if (! array_has($this->defaultEvents, strtolower($event))) {
+            throw new Exception('Invalid route event bind', 500);
+        }
+
+        if (empty($listener)) {
+            $listener = $this->defaultListeners[$event] ?? null;
+        }
+
         $this->route['event'] = $event;
         $this->route['listener'] = $listener;
 
@@ -71,15 +104,27 @@ class RouteCollection
     }
 
     /**
-     * Set the handler for the route.
+     * Set the action for the route.
      *
      * @param string $action
      * @return void
+     * @throws Exception
      */
     public function call(string $action)
     {
-        $this->route['controller'] = str_before($action, '@');
-        $this->route['method'] = str_after($action, '@');
+        if (! Str::contains($action, '@')) {
+            throw new Exception('Invalid route action', 500);
+        }
+
+        $controller = str_before($action, '@');
+        $method = str_after($action, '@');
+
+        if (empty($controller) && empty($method)) {
+            throw new Exception('Invalid route action', 500);
+        }
+
+        $this->route['controller'] = $controller;
+        $this->route['method'] = $method;
 
         $this->add();
     }
@@ -153,7 +198,7 @@ class RouteCollection
                 }
             }
         }
-        throw new Exception('Not Found', 404);
+        throw new Exception('Route not found', 404);
     }
 
     /**
@@ -167,7 +212,7 @@ class RouteCollection
         $file = base_path('routes/laragram.php');
 
         if (!file_exists($file)) {
-            throw new Exception('File laragram.php don\'t exists in routes path.', 500);
+            throw new Exception('File [laragram.php] don\'t exists in routes path.', 500);
         }
 
         return call_user_func(function ($bot) use ($file) {

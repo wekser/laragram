@@ -51,7 +51,7 @@ Receive your bot authorization token from [@BotFather](https://telegram.me/botfa
 LARAGRAM_BOT_TOKEN=bot_api_token
 ```
 
-Use this command to specify a url and receive incoming updates via an outgoing webhook:
+Run the command to specify a url and receive incoming updates via an outgoing webhook:
 ```winbatch
 php artisan laragram:setWebhook
 ```
