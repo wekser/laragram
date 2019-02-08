@@ -14,6 +14,7 @@ namespace Wekser\Laragram;
 use Exception;
 use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
+use Wekser\Laragram\Exceptions\BotException;
 use Wekser\Laragram\Facades\BotAuth;
 use Wekser\Laragram\Support\Aidable;
 
@@ -104,19 +105,8 @@ class Laragram
         try {
             $this->response = (new BotRoute())->dispatch($this->request->all(), $this->state);
         } catch (Exception $exception) {
-            $exception->getCode() == 404 ?: $this->errorReport($exception);
-            $this->response = null;
+            return BotException::handle($exception);
         }
-    }
-
-    /**
-     * Make log when fire Exception.
-     *
-     * @return void
-     */
-    protected function errorReport(Exception $exception)
-    {
-        app('log')->error($exception, ['exception' => $exception]);
     }
 
     /**
@@ -136,6 +126,6 @@ class Laragram
      */
     protected function back()
     {
-        return empty($this->response) ? response('') : response()->json(array_get($this->response, 'view'));
+        return response()->json(array_get($this->response, 'view'));
     }
 }

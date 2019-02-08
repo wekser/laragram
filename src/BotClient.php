@@ -11,8 +11,8 @@
 
 namespace Wekser\Laragram;
 
-use Exception;
 use GuzzleHttp\Client as Guzzle;
+use Wekser\Laragram\Exceptions\TokenInvalidException;
 
 class BotClient
 {
@@ -50,7 +50,7 @@ class BotClient
         $this->token = array_get($configuration, 'token');
 
         if (empty($this->getToken())) {
-            throw new Exception('The bot token is not specified in the configuration file.', 403);
+            throw new TokenInvalidException();
         }
 
         $this->prefix = array_get($configuration, 'prefix');

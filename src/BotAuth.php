@@ -92,7 +92,11 @@ class BotAuth
      */
     protected function defineSender()
     {
-        return $this->sender = array_get(array_get($this->request->all(), array_get(array_keys($this->request->all()), 1)), 'from');
+        $listener = array_get(array_keys($this->request->all()), 1);
+
+        $event = array_get($this->request->all(), $listener);
+        
+        return $this->sender = array_get($event, 'from');
     }
 
     /**

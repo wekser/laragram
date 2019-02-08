@@ -11,8 +11,11 @@
 
 namespace Wekser\Laragram\Support;
 
-use Exception;
 use Illuminate\Support\Str;
+use Wekser\Laragram\Exceptions\NotFoundRouteException;
+use Wekser\Laragram\Exceptions\NotFoundRouteFileException;
+use Wekser\Laragram\Exceptions\RouteActionInvalidException;
+use Wekser\Laragram\Exceptions\RouteEventInvalidException;
 
 class RouteCollection
 {
@@ -64,7 +67,7 @@ class RouteCollection
     public function bind(string $event, ?string $listener = null)
     {
         if (! in_array($event, $this->defaultEvents)) {
-            throw new Exception('Invalid route event bind', 500);
+            throw new RouteEventInvalidException();
         }
 
         if (empty($listener)) {
@@ -113,14 +116,14 @@ class RouteCollection
     public function call(string $action)
     {
         if (! Str::contains($action, '@')) {
-            throw new Exception('Invalid route action', 500);
+            throw new RouteActionInvalidException();
         }
 
         $controller = str_before($action, '@');
         $method = str_after($action, '@');
 
         if (empty($controller) && empty($method)) {
-            throw new Exception('Invalid route action', 500);
+            throw new RouteActionInvalidException();
         }
 
         $this->route['controller'] = $controller;
@@ -198,7 +201,7 @@ class RouteCollection
                 }
             }
         }
-        throw new Exception('Route not found', 404);
+        throw new NotFoundRouteException();
     }
 
     /**
@@ -211,8 +214,8 @@ class RouteCollection
     {
         $file = base_path('routes/laragram.php');
 
-        if (!file_exists($file)) {
-            throw new Exception('File [laragram.php] don\'t exists in routes path.', 500);
+        if (! file_exists($file)) {
+            throw new NotFoundRouteFileException($file);
         }
 
         return call_user_func(function ($bot) use ($file) {

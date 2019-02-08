@@ -1,7 +1,7 @@
 Laragram
 =====
 
-This is best package extends the capabilities of Laravel and Lumen for rapid implementation in Telegram chatbot within the MVC pattern with Authentication.
+This is best package extends the capabilities of Laravel and Lumen for rapid implementation in Telegram chatbot within the REST style with Authentication.
 
 ## Getting Started
 
