@@ -1,6 +1,6 @@
 {
     "name": "wekser/laragram",
-    "description": "Simple package extends the capabilities of Laravel and Lumen for rapid implementation in Telegram chatbot within the MVC pattern",
+    "description": "Expand the capabilities of Laravel and Lumen to quickly create Telegram bot within the REST style",
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/wekser/laragram",

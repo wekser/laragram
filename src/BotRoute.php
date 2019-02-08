@@ -11,7 +11,8 @@
 
 namespace Wekser\Laragram;
 
-use Exception;
+use Wekser\Laragram\Exceptions\NotExistMethodException;
+use Wekser\Laragram\Exceptions\NotExistsControllerException;
 use Wekser\Laragram\Support\Aidable;
 use Wekser\Laragram\Support\FormRequest;
 use Wekser\Laragram\Support\FormResponse;
@@ -80,15 +81,15 @@ class BotRoute
         $directory = '\\' . $this->getAppNamespace() . 'Http\Controllers';
         $namespace = $directory . chr(92) . $route['controller'];
 
-        if (!class_exists($namespace)) {
-            throw new Exception('The ' . $route['controller'] . ' controller not exists.', 500);
+        if (! class_exists($namespace)) {
+            throw new NotExistsControllerException($route['controller']);
         }
 
         $controller = new $namespace();
         $method = $route['method'];
 
-        if (!method_exists($controller, $method)) {
-            throw new Exception('The ' . $route['method'] . ' method not exists in ' . $route['controller'] . '.', 405);
+        if (! method_exists($controller, $method)) {
+            throw new NotExistMethodException($route['method'], $route['controller']);
         }
 
         return $this->prepareResponse($controller->{$method}($this->prepareRequest($request, $route)));

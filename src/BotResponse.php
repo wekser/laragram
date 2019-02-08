@@ -12,6 +12,9 @@
 namespace Wekser\Laragram;
 
 use Exception;
+use Wekser\Laragram\Exceptions\NotExistsViewException;
+use Wekser\Laragram\Exceptions\ViewEmptyException;
+use Wekser\Laragram\Exceptions\ViewInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 
 class BotResponse
@@ -144,18 +147,18 @@ class BotResponse
      */
     protected function renderContents()
     {
-        if (!file_exists($this->path)) {
-            throw new Exception('The [' . $this->path . '] view not exists.', 500);
+        if (! file_exists($this->path)) {
+            throw new NotExistsViewException($this->path);
         }
 
         $response = $this->getContents();
 
         if (is_null($response)) {
-            throw new Exception('The [' . $this->path . '] view is empty.', 500);
+            throw new ViewEmptyException($this->path);
         }
 
-        if (!is_array($response)) {
-            throw new Exception('Incorrect response from route method.', 500);
+        if (! is_array($response)) {
+            throw new ViewInvalidException($this->path);
         }
 
         return $response;
@@ -182,7 +185,7 @@ class BotResponse
 
             }, $this);
         } catch (Exception $exception) {
-            throw new Exception($exception->getMessage(), $exception->getCode());
+            throw new ViewInvalidException($this->path);
         }
     }
 }

@@ -1,0 +1,68 @@
+<?php
+
+namespace Wekser\Laragram\Exceptions;
+
+use Exception;
+use Illuminate\Support\Arr;
+
+class BotException
+{
+    /**
+     * A list of the exception types that are not reported.
+     *
+     * @var array
+     */
+    protected static $dontReport = [
+        NotFoundRouteException::class,
+    ];
+
+    /**
+     * A list of the exception types that are not reported.
+     *
+     * @var null
+     */
+    public static function handle(Exception $exception)
+    {
+        if (self::shouldntReport($exception)) {
+            self::report($exception);
+        }
+
+        return self::render();
+    }
+
+    /**
+     * Determine if the exception is in the "do not report" list.
+     *
+     * @param  \Exception  $e
+     * @return bool
+     */
+    protected static function shouldntReport(Exception $exception)
+    {
+        $dontReport = self::$dontReport;
+
+        return is_null(Arr::first($dontReport, function ($type) use ($exception) {
+            return $exception instanceof $type;
+        }));
+    }
+
+    /**
+     * Report or log an exception.
+     *
+     * @param  \Exception  $exception
+     * @return void
+     */
+    protected static function report(Exception $exception)
+    {
+        app('log')->error($exception, ['exception' => $exception]);
+    }
+
+    /**
+     * Render an exception into an HTTP response.
+     *
+     * @return null
+     */
+    protected static function render()
+    {
+        return response('');
+    }
+}
