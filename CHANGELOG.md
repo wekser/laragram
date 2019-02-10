@@ -11,10 +11,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Add a package documentation to the [Wiki](https://github.com/wekser/laragram/wiki)
 - Add possibility of returning a string from a route or controller as easy text message
+- Add `ResponseInvalidException`
+
+### Changed
+
+- Replaced `get` on `input` and `input` on `query` methods in `BotRequest`
 
 ### Fixed
 
-- Fixed PHPDoc descriptions
+- Fixed and update PHPDoc descriptions
 
 ## [v1.0.1] (2019-02-08)
 
