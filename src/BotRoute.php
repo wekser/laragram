@@ -16,7 +16,7 @@ use Wekser\Laragram\Exceptions\NotExistsControllerException;
 use Wekser\Laragram\Support\Aidable;
 use Wekser\Laragram\Support\FormRequest;
 use Wekser\Laragram\Support\FormResponse;
-use Wekser\Laragram\Support\RouteCollection;
+use Wekser\Laragram\Support\BotRoutes;
 
 class BotRoute
 {
@@ -74,7 +74,7 @@ class BotRoute
      * @param array $request
      * @param array $route
      * @return array
-     * @throws Exception
+     * @throws NotExistsControllerException|NotExistMethodException
      */
     protected function runRoute($request, $route): array
     {
@@ -98,12 +98,12 @@ class BotRoute
     /**
      * Prepare a response for return to back.
      *
-     * @param \Wekser\Laragram\BotResponse $response
+     * @param \Wekser\Laragram\BotResponse|string $response
      * @return array
      */
-    protected function prepareResponse(BotResponse $response): array
+    protected function prepareResponse($response): array
     {
-        return (new FormResponse())->getResponse($response, $this->request);
+        return (new FormResponse())->getResponse($this->request, $response);
     }
 
     /**
@@ -126,7 +126,7 @@ class BotRoute
      */
     protected function findRoute($request): array
     {
-        $this->current = $route = (new RouteCollection())->match($request, $this->state);
+        $this->current = $route = (new BotRoutes())->match($request, $this->state);
 
         return $route;
     }

@@ -18,7 +18,7 @@ trait Authenticatable
      *
      * @return int
      */
-    public function getAuthIdentifier()
+    public function id()
     {
         return $this->current->id;
     }
@@ -28,7 +28,7 @@ trait Authenticatable
      *
      * @return int
      */
-    public function getTelegramIdentifier()
+    public function uid()
     {
         return $this->current->uid;
     }

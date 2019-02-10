@@ -143,7 +143,7 @@ class BotResponse
      * Get the contents of the view instance.
      *
      * @return array
-     * @throws Exception
+     * @throws NotExistsViewException|ViewEmptyException|ViewInvalidException
      */
     protected function renderContents()
     {
@@ -168,7 +168,7 @@ class BotResponse
      * Get the evaluated contents of the view.
      *
      * @return mixed
-     * @throws Exception
+     * @throws ViewInvalidException
      */
     protected function getContents()
     {

@@ -6,5 +6,5 @@
 |--------------------------------------------------------------------------
 */
 
-$bot->bind('message', 'text')->catch('/start')->call('BotController@start');
-$bot->bind('message', 'text')->alias('home')->call('BotController@home');
+$bot->bind('message')->catch('/start')->call('BotController@start');
+$bot->bind('message')->alias('home')->call('BotController@home');

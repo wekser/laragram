@@ -7,11 +7,22 @@ use Wekser\Laragram\Facades\BotResponse;
 
 class BotController extends Controller
 {
+    /**
+     * Start a new chat with bot.
+     *
+     * @return BotResponse
+     */
     public function start()
     {
         return BotResponse::redirect('home')->view('start');
     }
 
+    /**
+     * Return to the user a his message
+     *
+     * @param BotRequest $request
+     * @return BotResponse
+     */
     public function home(BotRequest $request)
     {
         return BotResponse::view('home', ['input' => $request->input()]);

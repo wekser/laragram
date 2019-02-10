@@ -17,8 +17,9 @@ use Illuminate\Support\Facades\Facade;
  * This is the BotAuth facade class.
  *
  * @method static \Wekser\Laragram\Models\User user()
- * @method static array getBotLanguages()
- * @method static bool isSecurePayload()
+ * @method static int id()
+ * @method static int uid()
+ * @method static array getLastPayload()
  *
  * @see \Wekser\Laragram\Models\User
  */

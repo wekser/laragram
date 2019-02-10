@@ -98,7 +98,6 @@ class Laragram
      * Run the Laragram.
      *
      * @return void
-     * @throws Exception
      */
     protected function run()
     {
