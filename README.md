@@ -13,9 +13,7 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Helpful Resources
 
-**Helpful Resources:**
-
-* [Telegram Bot API](https://core.telegram.org/bots/api)
+- [Telegram Bot API](https://core.telegram.org/bots/api)
 
 ## License
 
