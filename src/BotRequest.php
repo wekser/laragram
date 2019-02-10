@@ -75,9 +75,9 @@ class BotRequest
      *
      * @return string|null
      */
-    public function input(): ?string
+    public function query(): ?string
     {
-        return array_get($this->request, 'input');
+        return array_get($this->request, 'query');
     }
 
     /**
@@ -121,16 +121,6 @@ class BotRequest
     }
 
     /**
-     * Get the updated ID from current request.
-     *
-     * @return int
-     */
-    public function getUpdateId(): int
-    {
-        return array_get($this->request, 'update_id');
-    }
-
-    /**
      * Returns a parameter in object by name.
      *
      * @param string $key
@@ -138,7 +128,7 @@ class BotRequest
      *
      * @return array|string|null
      */
-    public function get($key, $default = null)
+    public function input($key, $default = null)
     {
         return array_get(array_get($this->request, 'all'), $key, $default);
     }

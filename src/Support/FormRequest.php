@@ -35,7 +35,7 @@ class FormRequest
         $this->request['all'] = array_get($request, array_get(array_keys($request), 1));
         $this->request['controller'] = array_get($route, 'controller');
         $this->request['event'] = array_get(array_keys($request), 1);
-        $this->request['input'] = array_get(array_get($request, array_get(array_keys($request), 1)), $route['listener']);
+        $this->request['query'] = array_get(array_get($request, array_get(array_keys($request), 1)), $route['listener']);
         $this->request['hook'] = array_get($route, 'hook');
         $this->request['listener'] = array_get($route, 'listener');
         $this->request['method'] = array_get($route, 'method');

@@ -43,7 +43,7 @@ class BotClient
      * BotClient Constructor
      *
      * @param array $configuration
-     * @throws Exception
+     * @throws TokenInvalidException
      */
     public function __construct(array $configuration)
     {
