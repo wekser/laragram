@@ -16,10 +16,10 @@ use Illuminate\Support\Facades\Facade;
 /**
  * This is the BotAuth facade class.
  *
- * @method static \Wekser\Laragram\Models\User user()
+ * @method static array getLastPayload()
  * @method static int id()
  * @method static int uid()
- * @method static array getLastPayload()
+ * @method static \Wekser\Laragram\Models\User|object user()
  *
  * @see \Wekser\Laragram\Models\User
  */

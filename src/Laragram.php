@@ -87,11 +87,9 @@ class Laragram
     {
         $language = $this->user->language;
 
-        $locale = in_array($language, $this->config('auth.languages')) ? $language : app('translator')->getLocale();
+        app('translator')->setLocale($language);
 
-        app('translator')->setLocale($locale);
-
-        $this->state = $this->user->sessions()->latest()->value('last_state');
+        $this->state = $this->config('auth.driver') == 'database' ? $this->user->sessions()->latest()->value('last_state') : null;
     }
 
     /**

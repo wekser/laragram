@@ -22,9 +22,16 @@ class BotAuth
     /**
      * Current authorized user.
      *
-     * @var User
+     * @var User|object
      */
     protected $current;
+
+    /**
+     * The authentication driver.
+     *
+     * @var string
+     */
+    protected $driver;
 
     /**
      * The array languages in bot.
@@ -34,7 +41,7 @@ class BotAuth
     protected $languages;
 
     /**
-     * Sender of the request.
+     * User object from the request.
      *
      * @var array
      */
@@ -63,6 +70,7 @@ class BotAuth
     public function __construct(Request $request, array $configuration)
     {
         $this->request = $request;
+        $this->driver = array_get($configuration, 'driver');
         $this->languages = array_get($configuration, 'languages');
         $this->securePayload = array_get($configuration, 'secure_payload', true);
     }
@@ -74,13 +82,17 @@ class BotAuth
      */
     public function authenticate()
     {
-        if (empty($this->defineSender())) {
-            return $this;
+        $sender = $this->defineSender();
+
+        $driver = $this->getDriver();
+
+        if ($driver == 'database') {
+            $current = empty($user = $this->getUser()) ? $this->register($sender) : $this->login($user, $sender);
+        } elseif ($driver == 'array') {
+            $current = $this->setUser($sender);
         }
 
-        $user = $this->getUser();
-
-        $this->current = empty($user) ? $this->register($this->sender) : $this->login($user, $this->sender);
+        $this->current = $current;
 
         return $this;
     }
@@ -88,7 +100,7 @@ class BotAuth
     /**
      * Define sender from request.
      *
-     * @return array|null
+     * @return array
      */
     protected function defineSender()
     {
@@ -110,6 +122,25 @@ class BotAuth
     }
 
     /**
+     * Set user for array driver.
+     *
+     * @param array $sender
+     * @return object
+     */
+    protected function setUser(array $sender)
+    {
+        $user = [
+            'uid' => array_get($sender, 'id'),
+            'first_name' => array_get($sender, 'first_name'),
+            'last_name' => array_get($sender, 'last_name'),
+            'username' => array_get($sender, 'username'),
+            'language' => $this->defineUserLanguage($sender)
+        ];
+
+        return (object) $user;
+    }
+
+    /**
      * Create a new user.
      *
      * @param array $sender
@@ -122,10 +153,24 @@ class BotAuth
         $user->first_name = array_get($sender, 'first_name');
         $user->last_name = array_get($sender, 'last_name');
         $user->username = array_get($sender, 'username');
-        $user->language = in_array(array_get($sender, 'language_code'), $this->getBotLanguages()) ? array_get($sender, 'language_code') : app('translator')->getLocale();
+        $user->language = $this->defineUserLanguage($sender);
         $user->save();
 
         return $user;
+    }
+
+    /**
+     * Define a user language.
+     *
+     * @param array $sender
+     * @return string
+     */
+    protected function defineUserLanguage(array $sender)
+    {
+        $userLanguage = array_get($sender, 'language_code');
+        $appLanguage = app('translator')->getLocale();
+
+        return in_array($userLanguage, $this->getBotLanguages()) ? $userLanguage : $appLanguage;
     }
 
     /**
@@ -136,6 +181,16 @@ class BotAuth
     public function getBotLanguages(): ?array
     {
         return $this->languages;
+    }
+
+    /**
+     * Get authentication driver.
+     *
+     * @return string
+     */
+    public function getDriver(): string
+    {
+        return $this->driver ?? 'array';
     }
 
     /**
@@ -158,7 +213,7 @@ class BotAuth
     /**
      * Get current authorized user.
      *
-     * @return \Wekser\Laragram\Models\User|null
+     * @return \Wekser\Laragram\Models\User|object
      */
     public function user()
     {
