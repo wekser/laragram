@@ -1,7 +1,0 @@
-<?php
-
-return [
-    "method" => "sendMessage",
-    "chat_id" => $user->uid,
-    "text" => $query
-];

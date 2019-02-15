@@ -39,7 +39,6 @@ class LaragramInstallCommand extends Command
      * @var array
      */
     protected $views = [
-        'home.stub' => 'home.php',
         'start.stub' => 'start.php'
     ];
 

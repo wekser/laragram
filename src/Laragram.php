@@ -87,11 +87,11 @@ class Laragram
     {
         $language = $this->user->language;
 
-        $locale = in_array($language, $this->config('auth.languages')) ? $language : app('translator')->getLocale();
+        app('translator')->setLocale($language);
 
-        app('translator')->setLocale($locale);
-
-        $this->state = $this->user->sessions()->latest()->value('last_state');
+        if ($this->config('auth.driver') == 'database') {
+            $this->state = $this->user->sessions()->latest()->value('last_state');
+        }
     }
 
     /**
@@ -115,7 +115,9 @@ class Laragram
      */
     protected function fireEvent()
     {
-        empty($this->response) ?: event(new CallbackFormed($this->user, $this->response));
+        if (! empty($this->response) && $this->config('auth.driver') == 'database') {
+            event(new CallbackFormed($this->user, $this->response));
+        }
     }
 
     /**

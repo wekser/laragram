@@ -13,9 +13,12 @@ namespace Wekser\Laragram\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Wekser\Laragram\Support\Aidable;
 
 class FrameHook
 {
+    use Aidable;
+
     /**
      * Handle an incoming request.
      *
@@ -25,8 +28,12 @@ class FrameHook
      */
     public function handle(Request $request, Closure $next)
     {
-        $rule =['update_id' => 'required|integer|unique:laragram_sessions,update_id'];
+        $rule = ['update_id' => 'required|integer|unique:laragram_sessions,update_id'];
 
-        return app('validator')->make($request->all(), $rule)->fails() ? response('Already Reported.', 208) : $next($request);
+        if ($this->config('auth.driver') == 'database' && app('validator')->make($request->all(), $rule)->fails()) {
+            return response('Already Reported.', 208);
+        }
+
+        return  $next($request);
     }
 }
