@@ -25,6 +25,6 @@ class BotController extends Controller
      */
     public function home(BotRequest $request)
     {
-        return BotResponse::view('home', ['query' => $request->query()]);
+        return $request->query();
     }
 }
