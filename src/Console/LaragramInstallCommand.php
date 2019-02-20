@@ -55,10 +55,6 @@ class LaragramInstallCommand extends Command
 
             $this->createConfig();
 
-            $this->createViews();
-
-            $this->createControllers();
-
             $this->createMigrations();
 
             $this->createRoutes();
@@ -77,10 +73,6 @@ class LaragramInstallCommand extends Command
     protected function createDirectories()
     {
         if (! is_dir($directory = base_path('config'))) {
-            mkdir($directory, 0755, true);
-        }
-
-        if (! is_dir($directory = resource_path($this->config('view.path')))) {
             mkdir($directory, 0755, true);
         }
     }
@@ -102,40 +94,6 @@ class LaragramInstallCommand extends Command
     }
 
     /**
-     * Create the views.
-     *
-     * @return void
-     */
-    protected function createViews()
-    {
-        foreach ($this->views as $key => $value) {
-            if (file_exists($view = resource_path($this->config('view.path') . '/' . $value)) && ! $this->option('force')) {
-                if (! $this->confirm("The [{$value}] view already exists. Do you want to replace it?")) {
-                    continue;
-                }
-            }
-
-            copy(__DIR__ . '/stubs/views/' . $key, $view);
-        }
-    }
-
-    /**
-     * Create the example controllers.
-     *
-     * @return void
-     */
-    protected function createControllers()
-    {
-        if (file_exists($file = app()->path() . '/Http/Controllers/BotController.php') && ! $this->option('force')) {
-            if (! $this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
-                return;
-            }
-        }
-
-        file_put_contents($file, $this->compileControllerStub());
-    }
-
-    /**
      * Create the database migrations.
      *
      * @return void
@@ -154,7 +112,7 @@ class LaragramInstallCommand extends Command
     }
 
     /**
-     * Create the application routes.
+     * Create the bot routes.
      *
      * @return void
      */
@@ -166,7 +124,7 @@ class LaragramInstallCommand extends Command
             }
         }
 
-        file_put_contents($file, file_get_contents(__DIR__ . '/stubs/routes/laragram.stub'));
+        copy(__DIR__ . '/stubs/routes/routes.stub', $file);
     }
 
     /**
@@ -187,19 +145,5 @@ class LaragramInstallCommand extends Command
         } else {
             $this->comment('.env file in base path your application not found.');
         }
-    }
-
-    /**
-     * Compiles the HomeController stub.
-     *
-     * @return string
-     */
-    protected function compileControllerStub()
-    {
-        return str_replace(
-            '{{namespace}}',
-            $this->getAppNamespace(),
-            file_get_contents(__DIR__ . '/stubs/controllers/BotController.stub')
-        );
     }
 }

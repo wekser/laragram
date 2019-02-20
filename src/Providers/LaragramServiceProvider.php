@@ -17,6 +17,7 @@ use Wekser\Laragram\BotClient;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
+use Wekser\Laragram\Console\LaragramPublishCommand;
 use Wekser\Laragram\Console\RemoveWebhookCommand;
 use Wekser\Laragram\Console\SetWebhookCommand;
 use Wekser\Laragram\Events\CallbackFormed;
@@ -220,6 +221,7 @@ class LaragramServiceProvider extends ServiceProvider
             SetWebhookCommand::class,
             RemoveWebhookCommand::class,
             LaragramInstallCommand::class,
+            LaragramPublishCommand::class,
         ]);
     }
 }
