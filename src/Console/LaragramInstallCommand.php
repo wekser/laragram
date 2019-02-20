@@ -13,12 +13,9 @@ namespace Wekser\Laragram\Console;
 
 use Illuminate\Support\Str;
 use Illuminate\Console\Command;
-use Wekser\Laragram\Support\Aidable;
 
 class LaragramInstallCommand extends Command
 {
-    use Aidable;
-
     /**
      * The name and signature of the console command.
      *
@@ -32,15 +29,6 @@ class LaragramInstallCommand extends Command
      * @var string
      */
     protected $description = 'Install Laragram in current application';
-
-    /**
-     * The views that need to be exported.
-     *
-     * @var array
-     */
-    protected $views = [
-        'start.stub' => 'start.php'
-    ];
 
     /**
      * Execute the console command.
