@@ -5,6 +5,17 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v1.0.4] (2019-02-22)
+
+### Added
+
+- Added `LaragramPublishCommand` in `Wekser\Laragram\Console`
+- Added `laragram:publish` Artisan command
+
+### Changed
+
+- Changed `LaragramInstallCommand` in `Wekser\Laragram\Console`
+
 ## [v1.0.3] (2019-02-15)
 
 ### Added
