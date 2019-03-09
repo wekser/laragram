@@ -120,7 +120,11 @@ class BotClient
 
         $client = new Client();
 
-        return $this->response($client->{$request}('POST', $this->buildUrl($method), $this->buildOptions($params, $fileUpload)));
+        return $this->response($client->{$request}(
+            'POST',
+            $this->buildUrl($method),
+            $this->buildOptions($params, $fileUpload)
+        ));
     }
 
     /**
