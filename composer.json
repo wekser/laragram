@@ -5,6 +5,13 @@
     "license": "MIT",
     "homepage": "https://github.com/wekser/laragram",
     "keywords": ["laravel", "lumen", "telegram", "wekser", "laragram", "framework", "api", "bot", "chatbot"],
+    "support": {
+        "email": "hello@wekser.com",
+        "issues": "https://github.com/wekser/laragram/issues",
+        "wiki": "https://github.com/wekser/laragram/wiki",
+        "source": "https://github.com/wekser/laragram/tree/master",
+        "docs": "https://github.com/wekser/laragram/wiki"
+    },
     "authors": [
         {
             "name": "Sergey Lapin",
@@ -18,11 +25,10 @@
         "guzzlehttp/guzzle": "~6.0"
     },
     "require-dev": {
-        "illuminate/config": "5.5.*|5.6.*|5.7.*",
         "mockery/mockery": "^1.0",
         "orchestra/database": "^3.5",
-        "orchestra/testbench": "~3.5.0|~3.6.0|~3.7.0",
-        "phpunit/phpunit": "^6.5|^7.0"
+        "orchestra/testbench": "~3.8.0",
+        "phpunit/phpunit" : "^8.0"
     },
     "config": {
         "optimize-autoloader": true,
