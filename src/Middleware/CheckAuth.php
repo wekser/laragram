@@ -25,9 +25,13 @@ class CheckAuth
      */
     public function handle(Request $request, Closure $next)
     {
-        $user = array_get(array_get($request->all(), array_get(array_keys($request->all()), 1)), 'from');
+        $entity = collect($request->all())->first(function ($value, $key) {
+            return is_array($value) && isset($value['from']);
+        });
 
-        if (! empty($user) && array_get($user, 'is_bot') == false) {
+        $user = collect($entity)->get('from');
+
+        if (! empty($user) && $user['is_bot'] == false) {
             return $next($request);
         }
 

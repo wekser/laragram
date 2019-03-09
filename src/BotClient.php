@@ -11,11 +11,18 @@
 
 namespace Wekser\Laragram;
 
-use GuzzleHttp\Client as Guzzle;
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7;
+use Psr\Http\Message\ResponseInterface;
+use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
+use Wekser\Laragram\Exceptions\FileInvalidException;
 use Wekser\Laragram\Exceptions\TokenInvalidException;
+use Wekser\Laragram\Support\Wrapable;
 
 class BotClient
 {
+    use Wrapable;
+
     const API_URL = 'https://api.telegram.org/bot';
 
     /**
@@ -40,53 +47,119 @@ class BotClient
     protected $secret;
 
     /**
+     * Indicates if the request to Telegram will be asynchronous (non-blocking).
+     *
+     * @var bool
+     */
+    protected $isAsyncRequest = false;
+
+    /**
+     * Timeout of the request in seconds.
+     *
+     * @var int
+     */
+    protected $timeOut = 60;
+
+    /**
+     * Connection timeout of the request in seconds.
+     *
+     * @var int
+     */
+    protected $connectTimeOut = 10;
+
+    /**
      * BotClient Constructor
      *
-     * @param array $configuration
+     * @param string $token
+     * @param string $prefix
+     * @param string $secret
      * @throws TokenInvalidException
      */
-    public function __construct(array $configuration)
+    public function __construct($token, $prefix, $secret)
     {
-        $this->token = array_get($configuration, 'token');
-
-        if (empty($this->getToken())) {
+        if (empty($token)) {
             throw new TokenInvalidException();
         }
 
-        $this->prefix = array_get($configuration, 'prefix');
-        $this->secret = array_get($configuration, 'secret');
+        $this->token = $token;
+        $this->prefix = $prefix;
+        $this->secret = $secret;
     }
 
     /**
-     * Get bot token.
+     * Get a router prefix.
+     *
+     * @return string|null
+     */
+    protected function getPrefix(): ?string
+    {
+        return $this->prefix;
+    }
+
+    /**
+     * Get a router secret.
      *
      * @return string
      */
-    public function getToken(): string
+    protected function getSecret(): ?string
     {
-        return $this->token;
+        return $this->secret;
     }
 
     /**
-     * Send request to Telegram API.
+     * Send a request to Telegram Bot API and return the response.
      *
      * @param string $method
-     * @param array|null $parameters
-     * @return array|string|null
-     * @throws Exception
+     * @param array $params
+     * @param bool $fileUpload
+     * @return array
      */
-    public function request(string $method, $parameters = [])
+    protected function request(string $method, array $params = [], $fileUpload = false)
     {
-        $guzzle = new Guzzle();
+        $request = $this->isAsyncRequest ? 'requestAsync' : 'request';
 
-        try {
-            $response = $guzzle->request('POST', $this->buildUrl($method), ['form_params' => $parameters]);
-            $body = json_decode($response->getBody(), true);
-        } catch (Exception $e) {
-            return $this->response(['ok' => false, 'error_code' => $e->getCode(), 'description' => $e->getMessage()]);
+        $client = new Client();
+
+        return $this->response($client->{$request}('POST', $this->buildUrl($method), $this->buildOptions($params)));
+    }
+
+    /**
+     * Prepare a response and return the result.
+     *
+     * @param \Psr\Http\Message\ResponseInterface $response
+     * @return array
+     * @throws ClientResponseInvalidException
+     */
+    protected function response(ResponseInterface $response)
+    {
+        if ($response->getStatusCode() !== 200) {
+            throw new ClientResponseInvalidException();
         }
 
-        return $this->response($body);
+        $body = $response->getBody();
+
+        if (!$this->isJson($body)) {
+            throw new ClientResponseInvalidException();
+        }
+
+        $result = json_decode($body, true);
+
+        if (!isset($result['ok'])) {
+            throw new ClientResponseInvalidException();
+        }
+
+        return $result['ok'] ? $result['result'] : $result;
+    }
+
+    /**
+     * Finds whether a variable is a json string.
+     *
+     * @param string $string
+     * @return bool
+     */
+    protected function isJson($string)
+    {
+        return is_string($string) && is_array(json_decode($string, true)) ? true : false;
     }
 
     /**
@@ -97,41 +170,122 @@ class BotClient
      */
     protected function buildUrl(string $method)
     {
-        return static::API_URL . $this->getToken() . '/' . $method;
+        return $this->getApiUrl() . $this->getToken() . '/' . $method;
     }
 
     /**
-     * Prepare response.
-     *
-     * @param array $body
-     * @return array|string|null
-     */
-    protected function response(array $body)
-    {
-        if (array_get($body, 'ok')) {
-            return is_array(array_get($body, 'result')) ? array_get($body, 'result') : $body;
-        }
-
-        return $body;
-    }
-
-    /**
-     * Get router prefix.
-     *
-     * @return string|null
-     */
-    public function getPrefix(): ?string
-    {
-        return $this->prefix;
-    }
-
-    /**
-     * Get router secret.
+     * Get Telegram Bot API url.
      *
      * @return string
      */
-    public function getSecret(): ?string
+    protected function getApiUrl()
     {
-        return $this->secret;
+        return static::API_URL;
+    }
+
+    /**
+     * Get the bot token.
+     *
+     * @return string
+     */
+    protected function getToken(): string
+    {
+        return $this->token;
+    }
+
+    /**
+     * Build options for request.
+     *
+     * @param array $params
+     * @param bool $fileUpload
+     * @return array
+     */
+    protected function buildOptions(array $params = [], $fileUpload = false)
+    {
+        $settings = [
+            'connect_timeout' => $this->connectTimeOut,
+            'headers' => [
+                'User-Agent' => 'Wekser\Laragram BotClient'
+            ],
+            'timeout' => $this->timeOut
+        ];
+
+        return array_merge($settings, $this->prepareParameters($params, $fileUpload));
+    }
+
+    /**
+     * Prepare parameters.
+     *
+     * @param array $params
+     * @param bool $fileUpload
+     * @return array
+     */
+    protected function prepareParameters(array $params = [], $fileUpload = false)
+    {
+        if ($fileUpload) {
+            $multipart_params = collect($params)->reject(function ($value) {
+                return is_null($value);
+            })->map(function ($contents, $name) {
+                if (!is_resource($contents) && $this->isValidFileOrUrl($name, $contents)) {
+                    $contents = $this->inputFile($contents);
+                }
+                return ['name' => $name, 'contents' => $contents];
+            })->values()->all();
+
+            $parameters = ['multipart' => $multipart_params];
+        } else {
+            $form_params = collect($params)->reject(function ($value) {
+                return is_null($value);
+            })->values()->all();
+
+            $parameters = ['form_params' => $form_params];
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * Determines if the string passed to be uploaded is a valid
+     * file on the local file system, or a valid remote URL.
+     *
+     * @param string $name
+     * @param string $contents
+     * @return bool
+     */
+    protected function isValidFileOrUrl($name, $contents)
+    {
+        if ($name == 'url') {
+            return false;
+        }
+
+        if ($name == 'certificate') {
+            return true;
+        }
+
+        if (is_readable($contents)) {
+            return true;
+        }
+
+        return filter_var($contents, FILTER_VALIDATE_URL);
+    }
+
+    /**
+     * Opens file stream.
+     *
+     * @param string $contents
+     * @return resource
+     * @throws FileInvalidException
+     */
+    protected function inputFile($contents)
+    {
+        if (is_resource($contents)) {
+            return $contents;
+        }
+
+        if (!preg_match('/^(https?|ftp):\/\/.*/', $contents) === 1 && !is_readable($contents)) {
+            throw new FileInvalidException($contents);
+        }
+
+        return Psr7\try_fopen($contents, 'r');
     }
 }

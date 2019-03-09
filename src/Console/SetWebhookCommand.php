@@ -61,12 +61,12 @@ class SetWebhookCommand extends Command
             return $this->error('Invalid URL, should be a HTTPS url');
         }
 
-        $response = BotClient::request('setWebhook', ['url' => $url]);
+        $response = BotClient::setWebhook(['url' => $url]);
 
         if (isset($response['error_code'])) {
-            $this->error($response['description']);
-        } else {
-            $this->info('Webhook [' . $url . '] was successfully set!');
+            return $this->error($response['description']);
         }
+
+        $this->info('Webhook [' . $url . '] was successfully set!');
     }
 }

@@ -13,12 +13,12 @@ namespace Wekser\Laragram;
 
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
+use Wekser\Laragram\Exceptions\NotFoundRouteException;
 use Wekser\Laragram\Support\Aidable;
 use Wekser\Laragram\Support\FormRequest;
 use Wekser\Laragram\Support\FormResponse;
-use Wekser\Laragram\Support\BotRoutes;
 
-class BotRoute
+class BotRouter
 {
     use Aidable;
 
@@ -54,7 +54,7 @@ class BotRoute
     {
         $this->locatePath($state);
 
-        return $this->runRoute($request, $this->findRoute($request));
+        return $this->runRoute($request, $this->findRoute($request, $this->state));
     }
 
     /**
@@ -81,14 +81,14 @@ class BotRoute
         $directory = '\\' . $this->getAppNamespace() . 'Http\Controllers';
         $namespace = $directory . chr(92) . $route['controller'];
 
-        if (! class_exists($namespace)) {
+        if (!class_exists($namespace)) {
             throw new NotExistsControllerException($route['controller']);
         }
 
         $controller = new $namespace();
         $method = $route['method'];
 
-        if (! method_exists($controller, $method)) {
+        if (!method_exists($controller, $method)) {
             throw new NotExistMethodException($route['method'], $route['controller']);
         }
 
@@ -119,15 +119,45 @@ class BotRoute
     }
 
     /**
-     * Find the route matching a given request.
+     * Find the first route matching a given request.
      *
      * @param array $request
+     * @param string $state
      * @return array
+     * @throws NotFoundRouteException
      */
-    protected function findRoute($request): array
+    public function findRoute(array $request, $state)
     {
-        $this->current = $route = (new BotRoutes())->match($request, $this->state);
+        $type = collect($request->all())->search(function ($value, $key) {
+            return is_array($value) && isset($value['from']);
+        });
 
-        return $route;
+        $entity = $request[$type];
+        $routes = (new BotRouteCollection())->collectRoutes();
+
+        foreach ($routes as $route) {
+
+            $event = $route['event'];
+            $listener = $route['listener'];
+            $alias = $route['alias'];
+            $hook = $route['hook'];
+
+            if ($event == $type && in_array($listener, $entity)) {
+
+                $query = $entity[$listener];
+                $command = str_before($query, ' ');
+
+                $A0 = empty($alias);
+                $A1 = empty($hook);
+                $B0 = $alias == $state;
+                $B1 = $hook == $command;
+                $B2 = $hook == $query;
+
+                if (($A0 && $A1) || ($A0 && $B1) || ($B0 && $B2) || ($B0 && $A1)) {
+                    return $route;
+                }
+            }
+        }
+        throw new NotFoundRouteException();
     }
 }

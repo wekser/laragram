@@ -11,12 +11,14 @@
 
 namespace Wekser\Laragram;
 
+use Illuminate\Support\Arr;
+
 class BotRequest
 {
     /**
      * The current request.
      *
-     * @return array
+     * @var array
      */
     protected $request;
 
@@ -37,7 +39,7 @@ class BotRequest
      */
     public function all(): array
     {
-        return array_get($this->request, 'all');
+        return $this->getRequestData('all');
     }
 
     /**
@@ -47,7 +49,7 @@ class BotRequest
      */
     public function controller(): string
     {
-        return array_get($this->request, 'controller');
+        return $this->getRequestData('controller');
     }
 
     /**
@@ -57,7 +59,7 @@ class BotRequest
      */
     public function keys(): array
     {
-        return array_keys(array_get($this->request, 'all'));
+        return array_keys($this->all());
     }
 
     /**
@@ -67,7 +69,7 @@ class BotRequest
      */
     public function event(): string
     {
-        return array_get($this->request, 'event');
+        return $this->getRequestData('event');
     }
 
     /**
@@ -77,7 +79,7 @@ class BotRequest
      */
     public function query(): ?string
     {
-        return array_get($this->request, 'query');
+        return $this->getRequestData('query');
     }
 
     /**
@@ -87,7 +89,7 @@ class BotRequest
      */
     public function hook(): ?string
     {
-        return array_get($this->request, 'hook');
+        return $this->getRequestData('hook');
     }
 
     /**
@@ -97,7 +99,7 @@ class BotRequest
      */
     public function method(): string
     {
-        return array_get($this->request, 'method');
+        return $this->getRequestData('method');
     }
 
     /**
@@ -107,7 +109,7 @@ class BotRequest
      */
     public function location(): ?string
     {
-        return array_get($this->request, 'location');
+        return $this->getRequestData('location');
     }
 
     /**
@@ -117,7 +119,7 @@ class BotRequest
      */
     public function listener(): string
     {
-        return array_get($this->request, 'listener');
+        return $this->getRequestData('listener');
     }
 
     /**
@@ -125,24 +127,22 @@ class BotRequest
      *
      * @param string $key
      * @param mixed $default
-     *
      * @return array|string|null
      */
     public function input($key, $default = null)
     {
-        return array_get(array_get($this->request, 'all'), $key, $default);
+        return $this->getRequestData('all.' . $key, $default);
     }
 
     /**
      * Returns true if the parameter in object is defined.
      *
      * @param string $key
-     *
      * @return bool
      */
     public function has($key): bool
     {
-        return array_has(array_get($this->request, 'all'), $key);
+        return Arr::has($this->all(), $key);
     }
 
     /**
@@ -153,5 +153,17 @@ class BotRequest
     public function getRequest(): array
     {
         return $this->request;
+    }
+
+    /**
+     * Get the data from current request.
+     *
+     * @param string $key
+     * @param mixed $default
+     * @return mixed
+     */
+    protected function getRequestData($key, $default = null)
+    {
+        return Arr::get($this->getRequest(), $key, $default);
     }
 }

@@ -52,7 +52,6 @@ class Laragram
 
     /**
      * Laragram Constructor
-     *
      */
     public function __construct()
     {
@@ -102,7 +101,7 @@ class Laragram
     protected function run()
     {
         try {
-            $this->response = (new BotRoute())->dispatch($this->request->all(), $this->state);
+            $this->response = (new BotRouter())->dispatch($this->request->all(), $this->state);
         } catch (Exception $exception) {
             return BotException::handle($exception);
         }
@@ -127,6 +126,6 @@ class Laragram
      */
     protected function back()
     {
-        return response()->json(array_get($this->response, 'view'));
+        return response()->json($this->response['view']);
     }
 }

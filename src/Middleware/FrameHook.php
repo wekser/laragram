@@ -34,6 +34,6 @@ class FrameHook
             return response('Already Reported.', 208);
         }
 
-        return  $next($request);
+        return $next($request);
     }
 }

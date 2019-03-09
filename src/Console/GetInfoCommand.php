@@ -47,7 +47,7 @@ class GetInfoCommand extends Command
      */
     public function handle()
     {
-        $response = BotClient::request('getMe');
+        $response = BotClient::getMe();
 
         if (isset($response['error_code'])) {
             return $this->error($response['description']);

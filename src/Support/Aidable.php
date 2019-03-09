@@ -34,6 +34,6 @@ trait Aidable
      */
     protected function config($key, $default = null)
     {
-        return array_get(config('laragram'), $key, $default);
+        return config('laragram.' . $key, $default);
     }
 }

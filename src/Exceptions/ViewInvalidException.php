@@ -13,6 +13,6 @@ class ViewInvalidException extends Exception
 
     protected function setMessage($view)
     {
-        return 'The [' . $view . '] view return invalid contents';
+        return 'The [' . $view . '] view return invalid contents.';
     }
 }

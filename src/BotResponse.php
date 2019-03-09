@@ -64,12 +64,11 @@ class BotResponse
     /**
      * Callback Constructor
      *
-     * @param array $config
-     * @return void
+     * @param string $path
      */
-    public function __construct(array $config)
+    public function __construct($path)
     {
-        $this->viewsPath = array_get($config, 'path', 'laragram');
+        $this->viewsPath = $path;
     }
 
     /**

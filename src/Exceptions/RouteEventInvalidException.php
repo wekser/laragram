@@ -6,5 +6,5 @@ use Exception;
 
 class RouteEventInvalidException extends Exception
 {
-    protected $message = 'Invalid route event bind';
+    protected $message = 'Invalid route event bind.';
 }

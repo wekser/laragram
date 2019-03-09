@@ -13,6 +13,6 @@ class NotExistsViewException extends Exception
 
     protected function setMessage($view)
     {
-        return 'The [' . $view . '] view not exists';
+        return 'The [' . $view . '] view not exists.';
     }
 }

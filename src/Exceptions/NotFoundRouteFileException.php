@@ -13,6 +13,6 @@ class NotFoundRouteFileException extends Exception
 
     protected function setMessage($file)
     {
-        return 'Route file [' . $file . '] not exists';
+        return 'Route file [' . $file . '] not exists.';
     }
 }

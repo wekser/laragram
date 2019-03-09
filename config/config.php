@@ -19,8 +19,7 @@ return [
 
     'auth' => [
         'driver' => 'database',
-        'languages' => ['en'],
-        'secure_payload' => true,
+        'languages' => ['en']
     ],
 
     /*

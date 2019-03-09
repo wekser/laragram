@@ -33,7 +33,7 @@ class BotException
     /**
      * Determine if the exception is in the "do not report" list.
      *
-     * @param  \Exception  $e
+     * @param \Exception $e
      * @return bool
      */
     protected static function shouldntReport(Exception $exception)
@@ -48,7 +48,7 @@ class BotException
     /**
      * Report or log an exception.
      *
-     * @param  \Exception  $exception
+     * @param \Exception $exception
      * @return void
      */
     protected static function report(Exception $exception)

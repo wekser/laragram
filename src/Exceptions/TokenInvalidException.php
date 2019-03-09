@@ -6,5 +6,5 @@ use Exception;
 
 class TokenInvalidException extends Exception
 {
-    protected $message = 'The bot token is not specified in the configuration file';
+    protected $message = 'The bot token is not specified in the configuration file.';
 }
