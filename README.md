@@ -1,7 +1,7 @@
 Laragram
 =====
 
-Laragram extends the capabilities of Laravel and Lumen for rapid implementation in Telegram private chat bot within the REST style.
+This package extend Laravel and Lumen interface for the quick and easy development of Telegram bots in REST style.
 
 ## Documentation
 
@@ -13,9 +13,7 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Helpful Resources
 
-**Helpful Resources:**
-
-* [Telegram Bot API](https://core.telegram.org/bots/api)
+- [Telegram Bot API](https://core.telegram.org/bots/api)
 
 ## License
 
