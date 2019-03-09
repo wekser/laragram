@@ -118,6 +118,19 @@ class LaragramServiceProvider extends ServiceProvider
     }
 
     /**
+     * Helper to get the config values.
+     *
+     * @param  string $key
+     * @param  string $default
+     *
+     * @return mixed
+     */
+    protected function config($key, $default = null)
+    {
+        return Arr::get($this->app['config']['laragram'], $key, $default);
+    }
+
+    /**
      * Register the bindings for the main Bot class.
      *
      * @return void
@@ -221,18 +234,5 @@ class LaragramServiceProvider extends ServiceProvider
             LaragramInstallCommand::class,
             LaragramPublishCommand::class,
         ]);
-    }
-
-    /**
-     * Helper to get the config values.
-     *
-     * @param  string $key
-     * @param  string $default
-     *
-     * @return mixed
-     */
-    protected function config($key, $default = null)
-    {
-        return Arr::get($this->app['config']['laragram'], $key, $default);
     }
 }

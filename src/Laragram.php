@@ -16,12 +16,9 @@ use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\BotException;
 use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Support\Aidable;
 
 class Laragram
 {
-    use Aidable;
-
     /**
      * The current user state.
      *
@@ -88,7 +85,7 @@ class Laragram
 
         app('translator')->setLocale($language);
 
-        if ($this->config('auth.driver') == 'database') {
+        if (config('laragram.auth.driver') == 'database') {
             $this->state = $this->user->sessions()->latest()->value('last_state');
         }
     }
@@ -114,7 +111,7 @@ class Laragram
      */
     protected function fireEvent()
     {
-        if (! empty($this->response) && $this->config('auth.driver') == 'database') {
+        if (!empty($this->response) && config('laragram.auth.driver') == 'database') {
             event(new CallbackFormed($this->user, $this->response));
         }
     }

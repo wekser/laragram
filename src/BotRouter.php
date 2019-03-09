@@ -11,17 +11,15 @@
 
 namespace Wekser\Laragram;
 
+use Illuminate\Container\Container;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
 use Wekser\Laragram\Exceptions\NotFoundRouteException;
-use Wekser\Laragram\Support\Aidable;
 use Wekser\Laragram\Support\FormRequest;
 use Wekser\Laragram\Support\FormResponse;
 
 class BotRouter
 {
-    use Aidable;
-
     /**
      * The currently user state.
      *
@@ -96,6 +94,16 @@ class BotRouter
     }
 
     /**
+     * Get the application namespace.
+     *
+     * @return string
+     */
+    protected function getAppNamespace(): string
+    {
+        return Container::getInstance()->getNamespace();
+    }
+
+    /**
      * Prepare a response for return to back.
      *
      * @param \Wekser\Laragram\BotResponse|string $response
@@ -128,7 +136,7 @@ class BotRouter
      */
     public function findRoute(array $request, $state)
     {
-        $type = collect($request->all())->search(function ($value, $key) {
+        $type = collect($request)->search(function ($value, $key) {
             return is_array($value) && isset($value['from']);
         });
 
@@ -137,14 +145,14 @@ class BotRouter
 
         foreach ($routes as $route) {
 
-            $event = $route['event'];
-            $listener = $route['listener'];
-            $alias = $route['alias'];
-            $hook = $route['hook'];
+            $event = $route['event'] ?? null;
+            $listener = $route['listener'] ?? null;
+            $alias = $route['alias'] ?? null;
+            $hook = $route['hook'] ?? null;
 
-            if ($event == $type && in_array($listener, $entity)) {
+            if ($event == $type && collect($entity)->has($listener)) {
 
-                $query = $entity[$listener];
+                $query = $entity[$listener] ?? null;
                 $command = str_before($query, ' ');
 
                 $A0 = empty($alias);

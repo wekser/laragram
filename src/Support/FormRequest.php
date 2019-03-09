@@ -32,7 +32,7 @@ class FormRequest
      */
     public function setRequest(array $request, array $route, $state = null)
     {
-        $type = collect($request->all())->search(function ($value, $key) {
+        $type = collect($request)->search(function ($value, $key) {
             return is_array($value) && isset($value['from']);
         });
 

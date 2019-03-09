@@ -13,7 +13,7 @@ namespace Wekser\Laragram\Support;
 
 use Wekser\Laragram\Facades\BotAuth;
 
-trait Wrapable
+trait ApiMethods
 {
     /**
      * A simple method for testing your bot's auth token.
@@ -711,7 +711,7 @@ trait Wrapable
     /**
      * Set a Webhook to receive incoming updates via an outgoing webhook.
      *
-     * @link https://core.telegram.org/bots/api#setwebhook
+     * @link https://core.telegram.org/bots/api#setWebhook
      *
      * @param array $params
      *
@@ -729,6 +729,8 @@ trait Wrapable
 
     /**
      * Delete the outgoing webhook (if any).
+     *
+     * @link https://core.telegram.org/bots/api#deleteWebhook
      *
      * @return array
      */

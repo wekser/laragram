@@ -63,7 +63,7 @@ class BotRouteCollection
      */
     public function bind(string $event, ?string $listener = null)
     {
-        if (! in_array($event, $this->defaultEvents)) {
+        if (!in_array($event, $this->defaultEvents)) {
             throw new RouteEventInvalidException();
         }
 
@@ -112,7 +112,7 @@ class BotRouteCollection
      */
     public function call(string $action)
     {
-        if (! Str::contains($action, '@')) {
+        if (!Str::contains($action, '@')) {
             throw new RouteActionInvalidException();
         }
 
@@ -171,7 +171,7 @@ class BotRouteCollection
     {
         $file = base_path('routes/laragram.php');
 
-        if (! file_exists($file)) {
+        if (!file_exists($file)) {
             throw new NotFoundRouteFileException($file);
         }
 

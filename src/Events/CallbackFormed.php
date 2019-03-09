@@ -11,8 +11,8 @@
 
 namespace Wekser\Laragram\Events;
 
-use Wekser\Laragram\Models\User;
 use Illuminate\Queue\SerializesModels;
+use Wekser\Laragram\Models\User;
 
 class CallbackFormed
 {

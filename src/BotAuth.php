@@ -78,7 +78,7 @@ class BotAuth
 
         if ($driver == 'database') {
             $current = empty($user = $this->getUser($sender)) ? $this->register($sender) : $this->login($user, $sender);
-        } elseif ($driver == 'array') {
+        } else {
             $current = $this->setUser($sender);
         }
 
@@ -94,11 +94,21 @@ class BotAuth
      */
     protected function defineSender()
     {
-        $entity = collect($request->all())->first(function ($value, $key) {
+        $entity = collect($this->request->all())->first(function ($value, $key) {
             return is_array($value) && isset($value['from']);
         });
-        
+
         return $this->sender = collect($entity)->get('from');
+    }
+
+    /**
+     * Get authentication driver.
+     *
+     * @return string
+     */
+    public function getDriver()
+    {
+        return $this->driver ?? 'array';
     }
 
     /**
@@ -110,25 +120,6 @@ class BotAuth
     protected function getUser(array $sender)
     {
         return User::where('uid', $sender['id'])->first();
-    }
-
-    /**
-     * Set user for array driver.
-     *
-     * @param array $sender
-     * @return object
-     */
-    protected function setUser(array $sender)
-    {
-        $user = [
-            'uid' => $sender['id'],
-            'first_name' => $sender['first_name'],
-            'last_name' => $sender['last_name'] ?? null,
-            'username' => $sender['username'] ?? null,
-            'language' => $this->defineUserLanguage($sender)
-        ];
-
-        return (object)$user;
     }
 
     /**
@@ -176,16 +167,6 @@ class BotAuth
     }
 
     /**
-     * Get authentication driver.
-     *
-     * @return string
-     */
-    public function getDriver()
-    {
-        return $this->driver ?? 'array';
-    }
-
-    /**
      * Update user when login.
      *
      * @param \Wekser\Laragram\Models\User $user
@@ -200,6 +181,25 @@ class BotAuth
         $user->save();
 
         return $user;
+    }
+
+    /**
+     * Set user for array driver.
+     *
+     * @param array $sender
+     * @return object
+     */
+    protected function setUser(array $sender)
+    {
+        $user = [
+            'uid' => $sender['id'],
+            'first_name' => $sender['first_name'],
+            'last_name' => $sender['last_name'] ?? null,
+            'username' => $sender['username'] ?? null,
+            'language' => $this->defineUserLanguage($sender)
+        ];
+
+        return (object)$user;
     }
 
     /**

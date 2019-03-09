@@ -146,7 +146,7 @@ class BotResponse
      */
     protected function renderContents()
     {
-        if (! file_exists($this->path)) {
+        if (!file_exists($this->path)) {
             throw new NotExistsViewException($this->path);
         }
 
@@ -156,7 +156,7 @@ class BotResponse
             throw new ViewEmptyException($this->path);
         }
 
-        if (! is_array($response)) {
+        if (!is_array($response)) {
             throw new ViewInvalidException($this->path);
         }
 

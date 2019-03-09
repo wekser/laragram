@@ -33,16 +33,6 @@ class BotRequest
     }
 
     /**
-     * Returns the parameters.
-     *
-     * @return array
-     */
-    public function all(): array
-    {
-        return $this->getRequestData('all');
-    }
-
-    /**
      * Returns the current route controller.
      *
      * @return string
@@ -53,6 +43,28 @@ class BotRequest
     }
 
     /**
+     * Get the data from current request.
+     *
+     * @param string $key
+     * @param mixed $default
+     * @return mixed
+     */
+    protected function getRequestData($key, $default = null)
+    {
+        return Arr::get($this->getRequest(), $key, $default);
+    }
+
+    /**
+     * Get the current request.
+     *
+     * @return array
+     */
+    public function getRequest(): array
+    {
+        return $this->request;
+    }
+
+    /**
      * Returns the parameter keys.
      *
      * @return array
@@ -60,6 +72,16 @@ class BotRequest
     public function keys(): array
     {
         return array_keys($this->all());
+    }
+
+    /**
+     * Returns the parameters.
+     *
+     * @return array
+     */
+    public function all(): array
+    {
+        return $this->getRequestData('all');
     }
 
     /**
@@ -143,27 +165,5 @@ class BotRequest
     public function has($key): bool
     {
         return Arr::has($this->all(), $key);
-    }
-
-    /**
-     * Get the current request.
-     *
-     * @return array
-     */
-    public function getRequest(): array
-    {
-        return $this->request;
-    }
-
-    /**
-     * Get the data from current request.
-     *
-     * @param string $key
-     * @param mixed $default
-     * @return mixed
-     */
-    protected function getRequestData($key, $default = null)
-    {
-        return Arr::get($this->getRequest(), $key, $default);
     }
 }

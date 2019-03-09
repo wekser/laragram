@@ -47,7 +47,7 @@ class SetWebhookCommand extends Command
      */
     public function handle()
     {
-        $url = trim(env('APP_URL'), '/') . '/' . BotClient::getPrefix() . '/' . BotClient::getSecret();
+        $url = trim(env('APP_URL'), '/') . '/' . config('laragram.bot.prefix') . '/' . config('laragram.bot.secret');
 
         if (env('APP_URL') != $_SERVER['APP_URL']) {
             return $this->error('Invalid current APP URL in .env file');

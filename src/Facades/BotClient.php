@@ -44,7 +44,6 @@ use Illuminate\Support\Facades\Facade;
  * @method static array getStickerSet(array $params)
  * @method static array answerInlineQuery(array $params)
  * @method static array sendInvoice(array $params)
- * @method static array getToken(array $params)
  * @method static array answerShippingQuery(array $params)
  * @method static array answerPreCheckoutQuery(array $params)
  * @method static array sendGame(array $params)

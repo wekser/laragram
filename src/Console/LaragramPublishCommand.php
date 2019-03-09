@@ -11,14 +11,12 @@
 
 namespace Wekser\Laragram\Console;
 
-use Illuminate\Support\Str;
 use Illuminate\Console\Command;
-use Wekser\Laragram\Support\Aidable;
+use Illuminate\Container\Container;
+use Illuminate\Support\Str;
 
 class LaragramPublishCommand extends Command
 {
-    use Aidable;
-
     /**
      * The name and signature of the console command.
      *
@@ -70,7 +68,7 @@ class LaragramPublishCommand extends Command
      */
     protected function createDirectories()
     {
-        if (! is_dir($directory = resource_path($this->config('view.path')))) {
+        if (!is_dir($directory = resource_path(config('laragram.view.path')))) {
             mkdir($directory, 0755, true);
         }
     }
@@ -83,8 +81,8 @@ class LaragramPublishCommand extends Command
     protected function publishViews()
     {
         foreach ($this->views as $key => $value) {
-            if (file_exists($view = resource_path($this->config('view.path') . '/' . $value)) && ! $this->option('force')) {
-                if (! $this->confirm("The [{$value}] view already exists. Do you want to replace it?")) {
+            if (file_exists($view = resource_path(config('laragram.view.path') . '/' . $value)) && !$this->option('force')) {
+                if (!$this->confirm("The [{$value}] view already exists. Do you want to replace it?")) {
                     continue;
                 }
             }
@@ -100,25 +98,13 @@ class LaragramPublishCommand extends Command
      */
     protected function publishControllers()
     {
-        if (file_exists($file = app()->path() . '/Http/Controllers/BotController.php') && ! $this->option('force')) {
-            if (! $this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
+        if (file_exists($file = app()->path() . '/Http/Controllers/BotController.php') && !$this->option('force')) {
+            if (!$this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
                 return;
             }
         }
 
         file_put_contents($file, $this->compileControllerStub());
-    }
-
-    /**
-     * Publish the bot routes.
-     *
-     * @return void
-     */
-    protected function publishRoutes()
-    {
-        if (file_exists($file = base_path('routes/laragram.php'))) {
-            file_put_contents($file, file_get_contents(__DIR__ . '/stubs/routes/laragram.stub'), FILE_APPEND);
-        }
     }
 
     /**
@@ -133,5 +119,27 @@ class LaragramPublishCommand extends Command
             $this->getAppNamespace(),
             file_get_contents(__DIR__ . '/stubs/controllers/BotController.stub')
         );
+    }
+
+    /**
+     * Get the application namespace.
+     *
+     * @return string
+     */
+    protected function getAppNamespace(): string
+    {
+        return Container::getInstance()->getNamespace();
+    }
+
+    /**
+     * Publish the bot routes.
+     *
+     * @return void
+     */
+    protected function publishRoutes()
+    {
+        if (file_exists($file = base_path('routes/laragram.php'))) {
+            file_put_contents($file, file_get_contents(__DIR__ . '/stubs/routes/laragram.stub'), FILE_APPEND);
+        }
     }
 }

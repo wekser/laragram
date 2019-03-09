@@ -17,11 +17,11 @@ use Psr\Http\Message\ResponseInterface;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
 use Wekser\Laragram\Exceptions\FileInvalidException;
 use Wekser\Laragram\Exceptions\TokenInvalidException;
-use Wekser\Laragram\Support\Wrapable;
+use Wekser\Laragram\Support\ApiMethods;
 
 class BotClient
 {
-    use Wrapable;
+    use ApiMethods;
 
     const API_URL = 'https://api.telegram.org/bot';
 
@@ -99,7 +99,7 @@ class BotClient
     /**
      * Get a router secret.
      *
-     * @return string
+     * @return string|null
      */
     protected function getSecret(): ?string
     {
@@ -120,7 +120,7 @@ class BotClient
 
         $client = new Client();
 
-        return $this->response($client->{$request}('POST', $this->buildUrl($method), $this->buildOptions($params)));
+        return $this->response($client->{$request}('POST', $this->buildUrl($method), $this->buildOptions($params, $fileUpload)));
     }
 
     /**
@@ -136,7 +136,7 @@ class BotClient
             throw new ClientResponseInvalidException();
         }
 
-        $body = $response->getBody();
+        $body = trim($response->getBody());
 
         if (!$this->isJson($body)) {
             throw new ClientResponseInvalidException();
@@ -236,7 +236,7 @@ class BotClient
         } else {
             $form_params = collect($params)->reject(function ($value) {
                 return is_null($value);
-            })->values()->all();
+            })->all();
 
             $parameters = ['form_params' => $form_params];
         }

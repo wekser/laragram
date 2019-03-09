@@ -3,7 +3,6 @@
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
-use Illuminate\Support\Arr;
 
 class BotException
 {
@@ -40,8 +39,8 @@ class BotException
     {
         $dontReport = self::$dontReport;
 
-        return is_null(Arr::first($dontReport, function ($type) use ($exception) {
-            return $exception instanceof $type;
+        return is_null(collect($dontReport)->first(function ($value, $key) use ($exception) {
+            return $exception instanceof $value;
         }));
     }
 
