@@ -13,6 +13,6 @@ class NotExistsControllerException extends Exception
 
     protected function setMessage($controller)
     {
-        return 'The [' . $controller . '] controller not exists';
+        return 'The [' . $controller . '] controller not exists.';
     }
 }

@@ -11,8 +11,8 @@
 
 namespace Wekser\Laragram\Console;
 
-use Illuminate\Support\Str;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class LaragramInstallCommand extends Command
 {
@@ -60,7 +60,7 @@ class LaragramInstallCommand extends Command
      */
     protected function createDirectories()
     {
-        if (! is_dir($directory = base_path('config'))) {
+        if (!is_dir($directory = base_path('config'))) {
             mkdir($directory, 0755, true);
         }
     }
@@ -72,8 +72,8 @@ class LaragramInstallCommand extends Command
      */
     protected function createConfig()
     {
-        if (file_exists(base_path('config/laragram.php')) && ! $this->option('force')) {
-            if (! $this->confirm("The [laragram.php] config already exists. Do you want to replace it?")) {
+        if (file_exists(base_path('config/laragram.php')) && !$this->option('force')) {
+            if (!$this->confirm("The [laragram.php] config already exists. Do you want to replace it?")) {
                 return;
             }
         }
@@ -89,12 +89,12 @@ class LaragramInstallCommand extends Command
     protected function createMigrations()
     {
         file_put_contents(
-            base_path('database/migrations/'.date('Y_m_d_His', time()).'_create_laragram_users_table.php'),
-            file_get_contents(__DIR__.'/stubs/migrations/create_laragram_users_table.stub')
+            base_path('database/migrations/' . date('Y_m_d_His', time()) . '_create_laragram_users_table.php'),
+            file_get_contents(__DIR__ . '/stubs/migrations/create_laragram_users_table.stub')
         );
 
         file_put_contents(
-            base_path('database/migrations/'.date('Y_m_d_His', time()).'_create_laragram_sessions_table.php'),
+            base_path('database/migrations/' . date('Y_m_d_His', time()) . '_create_laragram_sessions_table.php'),
             file_get_contents(__DIR__ . '/stubs/migrations/create_laragram_sessions_table.stub')
         );
     }
@@ -106,8 +106,8 @@ class LaragramInstallCommand extends Command
      */
     protected function createRoutes()
     {
-        if (file_exists($file = base_path('routes/laragram.php')) && ! $this->option('force')) {
-            if (! $this->confirm("The [{$file}] route already exists. Do you want to replace it?")) {
+        if (file_exists($file = base_path('routes/laragram.php')) && !$this->option('force')) {
+            if (!$this->confirm("The [{$file}] route already exists. Do you want to replace it?")) {
                 return;
             }
         }

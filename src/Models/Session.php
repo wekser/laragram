@@ -22,7 +22,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $hook
  * @property string $controller
  * @property string $method
- * @property text $payload
  * @property string $last_state
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
@@ -43,7 +42,7 @@ class Session extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'event', 'listener', 'hook', 'controller', 'method', 'payload', 'last_state'
+        'user_id', 'update_id', 'event', 'listener', 'hook', 'controller', 'method', 'last_state'
     ];
 
     /**

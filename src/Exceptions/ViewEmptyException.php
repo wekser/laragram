@@ -13,6 +13,6 @@ class ViewEmptyException extends Exception
 
     protected function setMessage($view)
     {
-        return 'The [' . $view . '] view is empty';
+        return 'The [' . $view . '] view is empty.';
     }
 }

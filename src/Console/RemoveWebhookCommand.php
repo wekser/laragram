@@ -47,7 +47,7 @@ class RemoveWebhookCommand extends Command
      */
     public function handle()
     {
-        $response = BotClient::request('deleteWebhook');
+        $response = BotClient::deleteWebhook();
 
         $this->info($response['description']);
     }

@@ -11,11 +11,10 @@
 
 namespace Wekser\Laragram\Listeners;
 
-use Wekser\Laragram\Models\Session;
-use Wekser\Laragram\Events\CallbackFormed;
-use Wekser\Laragram\Facades\BotAuth;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
+use Wekser\Laragram\Events\CallbackFormed;
+use Wekser\Laragram\Models\Session;
 
 class LogSession
 {
@@ -45,7 +44,6 @@ class LogSession
         $session->hook = $event->response['hook'];
         $session->controller = $event->response['controller'];
         $session->method = $event->response['method'];
-        $session->payload = BotAuth::isSecurePayload() ? encrypt($event->response['all']) : json_encode($event->response['all']);
         $session->last_state = $event->response['state'];
         $session->save();
     }

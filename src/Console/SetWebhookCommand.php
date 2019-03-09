@@ -47,7 +47,7 @@ class SetWebhookCommand extends Command
      */
     public function handle()
     {
-        $url = trim(env('APP_URL'), '/') . '/' . BotClient::getPrefix() . '/' . BotClient::getSecret();
+        $url = trim(env('APP_URL'), '/') . '/' . config('laragram.bot.prefix') . '/' . config('laragram.bot.secret');
 
         if (env('APP_URL') != $_SERVER['APP_URL']) {
             return $this->error('Invalid current APP URL in .env file');
@@ -61,12 +61,12 @@ class SetWebhookCommand extends Command
             return $this->error('Invalid URL, should be a HTTPS url');
         }
 
-        $response = BotClient::request('setWebhook', ['url' => $url]);
+        $response = BotClient::setWebhook(['url' => $url]);
 
         if (isset($response['error_code'])) {
-            $this->error($response['description']);
-        } else {
-            $this->info('Webhook [' . $url . '] was successfully set!');
+            return $this->error($response['description']);
         }
+
+        $this->info('Webhook [' . $url . '] was successfully set!');
     }
 }

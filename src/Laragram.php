@@ -16,12 +16,9 @@ use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\BotException;
 use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Support\Aidable;
 
 class Laragram
 {
-    use Aidable;
-
     /**
      * The current user state.
      *
@@ -52,7 +49,6 @@ class Laragram
 
     /**
      * Laragram Constructor
-     *
      */
     public function __construct()
     {
@@ -89,7 +85,7 @@ class Laragram
 
         app('translator')->setLocale($language);
 
-        if ($this->config('auth.driver') == 'database') {
+        if (config('laragram.auth.driver') == 'database') {
             $this->state = $this->user->sessions()->latest()->value('last_state');
         }
     }
@@ -102,7 +98,7 @@ class Laragram
     protected function run()
     {
         try {
-            $this->response = (new BotRoute())->dispatch($this->request->all(), $this->state);
+            $this->response = (new BotRouter())->dispatch($this->request->all(), $this->state);
         } catch (Exception $exception) {
             return BotException::handle($exception);
         }
@@ -115,7 +111,7 @@ class Laragram
      */
     protected function fireEvent()
     {
-        if (! empty($this->response) && $this->config('auth.driver') == 'database') {
+        if (!empty($this->response) && config('laragram.auth.driver') == 'database') {
             event(new CallbackFormed($this->user, $this->response));
         }
     }
@@ -127,6 +123,6 @@ class Laragram
      */
     protected function back()
     {
-        return response()->json(array_get($this->response, 'view'));
+        return response()->json($this->response['view']);
     }
 }

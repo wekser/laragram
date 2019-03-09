@@ -22,7 +22,6 @@ class CreateLaragramSessionsTable extends Migration
             $table->string('hook')->nullable();
             $table->string('controller')->nullable();
             $table->string('method')->nullable();
-            $table->text('payload')->nullable();
             $table->string('last_state')->nullable();
             $table->timestamps();
         });

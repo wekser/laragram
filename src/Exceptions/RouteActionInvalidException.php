@@ -6,5 +6,5 @@ use Exception;
 
 class RouteActionInvalidException extends Exception
 {
-    protected $message = 'Invalid route action';
+    protected $message = 'Invalid route action.';
 }

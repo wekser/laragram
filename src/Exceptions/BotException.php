@@ -3,7 +3,6 @@
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
-use Illuminate\Support\Arr;
 
 class BotException
 {
@@ -33,22 +32,22 @@ class BotException
     /**
      * Determine if the exception is in the "do not report" list.
      *
-     * @param  \Exception  $e
+     * @param \Exception $e
      * @return bool
      */
     protected static function shouldntReport(Exception $exception)
     {
         $dontReport = self::$dontReport;
 
-        return is_null(Arr::first($dontReport, function ($type) use ($exception) {
-            return $exception instanceof $type;
+        return is_null(collect($dontReport)->first(function ($value, $key) use ($exception) {
+            return $exception instanceof $value;
         }));
     }
 
     /**
      * Report or log an exception.
      *
-     * @param  \Exception  $exception
+     * @param \Exception $exception
      * @return void
      */
     protected static function report(Exception $exception)

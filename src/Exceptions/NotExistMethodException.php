@@ -13,6 +13,6 @@ class NotExistMethodException extends Exception
 
     protected function setMessage($method, $controller)
     {
-        return 'The [' . $method . '] method not exists in [' . $controller . '] controller';
+        return 'The [' . $method . '] method not exists in [' . $controller . '] controller.';
     }
 }

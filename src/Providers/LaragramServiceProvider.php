@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram\Providers;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\ServiceProvider;
 use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotClient;
@@ -108,7 +109,11 @@ class LaragramServiceProvider extends ServiceProvider
     protected function registerAuth()
     {
         $this->app->singleton('laragram.auth', function ($app) {
-            return (new BotAuth($app['request'], $this->config('auth')))->authenticate();
+            return (new BotAuth(
+                $app['request'],
+                $this->config('auth.driver'),
+                $this->config('auth.languages')
+            ))->authenticate();
         });
     }
 
@@ -122,7 +127,7 @@ class LaragramServiceProvider extends ServiceProvider
      */
     protected function config($key, $default = null)
     {
-        return array_get($this->app['config']['laragram'], $key, $default);
+        return Arr::get($this->app['config']['laragram'], $key, $default);
     }
 
     /**
@@ -133,7 +138,11 @@ class LaragramServiceProvider extends ServiceProvider
     protected function registerClient()
     {
         $this->app->singleton('laragram.client', function () {
-            return new BotClient($this->config('bot'));
+            return new BotClient(
+                $this->config('bot.token'),
+                $this->config('bot.prefix'),
+                $this->config('bot.secret')
+            );
         });
     }
 
@@ -145,7 +154,9 @@ class LaragramServiceProvider extends ServiceProvider
     protected function registerResponse()
     {
         $this->app->singleton('laragram.response', function () {
-            return new BotResponse($this->config('view'));
+            return new BotResponse(
+                $this->config('view.path')
+            );
         });
     }
 

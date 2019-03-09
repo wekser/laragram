@@ -9,15 +9,14 @@
  * file that was distributed with this source code.
  */
 
-namespace Wekser\Laragram\Support;
+namespace Wekser\Laragram;
 
 use Illuminate\Support\Str;
-use Wekser\Laragram\Exceptions\NotFoundRouteException;
 use Wekser\Laragram\Exceptions\NotFoundRouteFileException;
 use Wekser\Laragram\Exceptions\RouteActionInvalidException;
 use Wekser\Laragram\Exceptions\RouteEventInvalidException;
 
-class BotRoutes
+class BotRouteCollection
 {
     /**
      * Default request events.
@@ -64,7 +63,7 @@ class BotRoutes
      */
     public function bind(string $event, ?string $listener = null)
     {
-        if (! in_array($event, $this->defaultEvents)) {
+        if (!in_array($event, $this->defaultEvents)) {
             throw new RouteEventInvalidException();
         }
 
@@ -113,7 +112,7 @@ class BotRoutes
      */
     public function call(string $action)
     {
-        if (! Str::contains($action, '@')) {
+        if (!Str::contains($action, '@')) {
             throw new RouteActionInvalidException();
         }
 
@@ -163,56 +162,16 @@ class BotRoutes
     }
 
     /**
-     * Find the first route matching a given request.
-     *
-     * @param array $request
-     * @param string $state
-     * @return array
-     * @throws NotFoundRouteException
-     */
-    public function match($request, $state)
-    {
-        $type = array_get(array_keys($request), 1);
-        $object = array_get($request, array_get(array_keys($request), 1));
-        $routes = $this->collectRoutes();
-
-        foreach ($routes as $route) {
-
-            $event = array_get($route, 'event');
-            $listener = array_get($route, 'listener');
-            $alias = array_get($route, 'alias');
-            $hook = array_get($route, 'hook');
-
-            if ($event == $type && array_has($object, $listener)) {
-
-                $query = array_get($object, $listener);
-                $command = str_before($query, ' ');
-
-                $A0 = empty($alias);
-                $A1 = empty($hook);
-                $B0 = $alias == $state;
-                $B1 = $hook == $command;
-                $B2 = $hook == $query;
-
-                if (($A0 && $A1) || ($A0 && $B1) || ($B0 && $B2) || ($B0 && $A1)) {
-                    return $route;
-                }
-            }
-        }
-        throw new NotFoundRouteException();
-    }
-
-    /**
      * Gather and get collection of routes.
      *
      * @return array
      * @throws NotFoundRouteFileException
      */
-    protected function collectRoutes()
+    public function collectRoutes()
     {
         $file = base_path('routes/laragram.php');
 
-        if (! file_exists($file)) {
+        if (!file_exists($file)) {
             throw new NotFoundRouteFileException($file);
         }
 
