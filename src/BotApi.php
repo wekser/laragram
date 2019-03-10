@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Wekser\Laragram\Support;
+namespace Wekser\Laragram;
 
 use Wekser\Laragram\Facades\BotAuth;
 use Wekser\Laragram\Facades\BotClient;
