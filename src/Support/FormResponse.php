@@ -13,6 +13,7 @@ namespace Wekser\Laragram\Support;
 
 use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\BotResponse;
+use Wekser\Laragram\Exceptions\ResponseEmptyException;
 use Wekser\Laragram\Exceptions\ResponseInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 
@@ -24,7 +25,7 @@ class FormResponse
      * @param \Wekser\Laragram\BotRequest $request
      * @param \Wekser\Laragram\BotResponse|string $response
      * @return array
-     * @throws ResponseInvalidException
+     * @throws ResponseEmptyException|ResponseInvalidException
      */
     public function getResponse(BotRequest $request, $response): array
     {
@@ -36,6 +37,8 @@ class FormResponse
         } elseif (is_string($response)) {
             $request['view'] = $this->createBasicResponse($response);
             $request['state'] = $request['state'];
+        } elseif (empty($response)) {
+            throw new ResponseEmptyException();
         } else {
             throw new ResponseInvalidException($request['method'], $request['controller']);
         }

@@ -9,11 +9,12 @@
  * file that was distributed with this source code.
  */
 
-namespace Wekser\Laragram\Support;
+namespace Wekser\Laragram;
 
 use Wekser\Laragram\Facades\BotAuth;
+use Wekser\Laragram\Facades\BotClient;
 
-trait ApiMethods
+class BotApi
 {
     /**
      * A simple method for testing your bot's auth token.
@@ -24,7 +25,7 @@ trait ApiMethods
      */
     public function getMe()
     {
-        return $this->request('getMe');
+        return BotClient::request('getMe');
     }
 
     /**
@@ -46,7 +47,7 @@ trait ApiMethods
      */
     public function sendMessage(array $params)
     {
-        return $this->request('sendMessage', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendMessage', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -65,7 +66,7 @@ trait ApiMethods
      */
     public function forwardMessage(array $params)
     {
-        return $this->request('forwardMessage', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('forwardMessage', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -87,7 +88,7 @@ trait ApiMethods
      */
     public function sendPhoto(array $params)
     {
-        return $this->request('sendPhoto', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendPhoto', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -113,7 +114,7 @@ trait ApiMethods
      */
     public function sendAudio(array $params)
     {
-        return $this->request('sendAudio', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendAudio', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -136,7 +137,7 @@ trait ApiMethods
      */
     public function sendDocument(array $params)
     {
-        return $this->request('sendDocument', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendDocument', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -163,7 +164,7 @@ trait ApiMethods
      */
     public function sendVideo(array $params)
     {
-        return $this->request('sendVideo', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendVideo', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -189,7 +190,7 @@ trait ApiMethods
      */
     public function sendAnimation(array $params)
     {
-        return $this->request('sendAnimation', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendAnimation', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -212,7 +213,7 @@ trait ApiMethods
      */
     public function sendVoice(array $params)
     {
-        return $this->request('sendVoice', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendVoice', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -235,7 +236,7 @@ trait ApiMethods
      */
     public function sendVideoNote(array $params)
     {
-        return $this->request('sendVideoNote', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendVideoNote', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -256,7 +257,7 @@ trait ApiMethods
      */
     public function sendLocation(array $params)
     {
-        return $this->request('sendLocation', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendLocation', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -277,7 +278,7 @@ trait ApiMethods
      */
     public function editMessageLiveLocation(array $params)
     {
-        return $this->request('editMessageLiveLocation', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('editMessageLiveLocation', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -296,7 +297,7 @@ trait ApiMethods
      */
     public function stopMessageLiveLocation(array $params)
     {
-        return $this->request('stopMessageLiveLocation', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('stopMessageLiveLocation', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -321,7 +322,7 @@ trait ApiMethods
      */
     public function sendVenue(array $params)
     {
-        return $this->request('sendVenue', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendVenue', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -344,7 +345,7 @@ trait ApiMethods
      */
     public function sendContact(array $params)
     {
-        return $this->request('sendContact', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendContact', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -361,7 +362,7 @@ trait ApiMethods
      */
     public function sendChatAction(array $params)
     {
-        return $this->request('sendChatAction', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendChatAction', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -379,7 +380,7 @@ trait ApiMethods
      */
     public function getUserProfilePhotos(array $params)
     {
-        return $this->request('getUserProfilePhotos', $this->setParameters($params, 'user_id'));
+        return BotClient::request('getUserProfilePhotos', $this->setParameters($params, 'user_id'));
     }
 
     /**
@@ -395,7 +396,7 @@ trait ApiMethods
      */
     public function getFile(array $params)
     {
-        return $this->request('getFile', $params);
+        return BotClient::request('getFile', $params);
     }
 
     /**
@@ -411,7 +412,7 @@ trait ApiMethods
      */
     public function getChat(array $params)
     {
-        return $this->request('getChat', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('getChat', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -431,7 +432,7 @@ trait ApiMethods
      */
     public function answerCallbackQuery(array $params)
     {
-        return $this->request('answerCallbackQuery', $params);
+        return BotClient::request('answerCallbackQuery', $params);
     }
 
     /**
@@ -453,7 +454,7 @@ trait ApiMethods
      */
     public function editMessageText(array $params)
     {
-        return $this->request('editMessageText', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('editMessageText', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -474,7 +475,7 @@ trait ApiMethods
      */
     public function editMessageCaption(array $params)
     {
-        return $this->request('editMessageCaption', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('editMessageCaption', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -493,7 +494,7 @@ trait ApiMethods
      */
     public function editMessageReplyMarkup(array $params)
     {
-        return $this->request('editMessageReplyMarkup', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('editMessageReplyMarkup', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -510,7 +511,7 @@ trait ApiMethods
      */
     public function deleteMessage(array $params)
     {
-        return $this->request('deleteMessage', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('deleteMessage', $this->setParameters($params, 'chat_id'));
     }
 
 
@@ -531,7 +532,7 @@ trait ApiMethods
      */
     public function sendSticker(array $params)
     {
-        return $this->request('sendSticker', $this->setParameters($params, 'chat_id'), true);
+        return BotClient::request('sendSticker', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -547,7 +548,7 @@ trait ApiMethods
      */
     public function getStickerSet(array $params)
     {
-        return $this->request('getStickerSet', $params);
+        return BotClient::request('getStickerSet', $params);
     }
 
     /**
@@ -569,7 +570,7 @@ trait ApiMethods
      */
     public function answerInlineQuery(array $params)
     {
-        return $this->request('answerInlineQuery', $params);
+        return BotClient::request('answerInlineQuery', $params);
     }
 
     /**
@@ -607,7 +608,7 @@ trait ApiMethods
      */
     public function sendInvoice(array $params)
     {
-        return $this->request('sendInvoice', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendInvoice', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -626,7 +627,7 @@ trait ApiMethods
      */
     public function answerShippingQuery(array $params)
     {
-        return $this->request('answerShippingQuery', $params);
+        return BotClient::request('answerShippingQuery', $params);
     }
 
     /**
@@ -644,7 +645,7 @@ trait ApiMethods
      */
     public function answerPreCheckoutQuery(array $params)
     {
-        return $this->request('answerPreCheckoutQuery', $params);
+        return BotClient::request('answerPreCheckoutQuery', $params);
     }
 
     /**
@@ -664,7 +665,7 @@ trait ApiMethods
      */
     public function sendGame(array $params)
     {
-        return $this->request('sendGame', $this->setParameters($params, 'chat_id'));
+        return BotClient::request('sendGame', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -686,7 +687,7 @@ trait ApiMethods
      */
     public function setGameScore(array $params)
     {
-        return $this->request('setGameScore', $this->setParameters($params, 'user_id'));
+        return BotClient::request('setGameScore', $this->setParameters($params, 'user_id'));
     }
 
     /**
@@ -705,7 +706,7 @@ trait ApiMethods
      */
     public function getGameHighScores(array $params)
     {
-        return $this->request('getGameHighScores', $this->setParameters($params, 'user_id'));
+        return BotClient::request('getGameHighScores', $this->setParameters($params, 'user_id'));
     }
 
     /**
@@ -724,7 +725,7 @@ trait ApiMethods
      */
     public function setWebhook(array $params)
     {
-        return $this->request('setWebhook', $params, true);
+        return BotClient::request('setWebhook', $params, true);
     }
 
     /**
@@ -736,7 +737,7 @@ trait ApiMethods
      */
     public function deleteWebhook()
     {
-        return $this->request('deleteWebhook');
+        return BotClient::request('deleteWebhook');
     }
 
     /**

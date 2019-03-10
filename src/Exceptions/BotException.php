@@ -13,6 +13,7 @@ class BotException
      */
     protected static $dontReport = [
         NotFoundRouteException::class,
+        ResponseEmptyException::class,
     ];
 
     /**

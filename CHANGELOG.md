@@ -5,6 +5,17 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v1.1.1] (2019-03-10)
+
+### Added
+
+- Added `ResponseEmptyException`
+
+### Changed
+
+- Renamed `Wekser\Laragram\Concerns\ApiMethods` to `BotApi` and moved in `Wekser\Laragram` directory
+- Changed visibility `request()` in `Wekser\Laragram\BotClient` to `public`
+
 ## [v1.1.0] (2019-03-09)
 
 ### Added

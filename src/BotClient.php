@@ -17,12 +17,9 @@ use Psr\Http\Message\ResponseInterface;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
 use Wekser\Laragram\Exceptions\FileInvalidException;
 use Wekser\Laragram\Exceptions\TokenInvalidException;
-use Wekser\Laragram\Support\ApiMethods;
 
 class BotClient
 {
-    use ApiMethods;
-
     const API_URL = 'https://api.telegram.org/bot';
 
     /**
@@ -87,26 +84,6 @@ class BotClient
     }
 
     /**
-     * Get a router prefix.
-     *
-     * @return string|null
-     */
-    protected function getPrefix(): ?string
-    {
-        return $this->prefix;
-    }
-
-    /**
-     * Get a router secret.
-     *
-     * @return string|null
-     */
-    protected function getSecret(): ?string
-    {
-        return $this->secret;
-    }
-
-    /**
      * Send a request to Telegram Bot API and return the response.
      *
      * @param string $method
@@ -114,13 +91,17 @@ class BotClient
      * @param bool $fileUpload
      * @return array
      */
-    protected function request(string $method, array $params = [], $fileUpload = false)
+    public function request(string $method, array $params = [], $fileUpload = false)
     {
         $request = $this->isAsyncRequest ? 'requestAsync' : 'request';
 
         $client = new Client();
 
-        return $this->response($client->{$request}('POST', $this->buildUrl($method), $this->buildOptions($params, $fileUpload)));
+        return $this->response($client->{$request}(
+            'POST',
+            $this->buildUrl($method),
+            $this->buildOptions($params, $fileUpload)
+        ));
     }
 
     /**
@@ -287,5 +268,25 @@ class BotClient
         }
 
         return Psr7\try_fopen($contents, 'r');
+    }
+
+    /**
+     * Get a router prefix.
+     *
+     * @return string|null
+     */
+    protected function getPrefix(): ?string
+    {
+        return $this->prefix;
+    }
+
+    /**
+     * Get a router secret.
+     *
+     * @return string|null
+     */
+    protected function getSecret(): ?string
+    {
+        return $this->secret;
     }
 }
