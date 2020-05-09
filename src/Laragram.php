@@ -3,7 +3,7 @@
 /*
  * This file is part of Laragram.
  *
- * (c) Sergey Lapin <hello@wekser.com>
+ * (c) Sergey Lapin <me@wekser.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -111,7 +111,7 @@ class Laragram
      */
     protected function fireEvent()
     {
-        if (!empty($this->response) && config('laragram.auth.driver') == 'database') {
+        if (! empty($this->response) && config('laragram.auth.driver') == 'database') {
             event(new CallbackFormed($this->user, $this->response));
         }
     }
