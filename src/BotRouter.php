@@ -3,7 +3,7 @@
 /*
  * This file is part of Laragram.
  *
- * (c) Sergey Lapin <hello@wekser.com>
+ * (c) Sergey Lapin <me@wekser.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram;
 
+use Illuminate\Support\Str;
 use Illuminate\Container\Container;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
@@ -153,7 +154,7 @@ class BotRouter
             if ($event == $type && collect($entity)->has($listener)) {
 
                 $query = $entity[$listener] ?? null;
-                $command = str_before($query, ' ');
+                $command = Str::before($query, ' ');
 
                 $A0 = empty($alias);
                 $A1 = empty($hook);

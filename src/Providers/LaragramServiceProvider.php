@@ -44,8 +44,8 @@ class LaragramServiceProvider extends ServiceProvider
      * @var array
      */
     protected $listen = [
-        CallbackFormed::class => [
-            LogSession::class,
+        'Wekser\Laragram\Events\CallbackFormed' => [
+            'Wekser\Laragram\Listeners\LogSession',
         ],
     ];
 

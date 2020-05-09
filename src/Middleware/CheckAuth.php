@@ -3,7 +3,7 @@
 /*
  * This file is part of Laragram.
  *
- * (c) Sergey Lapin <hello@wekser.com>
+ * (c) Sergey Lapin <me@wekser.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -31,7 +31,7 @@ class CheckAuth
 
         $user = collect($entity)->get('from');
 
-        if (!empty($user) && $user['is_bot'] == false) {
+        if (! empty($user) && $user['is_bot'] == false) {
             return $next($request);
         }
 

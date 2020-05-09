@@ -3,7 +3,7 @@
 /*
  * This file is part of Laragram.
  *
- * (c) Sergey Lapin <hello@wekser.com>
+ * (c) Sergey Lapin <me@wekser.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -117,7 +117,7 @@ class BotClient
             throw new ClientResponseInvalidException();
         }
 
-        $body = trim($response->getBody());
+        $body = trim((string) $response->getBody());
 
         if (!$this->isJson($body)) {
             throw new ClientResponseInvalidException();
@@ -125,7 +125,7 @@ class BotClient
 
         $result = json_decode($body, true);
 
-        if (!isset($result['ok'])) {
+        if (! isset($result['ok'])) {
             throw new ClientResponseInvalidException();
         }
 
