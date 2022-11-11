@@ -46,8 +46,8 @@ class SetWebhookCommand extends Command
         parent::__construct();
 
         $this->appUrl = config('app.url');
-        $this->botPrefix = config('laragram.bot.prefix');
-        $this->botSecret = config('laragram.bot.secret');
+        $this->botPrefix = config('laragram.env.prefix');
+        $this->botSecret = config('laragram.env.secret');
     }
 
     /**

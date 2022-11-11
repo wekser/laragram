@@ -21,8 +21,6 @@ use Wekser\Laragram\Console\LaragramInstallCommand;
 use Wekser\Laragram\Console\LaragramPublishCommand;
 use Wekser\Laragram\Console\RemoveWebhookCommand;
 use Wekser\Laragram\Console\SetWebhookCommand;
-use Wekser\Laragram\Events\CallbackFormed;
-use Wekser\Laragram\Listeners\LogSession;
 use Wekser\Laragram\Middleware\CheckAuth;
 use Wekser\Laragram\Middleware\FrameHook;
 
@@ -120,12 +118,12 @@ class LaragramServiceProvider extends ServiceProvider
     /**
      * Helper to get the config values.
      *
-     * @param  string $key
-     * @param  string $default
+     * @param string $key
+     * @param string|null $default
      *
      * @return mixed
      */
-    protected function config($key, $default = null)
+    protected function config(string $key, string $default = null)
     {
         return Arr::get($this->app['config']['laragram'], $key, $default);
     }
@@ -139,9 +137,9 @@ class LaragramServiceProvider extends ServiceProvider
     {
         $this->app->singleton('laragram.client', function () {
             return new BotClient(
-                $this->config('bot.token'),
-                $this->config('bot.prefix'),
-                $this->config('bot.secret')
+                $this->config('env.token'),
+                $this->config('env.prefix'),
+                $this->config('env.secret')
             );
         });
     }
@@ -155,7 +153,7 @@ class LaragramServiceProvider extends ServiceProvider
     {
         $this->app->singleton('laragram.response', function () {
             return new BotResponse(
-                $this->config('view.path')
+                $this->config('paths.views')
             );
         });
     }
@@ -173,7 +171,7 @@ class LaragramServiceProvider extends ServiceProvider
             $this->app->routeMiddleware($this->middlewareAliases);
         }
 
-        $this->loadRoutesFrom(__DIR__ . '/../../routes/bot.php');
+        $this->loadRoutesFrom(__DIR__ . '/../../routes/routes.php');
 
         $this->registerEvents();
 

@@ -58,7 +58,7 @@ class BotAuth
      * @param string $driver
      * @param array $languages
      */
-    public function __construct(Request $request, $driver, $languages)
+    public function __construct(Request $request, string $driver, array $languages)
     {
         $this->request = $request;
         $this->driver = $driver;
@@ -70,7 +70,7 @@ class BotAuth
      *
      * @return $this
      */
-    public function authenticate()
+    public function authenticate(): self
     {
         $sender = $this->defineSender();
 
@@ -92,7 +92,7 @@ class BotAuth
      *
      * @return array
      */
-    protected function defineSender()
+    protected function defineSender(): array
     {
         $entity = collect($this->request->all())->first(function ($value, $key) {
             return is_array($value) && isset($value['from']);
@@ -106,7 +106,7 @@ class BotAuth
      *
      * @return string
      */
-    public function getDriver()
+    public function getDriver(): string
     {
         return $this->driver ?? 'array';
     }
@@ -117,7 +117,7 @@ class BotAuth
      * @param array $sender
      * @return \Wekser\Laragram\Models\User|null
      */
-    protected function getUser(array $sender)
+    protected function getUser(array $sender): ?User
     {
         return User::where('uid', $sender['id'])->first();
     }
@@ -128,7 +128,7 @@ class BotAuth
      * @param array $sender
      * @return \Wekser\Laragram\Models\User
      */
-    protected function register(array $sender)
+    protected function register(array $sender): User
     {
         $user = new User();
         $user->uid = $sender['id'];
@@ -147,13 +147,11 @@ class BotAuth
      * @param array $sender
      * @return string
      */
-    protected function defineUserLanguage(array $sender)
+    protected function defineUserLanguage(array $sender): string
     {
         $userLanguage = $sender['language_code'] ?? null;
 
-        $appLanguage = app('translator')->getLocale();
-
-        return ! empty($userLanguage) && in_array($userLanguage, $this->getBotLanguages()) ? $userLanguage : $appLanguage;
+        return !empty($userLanguage) && in_array($userLanguage, $this->getBotLanguages()) ? $userLanguage : app('translator')->getLocale();
     }
 
     /**
@@ -161,7 +159,7 @@ class BotAuth
      *
      * @return array|null
      */
-    public function getBotLanguages()
+    public function getBotLanguages(): ?array
     {
         return $this->languages;
     }
@@ -173,7 +171,7 @@ class BotAuth
      * @param array $sender
      * @return \Wekser\Laragram\Models\User
      */
-    protected function login(User $user, array $sender)
+    protected function login(User $user, array $sender): User
     {
         $user->first_name = $sender['first_name'];
         $user->last_name = $sender['last_name'] ?? null;
@@ -189,7 +187,7 @@ class BotAuth
      * @param array $sender
      * @return object
      */
-    protected function setUser(array $sender)
+    protected function setUser(array $sender): object
     {
         $user = [
             'uid' => $sender['id'],
@@ -207,7 +205,7 @@ class BotAuth
      *
      * @return \Wekser\Laragram\Models\User|object
      */
-    public function user()
+    public function user(): User|object
     {
         return $this->current;
     }

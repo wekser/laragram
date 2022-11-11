@@ -1,11 +1,11 @@
 <?php
 
-namespace {{namespace}}Http\Controllers;
+namespace {{namespace}}Http\Controllers\Laragram;
 
 use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\Facades\BotResponse;
 
-class BotController extends Controller
+class HelloController extends Controller
 {
     /**
      * Start a new chat with bot.
@@ -21,10 +21,10 @@ class BotController extends Controller
      * Return to the user a his message
      *
      * @param BotRequest $request
-     * @return string
+     * @return BotResponse
      */
     public function home(BotRequest $request)
     {
-        return $request->query();
+        return BotResponse::text($request->query());
     }
 }

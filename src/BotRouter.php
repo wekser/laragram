@@ -11,8 +11,8 @@
 
 namespace Wekser\Laragram;
 
-use Illuminate\Support\Str;
 use Illuminate\Container\Container;
+use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
 use Wekser\Laragram\Exceptions\NotFoundRouteException;
@@ -49,7 +49,7 @@ class BotRouter
      * @param string|null $state
      * @return array
      */
-    public function dispatch($request, $state): array
+    public function dispatch(array $request, ?string $state): array
     {
         $this->locatePath($state);
 
@@ -62,7 +62,7 @@ class BotRouter
      * @param string|null $state
      * @return void
      */
-    protected function locatePath($state)
+    protected function locatePath(?string $state)
     {
         $this->state = $state ?? 'start';
     }
@@ -75,33 +75,17 @@ class BotRouter
      * @return array
      * @throws NotExistsControllerException|NotExistMethodException
      */
-    protected function runRoute($request, $route): array
+    protected function runRoute(array $request, array $route): array
     {
-        $directory = '\\' . $this->getAppNamespace() . 'Http\Controllers';
-        $namespace = $directory . chr(92) . $route['controller'];
-
-        if (!class_exists($namespace)) {
+        if (!class_exists($route['controller'])) {
             throw new NotExistsControllerException($route['controller']);
         }
 
-        $controller = new $namespace();
-        $method = $route['method'];
-
-        if (!method_exists($controller, $method)) {
+        if (!method_exists($route['controller'], $route['method'])) {
             throw new NotExistMethodException($route['method'], $route['controller']);
         }
 
-        return $this->prepareResponse($controller->{$method}($this->prepareRequest($request, $route)));
-    }
-
-    /**
-     * Get the application namespace.
-     *
-     * @return string
-     */
-    protected function getAppNamespace(): string
-    {
-        return Container::getInstance()->getNamespace();
+        return $this->prepareResponse($route['controller']->{$route['method']}($this->prepareRequest($request, $route)));
     }
 
     /**
@@ -122,7 +106,7 @@ class BotRouter
      * @param array $route
      * @return \Wekser\Laragram\BotRequest
      */
-    protected function prepareRequest($request, $route)
+    protected function prepareRequest(array $request, array $route): BotRequest
     {
         return $this->request = (new FormRequest())->setRequest($request, $route, $this->state);
     }
@@ -135,7 +119,7 @@ class BotRouter
      * @return array
      * @throws NotFoundRouteException
      */
-    public function findRoute(array $request, $state)
+    public function findRoute(array $request, string $state): array
     {
         $type = collect($request)->search(function ($value, $key) {
             return is_array($value) && isset($value['from']);
@@ -168,5 +152,15 @@ class BotRouter
             }
         }
         throw new NotFoundRouteException();
+    }
+
+    /**
+     * Get the application namespace.
+     *
+     * @return string
+     */
+    protected function getAppNamespace(): string
+    {
+        return Container::getInstance()->getNamespace();
     }
 }

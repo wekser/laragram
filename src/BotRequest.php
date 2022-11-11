@@ -49,7 +49,7 @@ class BotRequest
      * @param mixed $default
      * @return mixed
      */
-    protected function getRequestData($key, $default = null)
+    protected function getRequestData(string $key, $default = null)
     {
         return Arr::get($this->getRequest(), $key, $default);
     }
@@ -151,7 +151,7 @@ class BotRequest
      * @param mixed $default
      * @return array|string|null
      */
-    public function input($key, $default = null)
+    public function input(string $key, $default = null): array|string|null
     {
         return $this->getRequestData('all.' . $key, $default);
     }
@@ -162,7 +162,7 @@ class BotRequest
      * @param string $key
      * @return bool
      */
-    public function has($key): bool
+    public function has(string $key): bool
     {
         return Arr::has($this->all(), $key);
     }

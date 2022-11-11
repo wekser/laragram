@@ -68,7 +68,11 @@ class LaragramPublishCommand extends Command
      */
     protected function createDirectories()
     {
-        if (!is_dir($directory = resource_path(config('laragram.view.path')))) {
+        if (!is_dir($directory = resource_path(config('laragram.paths.views')))) {
+            mkdir($directory, 0755, true);
+        }
+
+        if (!is_dir($directory = app_path('Http/Controllers/Laragram'))) {
             mkdir($directory, 0755, true);
         }
     }
@@ -81,7 +85,7 @@ class LaragramPublishCommand extends Command
     protected function publishViews()
     {
         foreach ($this->views as $key => $value) {
-            if (file_exists($view = resource_path(config('laragram.view.path') . '/' . $value)) && !$this->option('force')) {
+            if (file_exists($view = resource_path(config('laragram.paths.views') . '/' . $value)) && !$this->option('force')) {
                 if (!$this->confirm("The [{$value}] view already exists. Do you want to replace it?")) {
                     continue;
                 }
@@ -98,7 +102,7 @@ class LaragramPublishCommand extends Command
      */
     protected function publishControllers()
     {
-        if (file_exists($file = app()->path() . '/Http/Controllers/BotController.php') && !$this->option('force')) {
+        if (file_exists($file = app()->path() . '/Http/Controllers/Laragram/HelloController.php') && !$this->option('force')) {
             if (!$this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
                 return;
             }
@@ -108,7 +112,7 @@ class LaragramPublishCommand extends Command
     }
 
     /**
-     * Compiles the BotController stub.
+     * Compiles the HelloController stub.
      *
      * @return string
      */
@@ -117,7 +121,7 @@ class LaragramPublishCommand extends Command
         return str_replace(
             '{{namespace}}',
             $this->getAppNamespace(),
-            file_get_contents(__DIR__ . '/stubs/controllers/BotController.stub')
+            file_get_contents(__DIR__ . '/stubs/controllers/HelloController.stub')
         );
     }
 
@@ -138,7 +142,7 @@ class LaragramPublishCommand extends Command
      */
     protected function publishRoutes()
     {
-        if (file_exists($file = base_path('routes/laragram.php'))) {
+        if (file_exists($file = base_path('routes/routes.php'))) {
             file_put_contents($file, file_get_contents(__DIR__ . '/stubs/routes/laragram.stub'), FILE_APPEND);
         }
     }

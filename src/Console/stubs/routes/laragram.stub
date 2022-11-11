@@ -1,3 +1,5 @@
 
-$bot->bind('message')->catch('/start')->call('BotController@start');
-$bot->bind('message')->alias('home')->call('BotController@home');
+use App\Http\Controllers\Laragram\HelloController;
+
+$bot->bind('message')->catch('/start')->call([HelloController::class, 'start']);
+$bot->bind('message')->alias('home')->call([HelloController::class, 'home']);

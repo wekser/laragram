@@ -24,24 +24,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Main bot configuration
+    | Main configuration
     |--------------------------------------------------------------------------
     */
 
-    'bot' => [
+    'env' => [
         'token' => env('LARAGRAM_BOT_TOKEN'),
-        'prefix' => env('LARAGRAM_WEBHOOK_PREFIX', 'bot'),
+        'prefix' => env('LARAGRAM_WEBHOOK_PREFIX', 'laragram'),
         'secret' => env('LARAGRAM_WEBHOOK_SECRET', null),
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | View bot configuration
+    | Paths configuration
     |--------------------------------------------------------------------------
     */
 
-    'view' => [
-        'path' => 'bot'
-    ]
+    'paths' => [
+        'route' => 'laragram',
+        'views' => 'laragram'
+    ],
 
 ];

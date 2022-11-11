@@ -16,6 +16,7 @@ use Wekser\Laragram\Exceptions\NotExistsViewException;
 use Wekser\Laragram\Exceptions\ViewEmptyException;
 use Wekser\Laragram\Exceptions\ViewInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
+use Wekser\Laragram\Models\User;
 
 class BotResponse
 {
@@ -62,13 +63,34 @@ class BotResponse
     protected $viewsPath;
 
     /**
+     * The current view user.
+     *
+     * @var BotAuth|User
+     */
+    protected $user;
+
+    /**
      * Callback Constructor
      *
      * @param string $path
      */
-    public function __construct($path)
+    public function __construct(string $path)
     {
         $this->viewsPath = $path;
+        $this->user = BotAuth::user();
+    }
+
+    /**
+     * Set the user of the view.
+     *
+     * @param User $view
+     * @return $this
+     */
+    public function user($user): self
+    {
+        $this->user = !($user instanceof User) ?: $user;
+
+        return $this;
     }
 
     /**
@@ -77,7 +99,7 @@ class BotResponse
      * @param string $state
      * @return $this
      */
-    public function redirect(string $state)
+    public function redirect(string $state): self
     {
         $this->state = $state;
 
@@ -85,13 +107,30 @@ class BotResponse
     }
 
     /**
-     * Get the contents of the view.
+     * Create the basic view response.
      *
-     * @param  string $view
-     * @param  array|null $data
+     * @param string $text
      * @return $this
      */
-    public function view(string $view, $data = [])
+    public function text(string $text): self
+    {
+        $view['method'] = 'sendMessage';
+        $view['chat_id'] = $this->user->uid;
+        $view['text'] = $text;
+
+        $this->contents = $view;
+
+        return $this;
+    }
+
+    /**
+     * Get the contents of the view.
+     *
+     * @param string $view
+     * @param array|null $data
+     * @return $this
+     */
+    public function view(string $view, ?array $data): self
     {
         $this->contents = $this->render($view, $data);
 
@@ -105,7 +144,7 @@ class BotResponse
      * @param array|null $data
      * @return array
      */
-    protected function render(string $view, $data = []): array
+    protected function render(string $view, ?array $data): array
     {
         $this->view = $view;
 
@@ -122,7 +161,7 @@ class BotResponse
      * @param string $view
      * @return void
      */
-    protected function setPath($view)
+    protected function setPath(string $view)
     {
         $this->path = resource_path($this->viewsPath . '/' . str_replace('.', '/', $view) . '.php');
     }
@@ -130,10 +169,10 @@ class BotResponse
     /**
      * Set the data to the view.
      *
-     * @param array $data
+     * @param array|null $data
      * @return void
      */
-    protected function setData(array $data)
+    protected function setData(?array $data)
     {
         $this->data = empty($data) ?: $data;
     }
@@ -144,7 +183,7 @@ class BotResponse
      * @return array
      * @throws NotExistsViewException|ViewEmptyException|ViewInvalidException
      */
-    protected function renderContents()
+    protected function renderContents(): array
     {
         if (!file_exists($this->path)) {
             throw new NotExistsViewException($this->path);
@@ -160,7 +199,7 @@ class BotResponse
             throw new ViewInvalidException($this->path);
         }
 
-        return $response;
+        return array_merge($response, ['chat_id' => $this->user->uid]);
     }
 
     /**
@@ -171,7 +210,7 @@ class BotResponse
      */
     protected function getContents()
     {
-        $user = BotAuth::user();
+        $user = $this->user;
 
         try {
             return call_user_func(function ($view) use ($user) {

@@ -118,7 +118,7 @@ class LaragramInstallCommand extends Command
     /**
      * Add variables and generate secret token in .env file
      *
-     * @return string
+     * @return void
      */
     protected function addVariables()
     {

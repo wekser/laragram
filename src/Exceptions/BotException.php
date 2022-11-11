@@ -19,7 +19,8 @@ class BotException
     /**
      * A list of the exception types that are not reported.
      *
-     * @var null
+     * @param Exception $exception
+     * @return null
      */
     public static function handle(Exception $exception)
     {
