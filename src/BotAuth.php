@@ -19,7 +19,7 @@ class BotAuth
     /**
      * Current authorized user.
      *
-     * @var User|object
+     * @var User
      */
     protected $current;
 
@@ -203,9 +203,9 @@ class BotAuth
     /**
      * Get current authorized user.
      *
-     * @return \Wekser\Laragram\Models\User|object
+     * @return \Wekser\Laragram\Models\User
      */
-    public function user(): User|object
+    public function user()
     {
         return $this->current;
     }
