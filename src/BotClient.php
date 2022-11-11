@@ -89,9 +89,9 @@ class BotClient
      * @param string $method
      * @param array $params
      * @param bool $fileUpload
-     * @return array
+     * @return mixed
      */
-    public function request(string $method, array $params = [], bool $fileUpload = false): array
+    public function request(string $method, array $params = [], bool $fileUpload = false)
     {
         $request = $this->isAsyncRequest ? 'requestAsync' : 'request';
 
@@ -108,10 +108,10 @@ class BotClient
      * Prepare a response and return the result.
      *
      * @param \Psr\Http\Message\ResponseInterface $response
-     * @return array
+     * @return mixed
      * @throws ClientResponseInvalidException
      */
-    protected function response(ResponseInterface $response): array
+    protected function response(ResponseInterface $response)
     {
         if ($response->getStatusCode() !== 200) {
             throw new ClientResponseInvalidException();
@@ -125,7 +125,7 @@ class BotClient
 
         $result = json_decode($body, true);
 
-        if (! isset($result['ok'])) {
+        if (!isset($result['ok'])) {
             throw new ClientResponseInvalidException();
         }
 
@@ -263,7 +263,7 @@ class BotClient
             return $contents;
         }
 
-        if (!preg_match('/^(https?|ftp):\/\/.*/', $contents) === 1 && !is_readable($contents)) {
+        if (!preg_match('/^(https?|ftp):\/\/.*/', $contents) == 1 && !is_readable($contents)) {
             throw new FileInvalidException($contents);
         }
 

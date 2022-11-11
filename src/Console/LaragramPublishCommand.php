@@ -142,7 +142,7 @@ class LaragramPublishCommand extends Command
      */
     protected function publishRoutes()
     {
-        if (file_exists($file = base_path('routes/routes.php'))) {
+        if (file_exists($file = base_path('routes/' . config('laragram.paths.route') . '.php'))) {
             file_put_contents($file, file_get_contents(__DIR__ . '/stubs/routes/laragram.stub'), FILE_APPEND);
         }
     }
