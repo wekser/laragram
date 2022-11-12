@@ -53,6 +53,8 @@ class LaragramPublishCommand extends Command
 
             $this->publishViews();
 
+            $this->publishLangs();
+
             $this->publishControllers();
 
             $this->publishRoutes();
@@ -75,6 +77,22 @@ class LaragramPublishCommand extends Command
         if (!is_dir($directory = app_path('Http/Controllers/Laragram'))) {
             mkdir($directory, 0755, true);
         }
+    }
+
+    /**
+     * Publish the langs.
+     *
+     * @return void
+     */
+    public function publishLangs()
+    {
+        if (file_exists($file = app('path.lang') . '/en/laragram.php') && !$this->option('force')) {
+            if (!$this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
+                return;
+            }
+        }
+
+        copy(__DIR__ . '/stubs/lang/en/laragram.stub', $file);
     }
 
     /**

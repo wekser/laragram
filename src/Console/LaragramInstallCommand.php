@@ -72,13 +72,13 @@ class LaragramInstallCommand extends Command
      */
     protected function createConfig()
     {
-        if (file_exists(base_path('config/laragram.php')) && !$this->option('force')) {
-            if (!$this->confirm("The [laragram.php] config already exists. Do you want to replace it?")) {
+        if (file_exists($file = base_path('config/laragram.php')) && !$this->option('force')) {
+            if (!$this->confirm("The [{$file}] config already exists. Do you want to replace it?")) {
                 return;
             }
         }
 
-        copy(__DIR__ . '/../../config/config.php', base_path('config/laragram.php'));
+        copy(__DIR__ . '/../../config/config.php', $file);
     }
 
     /**

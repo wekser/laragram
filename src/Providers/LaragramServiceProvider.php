@@ -110,7 +110,7 @@ class LaragramServiceProvider extends ServiceProvider
             return (new BotAuth(
                 $app['request'],
                 $this->config('auth.driver'),
-                $this->config('auth.languages')
+                $this->config('bot.languages')
             ))->authenticate();
         });
     }

@@ -2,7 +2,9 @@
 
 namespace {{namespace}}Http\Controllers\Laragram;
 
+use App\Http\Controllers\Controller;
 use Wekser\Laragram\BotRequest;
+use Wekser\Laragram\Facades\BotAuth;
 use Wekser\Laragram\Facades\BotResponse;
 
 class HelloController extends Controller
@@ -14,7 +16,7 @@ class HelloController extends Controller
      */
     public function start()
     {
-        return BotResponse::redirect('home')->view('start');
+        return BotResponse::redirect('home')->view('start', ['first_name' => BotAuth::user()->first_name]);
     }
 
     /**
@@ -26,5 +28,16 @@ class HelloController extends Controller
     public function home(BotRequest $request)
     {
         return BotResponse::text($request->query());
+    }
+
+    /**
+     * Reaction to inline button pressing
+     *
+     * @param BotRequest $request
+     * @return BotResponse
+     */
+    public function callback(BotRequest $request)
+    {
+        return BotResponse::text(trans('laragram.callback.btn_test'));
     }
 }

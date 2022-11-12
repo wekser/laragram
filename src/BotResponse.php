@@ -117,6 +117,7 @@ class BotResponse
         $view['method'] = 'sendMessage';
         $view['chat_id'] = $this->user->uid;
         $view['text'] = $text;
+        $view['parse_mode'] = 'Markdown';
 
         $this->contents = $view;
 
@@ -130,7 +131,7 @@ class BotResponse
      * @param array|null $data
      * @return $this
      */
-    public function view(string $view, ?array $data): self
+    public function view(string $view, ?array $data = []): self
     {
         $this->contents = $this->render($view, $data);
 
@@ -210,10 +211,8 @@ class BotResponse
      */
     protected function getContents()
     {
-        $user = $this->user;
-
         try {
-            return call_user_func(function ($view) use ($user) {
+            return call_user_func(function ($view) {
 
                 if (is_array($view->data) && !empty($view->data)) {
                     extract($view->data, EXTR_SKIP);

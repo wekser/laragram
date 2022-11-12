@@ -122,6 +122,6 @@ class Laragram
      */
     protected function back()
     {
-        return response()->json($this->response['view']);
+        return empty($this->response) ? response('ok', 200) : response()->json($this->response['view']);
     }
 }

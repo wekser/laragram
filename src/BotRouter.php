@@ -77,15 +77,18 @@ class BotRouter
      */
     protected function runRoute(array $request, array $route): array
     {
-        if (!class_exists($route['controller'])) {
+        $controller = '\\' . 'App\Http\Controllers\Laragram\HelloController';
+        $method = $route['method'];
+
+        if (!class_exists($controller)) {
             throw new NotExistsControllerException($route['controller']);
         }
 
-        if (!method_exists($route['controller'], $route['method'])) {
+        if (!method_exists($controller, $method)) {
             throw new NotExistMethodException($route['method'], $route['controller']);
         }
 
-        return $this->prepareResponse($route['controller']->{$route['method']}($this->prepareRequest($request, $route)));
+        return $this->prepareResponse((new $controller())->$method($this->prepareRequest($request, $route)));
     }
 
     /**
