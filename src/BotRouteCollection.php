@@ -39,6 +39,7 @@ class BotRouteCollection
         'shipping_query' => 'invoice_payload',
         'pre_checkout_query' => 'invoice_payload'
     ];
+
     /**
      * The router instance used by the route.
      *
@@ -61,7 +62,7 @@ class BotRouteCollection
      * @return $this
      * @throws RouteEventInvalidException
      */
-    public function bind(string $event, ?string $listener = null)
+    public function bind(string $event, ?string $listener = null): self
     {
         if (!in_array($event, $this->defaultEvents)) {
             throw new RouteEventInvalidException();
@@ -83,7 +84,7 @@ class BotRouteCollection
      * @param string $alias
      * @return $this
      */
-    public function alias(string $alias)
+    public function alias(string $alias): self
     {
         $this->route['alias'] = $alias;
 
@@ -96,7 +97,7 @@ class BotRouteCollection
      * @param string $catch
      * @return $this
      */
-    public function catch(string $hook)
+    public function catch(string $hook): self
     {
         $this->route['hook'] = $hook;
 
@@ -110,14 +111,14 @@ class BotRouteCollection
      * @return void
      * @throws RouteActionInvalidException
      */
-    public function call(string $action)
+    public function call(array $action)
     {
-        if (!Str::contains($action, '@')) {
+        if (count($action) != 2) {
             throw new RouteActionInvalidException();
         }
 
-        $controller = Str::before($action, '@');
-        $method = Str::after($action, '@');
+        $controller = $action[0];
+        $method = $action[1];
 
         if (empty($controller) && empty($method)) {
             throw new RouteActionInvalidException();
@@ -167,9 +168,9 @@ class BotRouteCollection
      * @return array
      * @throws NotFoundRouteFileException
      */
-    public function collectRoutes()
+    public function collectRoutes(): array
     {
-        $file = base_path('routes/laragram.php');
+        $file = base_path('routes/' . config('laragram.paths.route') . '.php');
 
         if (!file_exists($file)) {
             throw new NotFoundRouteFileException($file);

@@ -15,7 +15,6 @@ use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Exceptions\ResponseEmptyException;
 use Wekser\Laragram\Exceptions\ResponseInvalidException;
-use Wekser\Laragram\Facades\BotAuth;
 
 class FormResponse
 {
@@ -23,20 +22,17 @@ class FormResponse
      * Prepares the Response before it is sent to the client.
      *
      * @param \Wekser\Laragram\BotRequest $request
-     * @param \Wekser\Laragram\BotResponse|string $response
+     * @param \Wekser\Laragram\BotResponse $response
      * @return array
      * @throws ResponseEmptyException|ResponseInvalidException
      */
-    public function getResponse(BotRequest $request, $response): array
+    public function getResponse(BotRequest $request, ?BotResponse $response): array
     {
         $request = $request->getRequest();
 
         if ($response instanceof BotResponse) {
             $request['view'] = $response->contents ?? [];
             $request['state'] = $response->state ?? $request['state'];
-        } elseif (is_string($response)) {
-            $request['view'] = $this->createBasicResponse($response);
-            $request['state'] = $request['state'];
         } elseif (empty($response)) {
             throw new ResponseEmptyException();
         } else {
@@ -44,22 +40,5 @@ class FormResponse
         }
 
         return $request;
-    }
-
-    /**
-     * Create the basic view response.
-     *
-     * @param string $response
-     * @return array
-     */
-    protected function createBasicResponse(string $response): array
-    {
-        $user = BotAuth::user();
-
-        $view['method'] = 'sendMessage';
-        $view['chat_id'] = $user->uid;
-        $view['text'] = $response;
-
-        return $view;
     }
 }

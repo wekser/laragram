@@ -5,6 +5,25 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v1.3.0] (2022-11-12)
+
+### Added
+
+- Added path configuration for views and routes in `config.php`
+- Added localization features in views
+- Added `text()` in `BotResponse`
+- Expanded functionality example chatbot
+
+### Changed
+
+- Optimized `config.php`
+- Changed route specifications
+- Improved code
+
+### Fixed
+
+- Fixed more bugs
+
 ## [v1.2.1] (2022-11-02)
 
 ### Changed

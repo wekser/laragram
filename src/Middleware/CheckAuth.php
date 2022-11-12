@@ -31,7 +31,7 @@ class CheckAuth
 
         $user = collect($entity)->get('from');
 
-        if (! empty($user) && $user['is_bot'] == false) {
+        if (!empty($user) && !$user['is_bot']) {
             return $next($request);
         }
 

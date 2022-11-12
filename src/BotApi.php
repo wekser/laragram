@@ -51,6 +51,21 @@ class BotApi
     }
 
     /**
+     * Set parameter array before request.
+     *
+     * @param array $params
+     * @param string|null $targetKey
+     *
+     * @return array
+     */
+    protected function setParameters(array $params, ?string $targetKey = null)
+    {
+        empty($targetKey) ?: $params[$targetKey] = $params[$targetKey] ?? BotAuth::user()->uid;
+
+        return $params;
+    }
+
+    /**
      * Forward message of any kind.
      *
      * @link https://core.telegram.org/bots/api#forwardMessage
@@ -514,7 +529,6 @@ class BotApi
         return BotClient::request('deleteMessage', $this->setParameters($params, 'chat_id'));
     }
 
-
     /**
      * Send .webp stickers.
      *
@@ -738,20 +752,5 @@ class BotApi
     public function deleteWebhook()
     {
         return BotClient::request('deleteWebhook');
-    }
-
-    /**
-     * Set parameter array before request.
-     *
-     * @param array $params
-     * @param string|null $targetKey
-     *
-     * @return array
-     */
-    protected function setParameters(array $params, $targetKey = null)
-    {
-        empty($targetKey) ?: $params[$targetKey] = $params[$targetKey] ?? BotAuth::user()->uid;
-
-        return $params;
     }
 }

@@ -69,10 +69,10 @@ class BotClient
      *
      * @param string $token
      * @param string $prefix
-     * @param string $secret
+     * @param string|null $secret
      * @throws TokenInvalidException
      */
-    public function __construct($token, $prefix, $secret)
+    public function __construct(string $token, string $prefix, ?string $secret)
     {
         if (empty($token)) {
             throw new TokenInvalidException();
@@ -89,9 +89,9 @@ class BotClient
      * @param string $method
      * @param array $params
      * @param bool $fileUpload
-     * @return array
+     * @return mixed
      */
-    public function request(string $method, array $params = [], $fileUpload = false)
+    public function request(string $method, array $params = [], bool $fileUpload = false)
     {
         $request = $this->isAsyncRequest ? 'requestAsync' : 'request';
 
@@ -108,7 +108,7 @@ class BotClient
      * Prepare a response and return the result.
      *
      * @param \Psr\Http\Message\ResponseInterface $response
-     * @return array
+     * @return mixed
      * @throws ClientResponseInvalidException
      */
     protected function response(ResponseInterface $response)
@@ -125,7 +125,7 @@ class BotClient
 
         $result = json_decode($body, true);
 
-        if (! isset($result['ok'])) {
+        if (!isset($result['ok'])) {
             throw new ClientResponseInvalidException();
         }
 
@@ -135,12 +135,12 @@ class BotClient
     /**
      * Finds whether a variable is a json string.
      *
-     * @param string $string
+     * @param void $string
      * @return bool
      */
-    protected function isJson($string)
+    protected function isJson($string): bool
     {
-        return is_string($string) && is_array(json_decode($string, true)) ? true : false;
+        return is_string($string) && is_array(json_decode($string, true));
     }
 
     /**
@@ -149,7 +149,7 @@ class BotClient
      * @param string $method
      * @return string
      */
-    protected function buildUrl(string $method)
+    protected function buildUrl(string $method): string
     {
         return $this->getApiUrl() . $this->getToken() . '/' . $method;
     }
@@ -159,7 +159,7 @@ class BotClient
      *
      * @return string
      */
-    protected function getApiUrl()
+    protected function getApiUrl(): string
     {
         return static::API_URL;
     }
@@ -181,7 +181,7 @@ class BotClient
      * @param bool $fileUpload
      * @return array
      */
-    protected function buildOptions(array $params = [], $fileUpload = false)
+    protected function buildOptions(array $params = [], bool $fileUpload = false): array
     {
         $settings = [
             'connect_timeout' => $this->connectTimeOut,
@@ -201,7 +201,7 @@ class BotClient
      * @param bool $fileUpload
      * @return array
      */
-    protected function prepareParameters(array $params = [], $fileUpload = false)
+    protected function prepareParameters(array $params = [], bool $fileUpload = false): array
     {
         if ($fileUpload) {
             $multipart_params = collect($params)->reject(function ($value) {
@@ -233,7 +233,7 @@ class BotClient
      * @param string $contents
      * @return bool
      */
-    protected function isValidFileOrUrl($name, $contents)
+    protected function isValidFileOrUrl(string $name, string $contents): bool
     {
         if ($name == 'url') {
             return false;
@@ -257,13 +257,13 @@ class BotClient
      * @return resource
      * @throws FileInvalidException
      */
-    protected function inputFile($contents)
+    protected function inputFile(string $contents)
     {
         if (is_resource($contents)) {
             return $contents;
         }
 
-        if (!preg_match('/^(https?|ftp):\/\/.*/', $contents) === 1 && !is_readable($contents)) {
+        if (!preg_match('/^(https?|ftp):\/\/.*/', $contents) == 1 && !is_readable($contents)) {
             throw new FileInvalidException($contents);
         }
 

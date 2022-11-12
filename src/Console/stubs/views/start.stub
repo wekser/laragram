@@ -1,8 +1,17 @@
 <?php
 
 return [
-    "method" => "sendMessage",
-    "chat_id" => $user->uid,
-    "text" => "*Hello, $user->first_name!*\nThank you for using Laragram!\nTry to write something and I will answer you the same.",
-    "parse_mode" => "Markdown"
+    'method' => 'sendMessage',
+    'parse_mode' => 'Markdown',
+    'text' => trans('laragram.start.text', ['first_name' => $first_name]),
+    'reply_markup' => [
+        'inline_keyboard' => [
+            [
+                [
+                    'text' => trans('laragram.start.btn_inline'),
+                    'callback_data' => 'callback_test'
+                ]
+            ]
+        ]
+    ]
 ];

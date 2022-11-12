@@ -30,7 +30,7 @@ class FormRequest
      * @param string|null $state
      * @return \Wekser\Laragram\BotRequest
      */
-    public function setRequest(array $request, array $route, $state = null)
+    public function setRequest(array $request, array $route, ?string $state = null): BotRequest
     {
         $type = collect($request)->search(function ($value, $key) {
             return is_array($value) && isset($value['from']);
