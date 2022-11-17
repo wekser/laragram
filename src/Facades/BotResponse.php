@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Wekser\Laragram\BotResponse redirect(string $location)
  * @method static \Wekser\Laragram\BotResponse text(string $view)
  * @method static \Wekser\Laragram\BotResponse view(string $view, array | null $data = [])
- * @method static \Wekser\Laragram\BotResponse user(\Wekser\Laragram\Models\User $user)
+ * @method static \Wekser\Laragram\BotResponse user(User $user)
  *
  * @see \Wekser\Laragram\BotResponse
  */

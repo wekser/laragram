@@ -16,9 +16,9 @@ use Illuminate\Support\Facades\Facade;
 /**
  * This is the BotAuth facade class.
  *
- * @method static \Wekser\Laragram\Models\User user()
+ * @method static User user()
  *
- * @see \Wekser\Laragram\Models\User
+ * @see User
  */
 class BotAuth extends Facade
 {

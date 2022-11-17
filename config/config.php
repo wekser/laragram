@@ -18,7 +18,8 @@ return [
     */
 
     'auth' => [
-        'driver' => 'database'
+        'driver' => 'database',
+        'model' => \Wekser\Laragram\Models\User::class
     ],
 
     /*

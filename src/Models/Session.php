@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $last_state
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
- * @property-read \Wekser\Laragram\Models\User $user
+ * @property-read User $user
  */
 class Session extends Model
 {
@@ -50,6 +50,6 @@ class Session extends Model
      */
     public function user()
     {
-        return $this->belongsTo('Wekser\Laragram\Models\User');
+        return $this->belongsTo(config('laragram.auth.model'));
     }
 }

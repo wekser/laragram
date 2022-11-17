@@ -16,7 +16,6 @@ use Wekser\Laragram\Exceptions\NotExistsViewException;
 use Wekser\Laragram\Exceptions\ViewEmptyException;
 use Wekser\Laragram\Exceptions\ViewInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Models\User;
 
 class BotResponse
 {
@@ -88,7 +87,9 @@ class BotResponse
      */
     public function user($user): self
     {
-        $this->user = !($user instanceof User) ?: $user;
+        $model = config('laragram.auth.model');
+
+        $this->user = !($user instanceof $model) ?: $user;
 
         return $this;
     }

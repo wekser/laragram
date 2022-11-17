@@ -16,7 +16,6 @@ use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\BotException;
 use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Models\User;
 
 class Laragram
 {

@@ -12,7 +12,6 @@
 namespace Wekser\Laragram;
 
 use Illuminate\Http\Request;
-use Wekser\Laragram\Models\User;
 
 class BotAuth
 {
@@ -38,6 +37,13 @@ class BotAuth
     protected $languages;
 
     /**
+     * The basic or custom User model.
+     *
+     * @var object
+     */
+    protected $model;
+
+    /**
      * User object from the request.
      *
      * @var array
@@ -56,12 +62,14 @@ class BotAuth
      *
      * @param \Illuminate\Http\Request $request
      * @param string $driver
+     * @param object $model
      * @param array $languages
      */
-    public function __construct(Request $request, string $driver, array $languages)
+    public function __construct(Request $request, string $driver, object $model, array $languages)
     {
         $this->request = $request;
         $this->driver = $driver;
+        $this->model = $model;
         $this->languages = $languages;
     }
 
@@ -115,22 +123,22 @@ class BotAuth
      * Get user from database.
      *
      * @param array $sender
-     * @return \Wekser\Laragram\Models\User|null
+     * @return object|null
      */
-    protected function getUser(array $sender): ?User
+    protected function getUser(array $sender)
     {
-        return User::where('uid', $sender['id'])->first();
+        return (new ($this->model))::where('uid', $sender['id'])->first();
     }
 
     /**
      * Create a new user.
      *
      * @param array $sender
-     * @return \Wekser\Laragram\Models\User
+     * @return object
      */
-    protected function register(array $sender): User
+    protected function register(array $sender)
     {
-        $user = new User();
+        $user = new ($this->model)();
         $user->uid = $sender['id'];
         $user->first_name = $sender['first_name'];
         $user->last_name = $sender['last_name'] ?? null;
@@ -167,11 +175,11 @@ class BotAuth
     /**
      * Update user when login.
      *
-     * @param \Wekser\Laragram\Models\User $user
+     * @param object $user
      * @param array $sender
-     * @return \Wekser\Laragram\Models\User
+     * @return object
      */
-    protected function login(User $user, array $sender): User
+    protected function login(object $user, array $sender)
     {
         $user->first_name = $sender['first_name'];
         $user->last_name = $sender['last_name'] ?? null;
@@ -197,13 +205,13 @@ class BotAuth
             'language' => $this->defineUserLanguage($sender)
         ];
 
-        return (object)$user;
+        return (object) $user;
     }
 
     /**
      * Get current authorized user.
      *
-     * @return \Wekser\Laragram\Models\User
+     * @return object
      */
     public function user()
     {
