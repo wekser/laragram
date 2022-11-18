@@ -30,20 +30,6 @@ class BotClient
     protected $token;
 
     /**
-     * The bot prefix.
-     *
-     * @var string
-     */
-    protected $prefix;
-
-    /**
-     * The bot secret.
-     *
-     * @var string
-     */
-    protected $secret;
-
-    /**
      * Indicates if the request to Telegram will be asynchronous (non-blocking).
      *
      * @var bool
@@ -68,19 +54,15 @@ class BotClient
      * BotClient Constructor
      *
      * @param string $token
-     * @param string $prefix
-     * @param string|null $secret
      * @throws TokenInvalidException
      */
-    public function __construct(string $token, string $prefix, ?string $secret)
+    public function __construct(string $token)
     {
         if (empty($token)) {
             throw new TokenInvalidException();
         }
 
         $this->token = $token;
-        $this->prefix = $prefix;
-        $this->secret = $secret;
     }
 
     /**
@@ -117,7 +99,7 @@ class BotClient
             throw new ClientResponseInvalidException();
         }
 
-        $body = trim((string) $response->getBody());
+        $body = trim((string)$response->getBody());
 
         if (!$this->isJson($body)) {
             throw new ClientResponseInvalidException();
@@ -268,25 +250,5 @@ class BotClient
         }
 
         return Psr7\try_fopen($contents, 'r');
-    }
-
-    /**
-     * Get a router prefix.
-     *
-     * @return string|null
-     */
-    protected function getPrefix(): ?string
-    {
-        return $this->prefix;
-    }
-
-    /**
-     * Get a router secret.
-     *
-     * @return string|null
-     */
-    protected function getSecret(): ?string
-    {
-        return $this->secret;
     }
 }

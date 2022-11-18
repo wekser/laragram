@@ -41,10 +41,9 @@ class LogSession
         $session->update_id = $event->response['update_id'];
         $session->event = $event->response['event'];
         $session->listener = $event->response['listener'];
-        $session->hook = $event->response['hook'];
-        $session->controller = $event->response['controller'];
-        $session->method = $event->response['method'];
-        $session->last_state = $event->response['state'];
+        $session->contains = $event->response['contains'];
+        $session->uses = $event->response['uses'];
+        $session->location = $event->response['location'];
         $session->save();
     }
 }

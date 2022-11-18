@@ -12,7 +12,6 @@
 namespace Wekser\Laragram\Events;
 
 use Illuminate\Queue\SerializesModels;
-use Wekser\Laragram\Models\User;
 
 class CallbackFormed
 {
@@ -33,7 +32,7 @@ class CallbackFormed
      *
      * @return void
      */
-    public function __construct(User $user, $response)
+    public function __construct($user, $response)
     {
         $this->user = $user;
         $this->response = $response;

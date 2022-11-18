@@ -1,6 +1,6 @@
 
 use App\Http\Controllers\Laragram\HelloController;
 
-$bot->bind('message')->catch('/start')->call([HelloController::class, 'start']);
-$bot->bind('message')->alias('home')->call([HelloController::class, 'home']);
-$bot->bind('callback_query')->catch('callback_test')->call([HelloController::class, 'callback']);
+$bot->get('message')->contains('/start')->call([HelloController::class, 'start']);
+$bot->get('message')->from('home')->call([HelloController::class, 'home']);
+$bot->get('callback_query')->contains('callback_test')->call([HelloController::class, 'callback']);

@@ -62,7 +62,7 @@ class BotRouteCollection
      * @return $this
      * @throws RouteEventInvalidException
      */
-    public function bind(string $event, ?string $listener = null): self
+    public function get(string $event, ?string $listener = null): self
     {
         if (!in_array($event, $this->defaultEvents)) {
             throw new RouteEventInvalidException();
@@ -79,53 +79,59 @@ class BotRouteCollection
     }
 
     /**
-     * Bind the alias to a route.
+     * Bind the from the route.
      *
-     * @param string $alias
+     * @param string $name
      * @return $this
      */
-    public function alias(string $alias): self
+    public function from(string $name): self
     {
-        $this->route['alias'] = $alias;
+        $this->route['from'] = $name;
 
         return $this;
     }
 
     /**
-     * Bind the hook of listener to a route.
+     * Bind the contains of listener to a route.
      *
-     * @param string $catch
+     * @param string $input
      * @return $this
      */
-    public function catch(string $hook): self
+    public function contains(string $input): self
     {
-        $this->route['hook'] = $hook;
+        $this->route['contains'] = $input;
 
         return $this;
     }
 
     /**
-     * Set the action for the route.
+     * Set the callback for the route.
      *
-     * @param string $action
+     * @param array|callable $action
      * @return void
      * @throws RouteActionInvalidException
      */
-    public function call(array $action)
+    public function call(array|callable $action)
     {
-        if (count($action) != 2) {
-            throw new RouteActionInvalidException();
+        if (is_array($action)) {
+            if (count($action) != 2) {
+                throw new RouteActionInvalidException();
+            }
+
+            $controller = $action[0];
+            $method = $action[1];
+
+            if (empty($controller) && empty($method)) {
+                throw new RouteActionInvalidException();
+            }
+
+            $this->route['controller'] = $controller;
+            $this->route['method'] = $method;
         }
 
-        $controller = $action[0];
-        $method = $action[1];
-
-        if (empty($controller) && empty($method)) {
-            throw new RouteActionInvalidException();
+        if (is_callable($action)) {
+            $this->route['callback'] = $action;
         }
-
-        $this->route['controller'] = $controller;
-        $this->route['method'] = $method;
 
         $this->add();
     }
@@ -149,7 +155,7 @@ class BotRouteCollection
      */
     protected function addToCollections()
     {
-        array_push($this->routes, $this->route);
+        $this->routes[] = $this->route;
     }
 
     /**

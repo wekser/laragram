@@ -19,13 +19,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $update_id
  * @property string $event
  * @property string $listener
- * @property string $hook
- * @property string $controller
- * @property string $method
- * @property string $last_state
+ * @property string $contains
+ * @property string $uses
+ * @property string $location
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
- * @property-read \Wekser\Laragram\Models\User $user
+ * @property-read User $user
  */
 class Session extends Model
 {
@@ -42,7 +41,7 @@ class Session extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'event', 'listener', 'hook', 'controller', 'method', 'last_state'
+        'user_id', 'update_id', 'event', 'listener', 'contains', 'uses', 'location'
     ];
 
     /**
@@ -50,6 +49,6 @@ class Session extends Model
      */
     public function user()
     {
-        return $this->belongsTo('Wekser\Laragram\Models\User');
+        return $this->belongsTo(config('laragram.auth.model'));
     }
 }

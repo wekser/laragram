@@ -27,7 +27,7 @@ class HelloController extends Controller
      */
     public function home(BotRequest $request)
     {
-        return BotResponse::text($request->query());
+        return BotResponse::text($request->input());
     }
 
     /**

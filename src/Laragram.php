@@ -16,16 +16,15 @@ use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\BotException;
 use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Models\User;
 
 class Laragram
 {
     /**
-     * The current user state.
+     * The current user location.
      *
      * @var string|null
      */
-    protected $state;
+    protected $location;
 
     /**
      * The request from to Telegram.
@@ -85,7 +84,7 @@ class Laragram
         app('translator')->setLocale($this->user->language);
 
         if (config('laragram.auth.driver') == 'database') {
-            $this->state = $this->user->sessions()->latest()->value('last_state');
+            $this->location = $this->user->sessions()->latest()->value('location');
         }
     }
 
@@ -97,7 +96,7 @@ class Laragram
     protected function run()
     {
         try {
-            $this->response = (new BotRouter())->dispatch($this->request->all(), $this->state);
+            $this->response = (new BotRouter())->dispatch($this->request->all(), $this->location);
         } catch (Exception $exception) {
             return BotException::handle($exception);
         }

@@ -55,6 +55,18 @@ class BotRequest
     }
 
     /**
+     * Returns a parameter in object by name.
+     *
+     * @param string $key
+     * @param mixed $default
+     * @return array|string|null
+     */
+    public function get(string $key, $default = null): array|string|null
+    {
+        return $this->getRequestData('all.' . $key, $default);
+    }
+
+    /**
      * Get the current request.
      *
      * @return array
@@ -95,23 +107,23 @@ class BotRequest
     }
 
     /**
-     * Returns the query from callback.
+     * Returns the input from callback.
      *
      * @return string|null
      */
-    public function query(): ?string
+    public function input(): ?string
     {
-        return $this->getRequestData('query');
+        return $this->getRequestData('input');
     }
 
     /**
-     * Returns the current route hook.
+     * Returns the current route contains.
      *
      * @return string|null
      */
-    public function hook(): ?string
+    public function contains(): ?string
     {
-        return $this->getRequestData('hook');
+        return $this->getRequestData('contains');
     }
 
     /**
@@ -142,18 +154,6 @@ class BotRequest
     public function listener(): string
     {
         return $this->getRequestData('listener');
-    }
-
-    /**
-     * Returns a parameter in object by name.
-     *
-     * @param string $key
-     * @param mixed $default
-     * @return array|string|null
-     */
-    public function input(string $key, $default = null): array|string|null
-    {
-        return $this->getRequestData('all.' . $key, $default);
     }
 
     /**
