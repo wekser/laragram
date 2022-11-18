@@ -62,15 +62,15 @@ class BotAuth
      *
      * @param \Illuminate\Http\Request $request
      * @param string $driver
-     * @param object $model
      * @param array $languages
+     * @param User $model
      */
-    public function __construct(Request $request, string $driver, object $model, array $languages)
+    public function __construct(Request $request, string $driver, array $languages, $model)
     {
         $this->request = $request;
         $this->driver = $driver;
-        $this->model = $model;
         $this->languages = $languages;
+        $this->model = $model;
     }
 
     /**
@@ -123,7 +123,7 @@ class BotAuth
      * Get user from database.
      *
      * @param array $sender
-     * @return object|null
+     * @return mixed
      */
     protected function getUser(array $sender)
     {
@@ -134,7 +134,7 @@ class BotAuth
      * Create a new user.
      *
      * @param array $sender
-     * @return object
+     * @return User
      */
     protected function register(array $sender)
     {
@@ -150,7 +150,7 @@ class BotAuth
     }
 
     /**
-     * Define a user language.
+     * Define user language.
      *
      * @param array $sender
      * @return string
@@ -175,11 +175,11 @@ class BotAuth
     /**
      * Update user when login.
      *
-     * @param object $user
+     * @param void $user
      * @param array $sender
-     * @return object
+     * @return User
      */
-    protected function login(object $user, array $sender)
+    protected function login($user, array $sender)
     {
         $user->first_name = $sender['first_name'];
         $user->last_name = $sender['last_name'] ?? null;

@@ -117,7 +117,7 @@ class BotRequest
     }
 
     /**
-     * Returns the current route hook.
+     * Returns the current route contains.
      *
      * @return string|null
      */

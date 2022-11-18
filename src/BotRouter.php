@@ -53,16 +53,16 @@ class BotRouter
     {
         $this->locatePath($location);
 
-        return $this->runRoute($request, $this->findRoute($request, $this->state));
+        return $this->runRoute($request, $this->findRoute($request, $this->location));
     }
 
     /**
      * Set a path for the current user.
      *
-     * @param string|null $state
+     * @param string|null $location
      * @return void
      */
-    protected function locatePath(?string $state)
+    protected function locatePath(?string $location)
     {
         $this->location = $location ?? 'start';
     }
@@ -81,7 +81,7 @@ class BotRouter
             return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($request, $route)));
         }
 
-        $controller = '\\' . 'App\Http\Controllers\Laragram\HelloController';
+        $controller = '\\' . $route['controller'];
         $method = $route['method'];
 
         if (!class_exists($controller)) {
@@ -115,18 +115,18 @@ class BotRouter
      */
     protected function prepareRequest(array $request, array $route): BotRequest
     {
-        return $this->request = (new FormRequest())->setRequest($request, $route, $this->state);
+        return $this->request = (new FormRequest())->setRequest($request, $route, $this->location);
     }
 
     /**
      * Find the first route matching a given request.
      *
      * @param array $request
-     * @param string $state
+     * @param string $location
      * @return array
      * @throws NotFoundRouteException
      */
-    public function findRoute(array $request, string $state): array
+    public function findRoute(array $request, string $location): array
     {
         $type = collect($request)->search(function ($value, $key) {
             return is_array($value) && isset($value['from']);
@@ -148,7 +148,7 @@ class BotRouter
 
                 $A0 = empty($from);
                 $A1 = empty($contains);
-                $B0 = $from == $state;
+                $B0 = $from == $location;
                 $B1 = $contains == $command;
                 $B2 = $contains == $input;
 

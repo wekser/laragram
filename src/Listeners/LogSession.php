@@ -36,16 +36,14 @@ class LogSession
      */
     public function handle(CallbackFormed $event)
     {
-        $uses = isset($event->response['controller']) ? $event->response['controller'] . '@' . $event->response['method'] : 'callback';
-
         $session = new Session();
         $session->user_id = $event->user->id;
         $session->update_id = $event->response['update_id'];
         $session->event = $event->response['event'];
         $session->listener = $event->response['listener'];
         $session->contains = $event->response['contains'];
-        $session->uses = $uses;
-        $session->location = $event->response['state'];
+        $session->uses = $event->response['uses'];
+        $session->location = $event->response['location'];
         $session->save();
     }
 }
