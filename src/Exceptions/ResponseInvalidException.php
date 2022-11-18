@@ -6,13 +6,13 @@ use Exception;
 
 class ResponseInvalidException extends Exception
 {
-    public function __construct($method, $controller)
+    public function __construct($uses)
     {
-        $this->message = $this->setMessage($method, $controller);
+        $this->message = $this->setMessage($uses);
     }
 
-    protected function setMessage($method, $controller)
+    protected function setMessage($uses)
     {
-        return 'Invalid response from [' . $method . '] method in [' . $controller . '] controller.';
+        return 'Invalid response from [' . $uses . '].';
     }
 }

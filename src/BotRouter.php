@@ -22,11 +22,11 @@ use Wekser\Laragram\Support\FormResponse;
 class BotRouter
 {
     /**
-     * The currently user state.
+     * The currently user location.
      *
      * @var string
      */
-    protected $state;
+    protected $location;
 
     /**
      * The currently dispatched route instance.
@@ -46,12 +46,12 @@ class BotRouter
      * Dispatch the request to a route and return the response.
      *
      * @param array $request
-     * @param string|null $state
+     * @param string|null $location
      * @return array
      */
-    public function dispatch(array $request, ?string $state): array
+    public function dispatch(array $request, ?string $location): array
     {
-        $this->locatePath($state);
+        $this->locatePath($location);
 
         return $this->runRoute($request, $this->findRoute($request, $this->state));
     }
@@ -64,7 +64,7 @@ class BotRouter
      */
     protected function locatePath(?string $state)
     {
-        $this->state = $state ?? 'start';
+        $this->location = $location ?? 'start';
     }
 
     /**
@@ -77,6 +77,10 @@ class BotRouter
      */
     protected function runRoute(array $request, array $route): array
     {
+        if (isset($route['callback'])) {
+            return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($request, $route)));
+        }
+
         $controller = '\\' . 'App\Http\Controllers\Laragram\HelloController';
         $method = $route['method'];
 
@@ -132,22 +136,21 @@ class BotRouter
         $routes = (new BotRouteCollection())->collectRoutes();
 
         foreach ($routes as $route) {
-
             $event = $route['event'] ?? null;
             $listener = $route['listener'] ?? null;
-            $alias = $route['alias'] ?? null;
-            $hook = $route['hook'] ?? null;
+            $from = $route['from'] ?? null;
+            $contains = $route['contains'] ?? null;
 
             if ($event == $type && collect($entity)->has($listener)) {
 
-                $query = $entity[$listener] ?? null;
-                $command = Str::before($query, ' ');
+                $input = $entity[$listener] ?? null;
+                $command = Str::before($input, ' ');
 
-                $A0 = empty($alias);
-                $A1 = empty($hook);
-                $B0 = $alias == $state;
-                $B1 = $hook == $command;
-                $B2 = $hook == $query;
+                $A0 = empty($from);
+                $A1 = empty($contains);
+                $B0 = $from == $state;
+                $B1 = $contains == $command;
+                $B2 = $contains == $input;
 
                 if (($A0 && $A1) || ($A0 && $B1) || ($B0 && $B2) || ($B0 && $A1)) {
                     return $route;

@@ -19,10 +19,9 @@ class CreateLaragramSessionsTable extends Migration
             $table->bigInteger('update_id')->unique();
             $table->string('event')->nullable();
             $table->string('listener')->nullable();
-            $table->string('hook')->nullable();
-            $table->string('controller')->nullable();
-            $table->string('method')->nullable();
-            $table->string('last_state')->nullable();
+            $table->string('contains')->nullable();
+            $table->string('uses')->nullable();
+            $table->string('location')->nullable();
             $table->timestamps();
         });
     }

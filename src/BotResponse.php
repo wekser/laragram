@@ -20,11 +20,11 @@ use Wekser\Laragram\Facades\BotAuth;
 class BotResponse
 {
     /**
-     * The state to next user request.
+     * The location to next user request.
      *
      * @var string
      */
-    public $state;
+    public $location;
 
     /**
      * The contents of rendered view.
@@ -95,14 +95,14 @@ class BotResponse
     }
 
     /**
-     * Set the state to next user request.
+     * Set the location to next user request.
      *
-     * @param string $state
+     * @param string $location
      * @return $this
      */
-    public function redirect(string $state): self
+    public function redirect(string $location): self
     {
-        $this->state = $state;
+        $this->location = $location;
 
         return $this;
     }
@@ -111,14 +111,15 @@ class BotResponse
      * Create the basic view response.
      *
      * @param string $text
+     * @param string|null $format
      * @return $this
      */
-    public function text(string $text): self
+    public function text(string $text , ?string $format = 'Markdown'): self
     {
         $view['method'] = 'sendMessage';
         $view['chat_id'] = $this->user->uid;
         $view['text'] = $text;
-        $view['parse_mode'] = 'Markdown';
+        $view['parse_mode'] = $format;
 
         $this->contents = $view;
 
