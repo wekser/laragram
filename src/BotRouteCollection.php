@@ -99,9 +99,11 @@ class BotRouteCollection
      */
     public function contains(string $pattern): self
     {
+        $is_command = Str::startsWith($pattern, '/');
+
         $this->route['contains']['pattern'] = $pattern;
-        $this->route['contains']['is_command'] = Str::startsWith($contains['pattern'], '/');
-        $this->route['contains']['params'] = !$this->route['contains']['is_command'] ?: $this->getContainParams($this->route['contains']['pattern']);
+        $this->route['contains']['params'] = !$is_command ?: $this->getContainParams($pattern);
+        $this->route['contains']['is_command'] = Str::startsWith($pattern, '/');
 
         return $this;
     }
