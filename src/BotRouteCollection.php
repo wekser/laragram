@@ -62,7 +62,7 @@ class BotRouteCollection
      * @return $this
      * @throws RouteEventInvalidException
      */
-    public function get(string $event, ?string $listener = null): self
+    public function get(string $event, ?string $listener): self
     {
         if (!in_array($event, $this->defaultEvents)) {
             throw new RouteEventInvalidException();

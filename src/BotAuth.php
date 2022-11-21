@@ -65,7 +65,7 @@ class BotAuth
      * @param array $languages
      * @param User $model
      */
-    public function __construct(Request $request, string $driver, array $languages, $model)
+    public function __construct(Request $request, string $driver, array $languages, User $model)
     {
         $this->request = $request;
         $this->driver = $driver;
@@ -175,11 +175,11 @@ class BotAuth
     /**
      * Update user when login.
      *
-     * @param void $user
+     * @param mixed $user
      * @param array $sender
      * @return User
      */
-    protected function login($user, array $sender)
+    protected function login($user, array $sender): User
     {
         $user->first_name = $sender['first_name'];
         $user->last_name = $sender['last_name'] ?? null;

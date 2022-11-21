@@ -56,7 +56,7 @@ class BotRequest
     }
 
     /**
-     * Returns a parameter in object by name.
+     * Returns a data from update object by name.
      *
      * @param string $key
      * @param ?string $default
@@ -64,7 +64,7 @@ class BotRequest
      */
     public function get(string $key, ?string $default): array|string|null
     {
-        return $this->getRequestData('update.' . $key, $default);
+        return $this->getRequestData('update.object.' . $key, $default);
     }
 
     /**

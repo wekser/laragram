@@ -38,10 +38,10 @@ class LogSession
     {
         $session = new Session();
         $session->user_id = $event->user->id;
-        $session->update_id = $event->response['uid'];
+        $session->update_id = $event->response['update']['id'];
         $session->event = $event->response['route']['event'];
         $session->listener = $event->response['route']['listener'];
-        $session->contains = json_encode($event->response['contains']);
+        $session->contains = json_encode($event->response['route']['contains']);
         $session->uses = $event->response['route']['uses'];
         $session->location = $event->response['route']['location'];
         $session->save();

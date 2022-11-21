@@ -33,10 +33,9 @@ class FormResponse
 
         if ($response instanceof BotResponse) {
             $request['view'] = $response->contents ?? [];
-            $request['location'] = $response->location ?? $request['route']['location'];
+            $response->location ?? $request['route']['location'] = $response->location;
         } elseif (is_string($response)) {
             $request['view'] = ['method' => 'sendMessage', 'chat_id' => BotAuth::user()->uid, 'text' => $response];
-            $request['location'] = $request['route']['location'];
         } elseif (empty($response)) {
             throw new ResponseEmptyException();
         } else {

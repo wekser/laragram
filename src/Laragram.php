@@ -91,7 +91,7 @@ class Laragram
     /**
      * Run the Laragram.
      *
-     * @return void
+     * @return void|null
      */
     protected function run()
     {

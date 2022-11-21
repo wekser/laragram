@@ -28,11 +28,11 @@ class BotRouter
     protected $location;
 
     /**
-     * The currently dispatched route instance.
+     * The current update event.
      *
-     * @var array
+     * @var string
      */
-    protected $current;
+    protected $type;
 
     /**
      * The request currently being dispatched.
@@ -42,17 +42,18 @@ class BotRouter
     protected $request;
 
     /**
-     * Dispatch the request to a route and return the response.
+     * Dispatch the update to a route and return the response.
      *
-     * @param array $request
+     * @param array $update
      * @param string|null $location
      * @return array
      */
-    public function dispatch(array $request, ?string $location): array
+    public function dispatch(array $update, ?string $location): array
     {
         $this->locatePath($location);
+        $this->getType($update);
 
-        return $this->runRoute($request, $this->findRoute($request, $this->location));
+        return $this->runRoute($update, $this->findRoute($update, $this->location));
     }
 
     /**
@@ -67,14 +68,27 @@ class BotRouter
     }
 
     /**
+     * Get type of update object.
+     *
+     * @param array $update
+     * @return string
+     */
+    protected function getType(array $update): string
+    {
+        $this->type = collect($update)->search(function ($value, $key) {
+            return is_array($value) && isset($value['from']);
+        });
+    }
+
+    /**
      * Run the route action and return the response.
      *
-     * @param array $request
+     * @param array $update
      * @param array $route
      * @return array
      * @throws NotExistsControllerException|NotExistMethodException
      */
-    protected function runRoute(array $request, array $route): array
+    protected function runRoute(array $update, array $route): array
     {
         if (isset($route['callback'])) {
             return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($request, $route)));
@@ -91,7 +105,7 @@ class BotRouter
             throw new NotExistMethodException($route['method'], $route['controller']);
         }
 
-        return $this->prepareResponse((new $controller())->$method($this->prepareRequest($request, $route)));
+        return $this->prepareResponse((new $controller())->$method($this->prepareRequest($update, $route)));
     }
 
     /**
@@ -108,13 +122,13 @@ class BotRouter
     /**
      * Prepare a response for return to back.
      *
-     * @param array $request
+     * @param array $update
      * @param array $route
      * @return \Wekser\Laragram\BotRequest
      */
-    protected function prepareRequest(array $request, array $route): BotRequest
+    protected function prepareRequest(array $update, array $route): BotRequest
     {
-        return $this->request = (new FormRequest())->setRequest($request, $route, $this->location);
+        return $this->request = (new FormRequest($this->type, $update))->setRequest($route, $this->location);
     }
 
     /**
@@ -127,11 +141,7 @@ class BotRouter
      */
     public function findRoute(array $request, string $location): array
     {
-        $type = collect($request)->search(function ($value, $key) {
-            return is_array($value) && isset($value['from']);
-        });
-
-        $entity = $request[$type];
+        $object = $request[$this->type];
         $routes = (new BotRouteCollection())->collectRoutes();
 
         foreach ($routes as $route) {
@@ -140,8 +150,8 @@ class BotRouter
             $from = $route['from'] ?? null;
             $contains = $route['contains'] ?? null;
 
-            if ($event == $type && collect($entity)->has($listener)) {
-                $data = $entity[$listener] ?? null;
+            if ($event == $this->type && collect($object)->has($listener)) {
+                $data = $object[$listener] ?? null;
                 $is_command = Str::of($data)->before(' ')->startsWith('/');
 
                 $EM = empty($from);
