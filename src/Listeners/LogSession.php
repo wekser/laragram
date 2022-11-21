@@ -41,7 +41,7 @@ class LogSession
         $session->update_id = $event->response['update_id'];
         $session->event = $event->response['event'];
         $session->listener = $event->response['listener'];
-        $session->contains = $event->response['contains'];
+        $session->contains = json_encode($event->response['contains']);
         $session->uses = $event->response['uses'];
         $session->location = $event->response['location'];
         $session->save();
