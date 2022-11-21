@@ -62,7 +62,7 @@ class BotRequest
      * @param ?string $default
      * @return array|string|null
      */
-    public function get(string $key, ?string $default): array|string|null
+    public function get(string $key, ?string $default = null): array|string|null
     {
         return $this->getRequestData('update.object.' . $key, $default);
     }

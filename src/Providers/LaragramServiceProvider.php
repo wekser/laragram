@@ -124,7 +124,7 @@ class LaragramServiceProvider extends ServiceProvider
      *
      * @return mixed
      */
-    protected function config(string $key, ?string $default)
+    protected function config(string $key, ?string $default = null)
     {
         return Arr::get($this->app['config']['laragram'], $key, $default);
     }
