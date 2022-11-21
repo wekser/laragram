@@ -71,9 +71,9 @@ class BotRouter
      * Get type of update object.
      *
      * @param array $update
-     * @return string
+     * @return void
      */
-    protected function getType(array $update): string
+    protected function getType(array $update)
     {
         $this->type = collect($update)->search(function ($value, $key) {
             return is_array($value) && isset($value['from']);
