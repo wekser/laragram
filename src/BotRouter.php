@@ -91,7 +91,7 @@ class BotRouter
     protected function runRoute(array $update, array $route): array
     {
         if (isset($route['callback'])) {
-            return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($request, $route)));
+            return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($update, $route)));
         }
 
         $controller = '\\' . $route['controller'];
@@ -134,14 +134,14 @@ class BotRouter
     /**
      * Find the first route matching a given request.
      *
-     * @param array $request
+     * @param array $update
      * @param string $location
      * @return array
      * @throws NotFoundRouteException
      */
-    public function findRoute(array $request, string $location): array
+    public function findRoute(array $update, string $location): array
     {
-        $object = $request[$this->type];
+        $object = $update[$this->type];
         $routes = (new BotRouteCollection())->collectRoutes();
 
         foreach ($routes as $route) {
