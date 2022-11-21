@@ -107,13 +107,23 @@ class BotRequest
     }
 
     /**
-     * Returns the input from callback.
+     * Returns the input text from callback.
      *
      * @return string|null
      */
     public function input(): ?string
     {
-        return $this->getRequestData('input');
+        return $this->getRequestData('input.text');
+    }
+
+    /**
+     * Returns the input data from callback.
+     *
+     * @return array|null
+     */
+    public function data(): ?array
+    {
+        return $this->getRequestData('input.data');
     }
 
     /**

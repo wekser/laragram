@@ -11,7 +11,6 @@
 
 namespace Wekser\Laragram;
 
-use Illuminate\Container\Container;
 use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
@@ -142,31 +141,21 @@ class BotRouter
             $contains = $route['contains'] ?? null;
 
             if ($event == $type && collect($entity)->has($listener)) {
-
                 $input = $entity[$listener] ?? null;
-                $command = Str::before($input, ' ');
+                $is_command = Str::of($input)->before(' ')->startsWith('/');
 
-                $A0 = empty($from);
-                $A1 = empty($contains);
-                $B0 = $from == $location;
-                $B1 = $contains == $command;
-                $B2 = $contains == $input;
+                $EM = empty($from);
+                $EC = empty($contains);
+                $FEL = $from == $location;
+                $CD = ($contains['is_command'] && Str::startsWith($input, '/')) && (Str::before($contains['pattern'], ' ') == Str::before($input, ' '));
+                $PD = Str::startsWith($contains['pattern'], '{') && !empty($contains['params']);
+                $PEI = $contains['pattern'] == $input;
 
-                if (($A0 && $A1) || ($A0 && $B1) || ($B0 && $B2) || ($B0 && $A1)) {
+                if (($EM && $EC) || ($EM && $CD) || ($FEL && $PD) || ($FEL && $PEI) || ($FEL && $EC)) {
                     return $route;
                 }
             }
         }
         throw new NotFoundRouteException();
-    }
-
-    /**
-     * Get the application namespace.
-     *
-     * @return string
-     */
-    protected function getAppNamespace(): string
-    {
-        return Container::getInstance()->getNamespace();
     }
 }
