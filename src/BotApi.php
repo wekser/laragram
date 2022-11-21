@@ -58,7 +58,7 @@ class BotApi
      *
      * @return array
      */
-    protected function setParameters(array $params, ?string $targetKey = null)
+    protected function setParameters(array $params, ?string $targetKey)
     {
         empty($targetKey) ?: $params[$targetKey] = $params[$targetKey] ?? BotAuth::user()->uid;
 

@@ -63,7 +63,7 @@ class BotAuth
      * @param \Illuminate\Http\Request $request
      * @param string $driver
      * @param array $languages
-     * @param User $model
+     * @param mixed $model
      */
     public function __construct(Request $request, string $driver, array $languages, $model)
     {
@@ -134,7 +134,7 @@ class BotAuth
      * Create a new user.
      *
      * @param array $sender
-     * @return User
+     * @return mixed
      */
     protected function register(array $sender)
     {
@@ -175,9 +175,9 @@ class BotAuth
     /**
      * Update user when login.
      *
-     * @param void $user
+     * @param mixed $user
      * @param array $sender
-     * @return User
+     * @return mixed
      */
     protected function login($user, array $sender)
     {

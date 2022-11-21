@@ -94,14 +94,31 @@ class BotRouteCollection
     /**
      * Bind the contains of listener to a route.
      *
-     * @param string $input
+     * @param string $pattern
      * @return $this
      */
-    public function contains(string $input): self
+    public function contains(string $pattern): self
     {
-        $this->route['contains'] = $input;
+        $is_command = Str::startsWith($pattern, '/');
+
+        $this->route['contains']['pattern'] = $pattern;
+        $this->route['contains']['params'] = !$is_command ?: $this->getContainParams($pattern);
+        $this->route['contains']['is_command'] = Str::startsWith($pattern, '/');
 
         return $this;
+    }
+
+    /**
+     * Get parameters from the contains.
+     *
+     * @param string $pattern
+     * @return array
+     */
+    protected function getContainParams(string $pattern): array
+    {
+        preg_match_all('/{(.*?)}/', $pattern, $matches);
+
+        return array_map(fn($m) => trim($m, '?'), $matches[1]);
     }
 
     /**

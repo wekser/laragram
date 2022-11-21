@@ -11,7 +11,6 @@
 
 namespace Wekser\Laragram;
 
-use Illuminate\Container\Container;
 use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
@@ -29,11 +28,11 @@ class BotRouter
     protected $location;
 
     /**
-     * The currently dispatched route instance.
+     * The current update event.
      *
-     * @var array
+     * @var string
      */
-    protected $current;
+    protected $type;
 
     /**
      * The request currently being dispatched.
@@ -43,17 +42,18 @@ class BotRouter
     protected $request;
 
     /**
-     * Dispatch the request to a route and return the response.
+     * Dispatch the update to a route and return the response.
      *
-     * @param array $request
+     * @param array $update
      * @param string|null $location
      * @return array
      */
-    public function dispatch(array $request, ?string $location): array
+    public function dispatch(array $update, ?string $location): array
     {
         $this->locatePath($location);
+        $this->getType($update);
 
-        return $this->runRoute($request, $this->findRoute($request, $this->location));
+        return $this->runRoute($update, $this->findRoute($update, $this->location));
     }
 
     /**
@@ -68,17 +68,30 @@ class BotRouter
     }
 
     /**
+     * Get type of update object.
+     *
+     * @param array $update
+     * @return void
+     */
+    protected function getType(array $update)
+    {
+        $this->type = collect($update)->search(function ($value, $key) {
+            return is_array($value) && isset($value['from']);
+        });
+    }
+
+    /**
      * Run the route action and return the response.
      *
-     * @param array $request
+     * @param array $update
      * @param array $route
      * @return array
      * @throws NotExistsControllerException|NotExistMethodException
      */
-    protected function runRoute(array $request, array $route): array
+    protected function runRoute(array $update, array $route): array
     {
         if (isset($route['callback'])) {
-            return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($request, $route)));
+            return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($update, $route)));
         }
 
         $controller = '\\' . $route['controller'];
@@ -92,7 +105,7 @@ class BotRouter
             throw new NotExistMethodException($route['method'], $route['controller']);
         }
 
-        return $this->prepareResponse((new $controller())->$method($this->prepareRequest($request, $route)));
+        return $this->prepareResponse((new $controller())->$method($this->prepareRequest($update, $route)));
     }
 
     /**
@@ -109,30 +122,26 @@ class BotRouter
     /**
      * Prepare a response for return to back.
      *
-     * @param array $request
+     * @param array $update
      * @param array $route
      * @return \Wekser\Laragram\BotRequest
      */
-    protected function prepareRequest(array $request, array $route): BotRequest
+    protected function prepareRequest(array $update, array $route): BotRequest
     {
-        return $this->request = (new FormRequest())->setRequest($request, $route, $this->location);
+        return $this->request = (new FormRequest($this->type, $update))->setRequest($route, $this->location);
     }
 
     /**
      * Find the first route matching a given request.
      *
-     * @param array $request
+     * @param array $update
      * @param string $location
      * @return array
      * @throws NotFoundRouteException
      */
-    public function findRoute(array $request, string $location): array
+    public function findRoute(array $update, string $location): array
     {
-        $type = collect($request)->search(function ($value, $key) {
-            return is_array($value) && isset($value['from']);
-        });
-
-        $entity = $request[$type];
+        $object = $update[$this->type];
         $routes = (new BotRouteCollection())->collectRoutes();
 
         foreach ($routes as $route) {
@@ -141,32 +150,22 @@ class BotRouter
             $from = $route['from'] ?? null;
             $contains = $route['contains'] ?? null;
 
-            if ($event == $type && collect($entity)->has($listener)) {
+            if ($event == $this->type && collect($object)->has($listener)) {
+                $data = $object[$listener] ?? null;
+                $is_command = Str::of($data)->before(' ')->startsWith('/');
 
-                $input = $entity[$listener] ?? null;
-                $command = Str::before($input, ' ');
+                $EM = empty($from);
+                $EC = empty($contains);
+                $FEL = $from == $location;
+                $CD = ($contains['is_command'] && Str::startsWith($data, '/')) && (Str::before($contains['pattern'], ' ') == Str::before($data, ' '));
+                $PD = Str::startsWith($contains['pattern'], '{') && !empty($contains['params']);
+                $PEI = $contains['pattern'] == $data;
 
-                $A0 = empty($from);
-                $A1 = empty($contains);
-                $B0 = $from == $location;
-                $B1 = $contains == $command;
-                $B2 = $contains == $input;
-
-                if (($A0 && $A1) || ($A0 && $B1) || ($B0 && $B2) || ($B0 && $A1)) {
+                if (($EM && $EC) || ($EM && $CD) || ($FEL && $PD) || ($FEL && $PEI) || ($FEL && $EC)) {
                     return $route;
                 }
             }
         }
         throw new NotFoundRouteException();
-    }
-
-    /**
-     * Get the application namespace.
-     *
-     * @return string
-     */
-    protected function getAppNamespace(): string
-    {
-        return Container::getInstance()->getNamespace();
     }
 }

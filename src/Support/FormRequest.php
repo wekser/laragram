@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram\Support;
 
+use Illuminate\Support\Arr;
 use Wekser\Laragram\BotRequest;
 
 class FormRequest
@@ -23,30 +24,75 @@ class FormRequest
     protected $request;
 
     /**
+     * The type update object.
+     *
+     * @return string
+     */
+    protected $type;
+
+    /**
+     * The update object.
+     *
+     * @return array
+     */
+    protected $update;
+
+    /**
+     * FormRequest Constructor
+     *
+     * @param string $type
+     * @param array $update
+     */
+    public function __construct(string $type, array $update)
+    {
+        $this->type = $type;
+        $this->update = $update;
+    }
+
+    /**
      * Set the route request for action.
      *
-     * @param array $request
      * @param array $route
      * @param string|null $location
      * @return \Wekser\Laragram\BotRequest
      */
-    public function setRequest(array $request, array $route, ?string $location = null): BotRequest
+    public function setRequest(array $route, ?string $location): BotRequest
     {
-        $type = collect($request)->search(function ($value, $key) {
-            return is_array($value) && isset($value['from']);
-        });
-
-        $entity = $request[$type];
-
-        $this->request['all'] = $entity;
-        $this->request['event'] = $type;
-        $this->request['listener'] = $route['listener'];
-        $this->request['input'] = collect($entity)->get($route['listener']);
-        $this->request['contains'] = $route['contains'] ?? null;
-        $this->request['uses'] = isset($route['controller']) ? $route['controller'] . '@' . $route['method'] : 'callback';
-        $this->request['location'] = $route['from'] ?? $location;
-        $this->request['update_id'] = $request['update_id'];
+        $this->request['update']['id'] = $this->update['update_id'];
+        $this->request['update']['object'] = $this->update[$this->type];
+        $this->request['route']['event'] = $this->type;
+        $this->request['route']['listener'] = $route['listener'];
+        $this->request['route']['contains'] = $route['contains'] ?? null;
+        $this->request['route']['uses'] = isset($route['controller']) ? $route['controller'] . '@' . $route['method'] : 'callback';
+        $this->request['route']['location'] = $route['from'] ?? $location;
+        $this->request['data']['query'] = collect($this->request['update']['object'])->get($route['listener']);
+        $this->request['data']['all'] = $this->getDataAll($this->request['data']['query'], $this->request['route']['contains']);
 
         return new BotRequest($this->request);
+    }
+
+    /**
+     * Get all data from query.
+     *
+     * @param string $query
+     * @param array|null $contains
+     * @return array
+     */
+    protected function getDataAll(string $query, ?array $contains): array
+    {
+        if (empty($contains) || empty($contains['params'])) return [];
+
+        $mix = explode(' ', $query);
+        $args = $contains['is_command'] ? array_values(Arr::except($mix, 0)) : $mix;
+
+        if (empty($args)) return [];
+
+        $data = [];
+
+        foreach ($contains['params'] as $key => $param) {
+            $data[$param] = $args[$key] ?? null;
+        }
+
+        return $data;
     }
 }
