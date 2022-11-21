@@ -33,13 +33,14 @@ class BotRequest
     }
 
     /**
-     * Returns the current route controller.
+     * Returns the current route.
      *
-     * @return string
+     * @param ?string $key
+     * @return array|string|null
      */
-    public function controller(): string
+    public function route(?string $key): array|string|null
     {
-        return $this->getRequestData('controller');
+        return $key ? $this->getRequestData('route.' . $key) : $this->getRequestData('route');
     }
 
     /**
@@ -58,12 +59,12 @@ class BotRequest
      * Returns a parameter in object by name.
      *
      * @param string $key
-     * @param mixed $default
+     * @param ?string $default
      * @return array|string|null
      */
-    public function get(string $key, $default = null): array|string|null
+    public function get(string $key, ?string $default): array|string|null
     {
-        return $this->getRequestData('all.' . $key, $default);
+        return $this->getRequestData('update.' . $key, $default);
     }
 
     /**
@@ -87,83 +88,33 @@ class BotRequest
     }
 
     /**
-     * Returns the parameters.
-     *
-     * @return array
-     */
-    public function all(): array
-    {
-        return $this->getRequestData('all');
-    }
-
-    /**
-     * Returns the current route event.
-     *
-     * @return string
-     */
-    public function event(): string
-    {
-        return $this->getRequestData('event');
-    }
-
-    /**
-     * Returns the input text from callback.
-     *
-     * @return string|null
-     */
-    public function input(): ?string
-    {
-        return $this->getRequestData('input.text');
-    }
-
-    /**
-     * Returns the input data from callback.
+     * Returns the data query from callback.
      *
      * @return array|null
      */
-    public function data(): ?array
+    public function all(): ?array
     {
-        return $this->getRequestData('input.data');
+        return $this->getRequestData('data.all');
     }
 
     /**
-     * Returns the current route contains.
+     * Returns all callback data.
+     *
+     * @return array
+     */
+    public function update(): array
+    {
+        return $this->getRequestData('update');
+    }
+
+    /**
+     * Returns the query from callback.
      *
      * @return string|null
      */
-    public function contains(): ?string
+    public function query(): ?string
     {
-        return $this->getRequestData('contains');
-    }
-
-    /**
-     * Returns the current route controller method.
-     *
-     * @return string
-     */
-    public function method(): string
-    {
-        return $this->getRequestData('method');
-    }
-
-    /**
-     * Returns the current user location.
-     *
-     * @return string|null
-     */
-    public function location(): ?string
-    {
-        return $this->getRequestData('location');
-    }
-
-    /**
-     * Returns the event listener of request.
-     *
-     * @return string
-     */
-    public function listener(): string
-    {
-        return $this->getRequestData('listener');
+        return $this->getRequestData('data.query');
     }
 
     /**

@@ -39,31 +39,31 @@ class FormRequest
 
         $entity = $request[$type];
 
-        $this->request['all'] = $entity;
-        $this->request['event'] = $type;
-        $this->request['listener'] = $route['listener'];
-        $this->request['contains'] = $route['contains'] ?? null;
-        $this->request['input']['text'] = collect($entity)->get($route['listener']);
-        $this->request['input']['data'] = $this->getInputData($this->request['input']['text'], $this->request['contains']);
-        $this->request['uses'] = isset($route['controller']) ? $route['controller'] . '@' . $route['method'] : 'callback';
-        $this->request['location'] = $route['from'] ?? $location;
-        $this->request['update_id'] = $request['update_id'];
+        $this->request['uid'] = $request['update_id'];
+        $this->request['update'] = $entity;
+        $this->request['data']['query'] = collect($entity)->get($route['listener']);
+        $this->request['data']['all'] = $this->getDataAll($this->request['data']['query'], $this->request['contains']);
+        $this->request['route']['event'] = $type;
+        $this->request['route']['listener'] = $route['listener'];
+        $this->request['route']['contains'] = $route['contains'] ?? null;
+        $this->request['route']['uses'] = isset($route['controller']) ? $route['controller'] . '@' . $route['method'] : 'callback';
+        $this->request['route']['location'] = $route['from'] ?? $location;
 
         return new BotRequest($this->request);
     }
 
     /**
-     * Get data from input.
+     * Get all data from query.
      *
-     * @param string $input
+     * @param string $query
      * @param array|null $contains
      * @return array
      */
-    protected function getInputData(string $input, ?array $contains): array
+    protected function getDataAll(string $query, ?array $contains): array
     {
         if (empty($contains) || empty($contains['params'])) return [];
 
-        $mix = explode(' ', $input);
+        $mix = explode(' ', $query);
         $args = $contains['is_command'] ? array_values(Arr::except($mix, 0)) : $mix;
 
         if (empty($args)) return [];
