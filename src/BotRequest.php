@@ -59,7 +59,7 @@ class BotRequest
      * Returns a data from update object by name.
      *
      * @param string $key
-     * @param ?string $default
+     * @param string|null $default
      * @return array|string|null
      */
     public function get(string $key, ?string $default = null): array|string|null
@@ -95,6 +95,18 @@ class BotRequest
     public function all(): ?array
     {
         return $this->getRequestData('data.all');
+    }
+
+    /**
+     * Returns the data query from callback.
+     *
+     * @param string $key
+     * @param string|null $default
+     * @return string|null
+     */
+    public function input(string $key, ?string $default = null): ?string
+    {
+        return $this->getRequestData('data.all.' . $key, $default);
     }
 
     /**
