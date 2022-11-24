@@ -13,7 +13,7 @@ class CreateLaragramSessionsTable extends Migration
      */
     public function up()
     {
-        Schema::create('laragram_sessions', function (Blueprint $table) {
+        Schema::create(config('laragram.auth.session.table'), function (Blueprint $table) {
             $table->id();
             $table->integer('user_id');
             $table->bigInteger('update_id')->unique();
@@ -33,6 +33,6 @@ class CreateLaragramSessionsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('laragram_sessions');
+        Schema::dropIfExists(config('laragram.auth.session.table'));
     }
 }

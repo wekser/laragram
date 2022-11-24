@@ -13,7 +13,7 @@ class CreateLaragramUsersTable extends Migration
      */
     public function up()
     {
-        Schema::create('laragram_users', function (Blueprint $table) {
+        Schema::create(config('laragram.auth.user.table'), function (Blueprint $table) {
             $table->id();
             $table->integer('uid')->unique();
             $table->string('first_name')->nullable();
@@ -31,6 +31,6 @@ class CreateLaragramUsersTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('laragram_users');
+        Schema::dropIfExists(config('laragram.auth.user.table'));
     }
 }
