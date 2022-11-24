@@ -81,11 +81,9 @@ class Laragram
      */
     protected function bootstrap()
     {
-        app('translator')->setLocale($this->user->language);
+        app('translator')->setLocale($this->user->settings['language']);
 
-        if (config('laragram.auth.driver') == 'database') {
-            $this->location = $this->user->sessions()->latest()->value('location');
-        }
+        if (config('laragram.auth.driver') == 'database') $this->location = $this->user->sessions()->latest()->value('location');
     }
 
     /**

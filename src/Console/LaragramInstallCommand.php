@@ -93,6 +93,8 @@ class LaragramInstallCommand extends Command
             file_get_contents(__DIR__ . '/stubs/migrations/create_laragram_users_table.stub')
         );
 
+        sleep(2);
+
         file_put_contents(
             base_path('database/migrations/' . date('Y_m_d_His', time()) . '_create_laragram_sessions_table.php'),
             file_get_contents(__DIR__ . '/stubs/migrations/create_laragram_sessions_table.stub')

@@ -87,7 +87,7 @@ class BotResponse
      */
     public function user($user): self
     {
-        $model = config('laragram.auth.model');
+        $model = config('laragram.auth.user.model');
 
         $this->user = !($user instanceof $model) ?: $user;
 

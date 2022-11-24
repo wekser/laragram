@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $first_name
  * @property string|null $last_name
  * @property string|null $username
- * @property string|null $language
+ * @property array $settings
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection|\Session[] $sessions
@@ -31,7 +31,7 @@ class User extends Model
      *
      * @var string
      */
-    protected $table = 'laragram_users';
+    protected $table;
 
     /**
      * The attributes that are mass assignable.
@@ -39,14 +39,49 @@ class User extends Model
      * @var array
      */
     protected $fillable = [
-        'uid', 'first_name', 'last_name', 'username', 'language'
+        'uid', 'first_name', 'last_name', 'username', 'settings',
     ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'settings' => 'array',
+    ];
+
+    /**
+     * User Model Constructor.
+     */
+    public function __construct()
+    {
+        $this->table = config('laragram.auth.user.table');
+    }
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @param null $key
+     * @param null $value
+     * @param bool $saving
+     * @return mixed
+     */
+    public function setting($key = null, $value = null, bool $saving = false)
+    {
+        if ($saving && !empty($key)) {
+            return $this->setJsonColumn('settings', $key, $value);
+        }
+        else {
+            return $this->getJsonColumn('settings', $key, $value);
+        }
+    }
 
     /**
      * Get the sessions associated with the user.
      */
     public function sessions()
     {
-        return $this->hasMany('Wekser\Laragram\Models\Session');
+        return $this->hasMany(config('laragram.auth.session.model'))->orderBy('updated_at', 'desc');
     }
 }

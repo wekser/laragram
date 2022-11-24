@@ -19,7 +19,14 @@ return [
 
     'auth' => [
         'driver' => 'database',
-        'model' => \Wekser\Laragram\Models\User::class
+        'session' => [
+            'model' => \Wekser\Laragram\Models\Session::class,
+            'table' => 'laragram_sessions'
+        ],
+        'user' => [
+            'model' => \Wekser\Laragram\Models\User::class,
+            'table' => 'laragram_users'
+        ]
     ],
 
     /*

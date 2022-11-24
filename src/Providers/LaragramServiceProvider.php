@@ -111,7 +111,7 @@ class LaragramServiceProvider extends ServiceProvider
                 $app['request'],
                 $this->config('auth.driver'),
                 $this->config('bot.languages'),
-                $this->config('auth.model')
+                $this->config('auth.user.model')
             ))->authenticate();
         });
     }

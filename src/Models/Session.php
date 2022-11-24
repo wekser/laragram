@@ -33,7 +33,7 @@ class Session extends Model
      *
      * @var string
      */
-    protected $table = 'laragram_sessions';
+    protected $table;
 
     /**
      * The attributes that are mass assignable.
@@ -41,14 +41,31 @@ class Session extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'event', 'listener', 'contains', 'uses', 'location'
+        'user_id', 'update_id', 'event', 'listener', 'contains', 'uses', 'location',
     ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'contains' => 'array',
+    ];
+
+    /**
+     * Session Model Constructor.
+     */
+    public function __construct()
+    {
+        $this->table = config('laragram.auth.session.table');
+    }
 
     /**
      * Get the user that owns the hook.
      */
     public function user()
     {
-        return $this->belongsTo(config('laragram.auth.model'));
+        return $this->belongsTo(config('laragram.auth.user.model'));
     }
 }
