@@ -25,7 +25,7 @@ class FrameHook
      */
     public function handle(Request $request, Closure $next)
     {
-        $rule = ['update_id' => 'required|integer|unique:laragram_sessions,update_id'];
+        $rule = ['update_id' => 'required|integer|unique:' . config('laragram.auth.session.table') . ',update_id'];
 
         if (config('laragram.auth.driver') == 'database' && app('validator')->make($request->all(), $rule)->fails()) {
             return response('Already Reported.', 208);
