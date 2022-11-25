@@ -21,14 +21,14 @@ class GetInfoCommand extends Command
      *
      * @var string
      */
-    protected string $signature = 'laragram:getMe';
+    protected $signature = 'laragram:getMe';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected string $description = 'Testing your telegram bot\'s auth token';
+    protected $description = 'Testing your telegram bot\'s auth token';
 
     /**
      * Create a new command instance.

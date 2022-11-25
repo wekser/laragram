@@ -29,7 +29,7 @@ class FormResponse
      */
     public function getResponse(BotRequest $request, $response): ?array
     {
-        $output = (array) $request->getRequest();
+        $output = $request->getRequest();
 
         if ($response instanceof BotResponse) {
             $output['response']['view'] = $response->contents ?? [];
