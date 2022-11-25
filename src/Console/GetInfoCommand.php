@@ -21,14 +21,14 @@ class GetInfoCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'laragram:getMe';
+    protected string $signature = 'laragram:getMe';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Testing your telegram bot\'s auth token';
+    protected string $description = 'Testing your telegram bot\'s auth token';
 
     /**
      * Create a new command instance.
@@ -47,7 +47,7 @@ class GetInfoCommand extends Command
      */
     public function handle()
     {
-        $response = BotClient::getMe();
+        $response = BotClient::request('getMe');
 
         if (isset($response['error_code'])) {
             return $this->error($response['description']);
