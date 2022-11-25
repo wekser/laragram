@@ -16,13 +16,18 @@ use Wekser\Laragram\Events\CallbackFormed;
 class LogSession
 {
     /**
+     * Session model.
+     */
+    protected $model;
+
+    /**
      * Create the event listener.
      *
      * @return void
      */
     public function __construct()
     {
-        //
+        $this->model = config('laragram.auth.session.model');
     }
 
     /**
@@ -33,7 +38,7 @@ class LogSession
      */
     public function handle(CallbackFormed $event)
     {
-        $session = new (config('laragram.auth.session.model'))();
+        $session = new ($this->model)();
         $session->user_id = $event->user->id;
         $session->update_id = $event->output['update']['id'];
         $session->station = $event->output['response']['redirect'];
