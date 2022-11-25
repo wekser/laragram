@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * @property int $id
+ * @property string $id
  * @property int $uid
  * @property string $first_name
  * @property string|null $last_name
@@ -28,13 +28,6 @@ use Illuminate\Database\Eloquent\Model;
 class User extends Model
 {
     use HasUlids;
-
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table;
 
     /**
      * The attributes that are mass assignable.
@@ -55,11 +48,11 @@ class User extends Model
     ];
 
     /**
-     * User Model Constructor.
+     * Get name model table.
      */
-    public function __construct()
+    public function getTable()
     {
-        $this->table = config('laragram.auth.user.table');
+        return config('laragram.auth.user.table', parent::getTable());
     }
 
     /**

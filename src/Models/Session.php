@@ -25,13 +25,6 @@ use Illuminate\Database\Eloquent\Model;
 class Session extends Model
 {
     /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table;
-
-    /**
      * Indicates if the model should be timestamped.
      *
      * @var bool
@@ -57,11 +50,11 @@ class Session extends Model
     ];
 
     /**
-     * Session Model Constructor.
+     * Get name model table.
      */
-    public function __construct()
+    public function getTable()
     {
-        $this->table = config('laragram.auth.session.table');
+        return config('laragram.auth.session.table', parent::getTable());
     }
 
     /**

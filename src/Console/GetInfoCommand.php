@@ -53,7 +53,7 @@ class GetInfoCommand extends Command
             return $this->error($response['description']);
         }
 
-        $headers = ['id', 'first_name', 'username'];
+        $headers = ['id', 'name', 'username'];
         $rows = [[$response['id'], $response['first_name'], $response['username']]];
 
         $this->table($headers, $rows);

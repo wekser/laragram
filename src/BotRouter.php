@@ -149,9 +149,14 @@ class BotRouter
                 $EM = empty($from);
                 $EC = empty($contains);
                 $FEL = $from == $station;
-                $CD = ($contains['is_command'] && Str::startsWith($data, '/')) && (Str::before($contains['pattern'], ' ') == Str::before($data, ' '));
-                $PD = Str::startsWith($contains['pattern'], '{') && !empty($contains['params']);
-                $PEI = $contains['pattern'] == $data;
+
+                if (is_array($contains)) {
+                    $CD = ($contains['is_command'] && Str::startsWith($data, '/')) && (Str::before($contains['pattern'], ' ') == Str::before($data, ' '));
+                    $PD = Str::startsWith($contains['pattern'], '{') && !empty($contains['params']);
+                    $PEI = $contains['pattern'] == $data;
+                } else {
+                    $CD = $PD = $PEI = false;
+                }
 
                 if (($EM && $EC) || ($EM && $CD) || ($FEL && $PD) || ($FEL && $PEI) || ($FEL && $EC)) {
                     return $route;

@@ -13,7 +13,6 @@ namespace Wekser\Laragram\Support;
 
 use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\BotResponse;
-use Wekser\Laragram\Exceptions\ResponseEmptyException;
 use Wekser\Laragram\Exceptions\ResponseInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 
@@ -33,14 +32,14 @@ class FormResponse
 
         if ($response instanceof BotResponse) {
             $output['response']['view'] = $response->contents ?? [];
-            $output['response']['redirect'] = $response->station ?? $request['route']['form'];
+            $output['response']['redirect'] = $response->station ?? $output['route']['form'];
         } elseif (is_string($response)) {
             $output['response']['view'] = ['method' => 'sendMessage', 'chat_id' => BotAuth::user()->uid, 'text' => $response];
-            $output['response']['redirect'] = $request['route']['form'];
+            $output['response']['redirect'] = $output['route']['form'];
         } elseif (empty($response)) {
             return null;
         } else {
-            throw new ResponseInvalidException($request['route']['uses']);
+            throw new ResponseInvalidException($output['route']['uses']);
         }
 
         return $output;

@@ -17,8 +17,8 @@ class CreateLaragramSessionsTable extends Migration
             $table->id();
             $table->ulid('user_id');
             $table->bigInteger('update_id')->unique();
-            $table->string('station')->nullable();
-            $table->json('payload')->nullable();
+            $table->string('station');
+            $table->json('payload');
             $table->dateTime('activity');
         });
     }

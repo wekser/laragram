@@ -119,8 +119,8 @@ class Laragram
      */
     protected function fireEvent()
     {
-        if (!empty($this->response) && config('laragram.auth.driver') == 'database') {
-            event(new CallbackFormed($this->user, $this->response));
+        if (!empty($this->output) && config('laragram.auth.driver') == 'database') {
+            event(new CallbackFormed($this->user, $this->output));
         }
     }
 

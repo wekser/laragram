@@ -38,7 +38,10 @@ class LogSession
      */
     public function handle(CallbackFormed $event)
     {
-        $session = new ($this->model)();
+        $session = $event->user->session();
+
+        if (!$session) $session = new ($this->model)();
+
         $session->user_id = $event->user->id;
         $session->update_id = $event->output['update']['id'];
         $session->station = $event->output['response']['redirect'];

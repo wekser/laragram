@@ -20,7 +20,7 @@ return [
     'auth' => [
         'driver' => 'database',
         'session' => [
-            'lifetime' => 10080, // minutes
+            'lifetime' => 10080, // 7 days in minutes
             'model' => \Wekser\Laragram\Models\Session::class,
             'table' => 'laragram_sessions'
         ],
