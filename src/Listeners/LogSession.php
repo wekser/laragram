@@ -11,13 +11,15 @@
 
 namespace Wekser\Laragram\Listeners;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 use Wekser\Laragram\Events\CallbackFormed;
-use Wekser\Laragram\Models\Session;
 
 class LogSession
 {
+    /**
+     * Session model.
+     */
+    protected $model;
+
     /**
      * Create the event listener.
      *
@@ -25,7 +27,7 @@ class LogSession
      */
     public function __construct()
     {
-        //
+        $this->model = config('laragram.auth.session.model');
     }
 
     /**
@@ -36,14 +38,15 @@ class LogSession
      */
     public function handle(CallbackFormed $event)
     {
-        $session = new Session();
+        $session = $event->user->session();
+
+        if (!$session) $session = new ($this->model)();
+
         $session->user_id = $event->user->id;
-        $session->update_id = $event->response['update']['id'];
-        $session->event = $event->response['route']['event'];
-        $session->listener = $event->response['route']['listener'];
-        $session->contains = json_encode($event->response['route']['contains']);
-        $session->uses = $event->response['route']['uses'];
-        $session->location = $event->response['route']['location'];
+        $session->update_id = $event->output['update']['id'];
+        $session->station = $event->output['response']['redirect'];
+        $session->payload = ['route' => $event->output['route']];
+        $session->activity = now();
         $session->save();
     }
 }

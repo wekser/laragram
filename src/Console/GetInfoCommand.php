@@ -47,13 +47,13 @@ class GetInfoCommand extends Command
      */
     public function handle()
     {
-        $response = BotClient::getMe();
+        $response = BotClient::request('getMe');
 
         if (isset($response['error_code'])) {
             return $this->error($response['description']);
         }
 
-        $headers = ['id', 'first_name', 'username'];
+        $headers = ['id', 'name', 'username'];
         $rows = [[$response['id'], $response['first_name'], $response['username']]];
 
         $this->table($headers, $rows);

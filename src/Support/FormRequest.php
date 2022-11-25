@@ -53,10 +53,10 @@ class FormRequest
      * Set the route request for action.
      *
      * @param array $route
-     * @param string|null $location
+     * @param string $station
      * @return \Wekser\Laragram\BotRequest
      */
-    public function setRequest(array $route, ?string $location): BotRequest
+    public function setRequest(array $route, string $station): BotRequest
     {
         $this->request['update']['id'] = $this->update['update_id'];
         $this->request['update']['object'] = $this->update[$this->type];
@@ -64,7 +64,7 @@ class FormRequest
         $this->request['route']['listener'] = $route['listener'];
         $this->request['route']['contains'] = $route['contains'] ?? null;
         $this->request['route']['uses'] = isset($route['controller']) ? $route['controller'] . '@' . $route['method'] : 'callback';
-        $this->request['route']['location'] = $route['from'] ?? $location;
+        $this->request['route']['form'] = $route['from'] ?? $station;
         $this->request['data']['query'] = collect($this->request['update']['object'])->get($route['listener']);
         $this->request['data']['all'] = $this->getDataAll($this->request['data']['query'], $this->request['route']['contains']);
 

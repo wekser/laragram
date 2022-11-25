@@ -17,23 +17,19 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $user_id
  * @property int $update_id
- * @property string $event
- * @property string $listener
- * @property string $contains
- * @property string $uses
- * @property string $location
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
+ * @property string $station
+ * @property array $payload
+ * @property \Carbon\Carbon $activity
  * @property-read User $user
  */
 class Session extends Model
 {
     /**
-     * The table associated with the model.
+     * Indicates if the model should be timestamped.
      *
-     * @var string
+     * @var bool
      */
-    protected $table = 'laragram_sessions';
+    public $timestamps = false;
 
     /**
      * The attributes that are mass assignable.
@@ -41,14 +37,31 @@ class Session extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'event', 'listener', 'contains', 'uses', 'location'
+        'user_id', 'update_id', 'station', 'payload', 'activity',
     ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'payload' => 'array',
+    ];
+
+    /**
+     * Get name model table.
+     */
+    public function getTable()
+    {
+        return config('laragram.auth.session.table', parent::getTable());
+    }
 
     /**
      * Get the user that owns the hook.
      */
     public function user()
     {
-        return $this->belongsTo(config('laragram.auth.model'));
+        return $this->belongsTo(config('laragram.auth.user.model'));
     }
 }

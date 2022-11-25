@@ -18,9 +18,9 @@ class BotAuth
     /**
      * Current authorized user.
      *
-     * @var User
+     * @var mixed
      */
-    protected $current;
+    protected $user;
 
     /**
      * The authentication driver.
@@ -39,7 +39,7 @@ class BotAuth
     /**
      * The basic or custom User model.
      *
-     * @var object
+     * @var mixed
      */
     protected $model;
 
@@ -58,7 +58,7 @@ class BotAuth
     protected $request;
 
     /**
-     * BotAuth Constructor
+     * BotAuth Constructor.
      *
      * @param \Illuminate\Http\Request $request
      * @param string $driver
@@ -84,13 +84,9 @@ class BotAuth
 
         $driver = $this->getDriver();
 
-        if ($driver == 'database') {
-            $current = empty($user = $this->getUser($sender)) ? $this->register($sender) : $this->login($user, $sender);
-        } else {
-            $current = $this->setUser($sender);
-        }
-
-        $this->current = $current;
+        $this->user = ($driver == 'database') ?
+            empty($user = $this->getUser($sender)) ?
+                $this->register($sender) : $this->login($user, $sender) : $this->setUser($sender);
 
         return $this;
     }
@@ -102,11 +98,9 @@ class BotAuth
      */
     protected function defineSender(): array
     {
-        $entity = collect($this->request->all())->first(function ($value, $key) {
+        return $this->sender = collect(collect($this->request->all())->first(function ($value, $key) {
             return is_array($value) && isset($value['from']);
-        });
-
-        return $this->sender = collect($entity)->get('from');
+        }))->get('from');
     }
 
     /**
@@ -131,65 +125,6 @@ class BotAuth
     }
 
     /**
-     * Create a new user.
-     *
-     * @param array $sender
-     * @return mixed
-     */
-    protected function register(array $sender)
-    {
-        $user = new ($this->model)();
-        $user->uid = $sender['id'];
-        $user->first_name = $sender['first_name'];
-        $user->last_name = $sender['last_name'] ?? null;
-        $user->username = $sender['username'] ?? null;
-        $user->language = $this->defineUserLanguage($sender);
-        $user->save();
-
-        return $user;
-    }
-
-    /**
-     * Define user language.
-     *
-     * @param array $sender
-     * @return string
-     */
-    protected function defineUserLanguage(array $sender): string
-    {
-        $userLanguage = $sender['language_code'] ?? null;
-
-        return !empty($userLanguage) && in_array($userLanguage, $this->getBotLanguages()) ? $userLanguage : app('translator')->getLocale();
-    }
-
-    /**
-     * Get array languages in bot.
-     *
-     * @return array|null
-     */
-    public function getBotLanguages(): ?array
-    {
-        return $this->languages;
-    }
-
-    /**
-     * Update user when login.
-     *
-     * @param mixed $user
-     * @param array $sender
-     * @return mixed
-     */
-    protected function login($user, array $sender)
-    {
-        $user->first_name = $sender['first_name'];
-        $user->last_name = $sender['last_name'] ?? null;
-        $user->username = $sender['username'] ?? null;
-        $user->save();
-
-        return $user;
-    }
-
-    /**
      * Set user for array driver.
      *
      * @param array $sender
@@ -209,12 +144,61 @@ class BotAuth
     }
 
     /**
-     * Get current authorized user.
+     * Create a new user.
+     *
+     * @param array $sender
+     * @return object
+     */
+    protected function register(array $sender)
+    {
+        $user = new ($this->model)();
+        $user->uid = $sender['id'];
+        $user->first_name = $sender['first_name'];
+        $user->last_name = $sender['last_name'] ?? null;
+        $user->username = $sender['username'] ?? null;
+        $user->settings = ['language' => $this->defineUserLanguage($sender)];
+        $user->save();
+
+        return $user;
+    }
+
+    /**
+     * Define user language.
+     *
+     * @param array $sender
+     * @return string
+     */
+    protected function defineUserLanguage(array $sender): string
+    {
+        $userLanguage = $sender['language_code'] ?? null;
+
+        return !empty($userLanguage) && in_array($userLanguage, $this->languages) ? $userLanguage : app('translator')->getLocale();
+    }
+
+    /**
+     * Update user when login.
+     *
+     * @param mixed $user
+     * @param array $sender
+     * @return object
+     */
+    protected function login($user, array $sender)
+    {
+        $user->first_name = $sender['first_name'];
+        $user->last_name = $sender['last_name'] ?? null;
+        $user->username = $sender['username'] ?? null;
+        $user->save();
+
+        return $user;
+    }
+
+    /**
+     * Get authorized user.
      *
      * @return object
      */
     public function user()
     {
-        return $this->current;
+        return $this->user;
     }
 }

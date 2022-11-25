@@ -11,27 +11,23 @@
 
 namespace Wekser\Laragram\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * @property int $id
+ * @property string $id
  * @property int $uid
  * @property string $first_name
  * @property string|null $last_name
  * @property string|null $username
- * @property string|null $language
+ * @property array $settings
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection|\Session[] $sessions
  */
 class User extends Model
 {
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'laragram_users';
+    use HasUlids;
 
     /**
      * The attributes that are mass assignable.
@@ -39,14 +35,39 @@ class User extends Model
      * @var array
      */
     protected $fillable = [
-        'uid', 'first_name', 'last_name', 'username', 'language'
+        'uid', 'first_name', 'last_name', 'username', 'settings',
     ];
 
     /**
-     * Get the sessions associated with the user.
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'settings' => 'array',
+    ];
+
+    /**
+     * Get name model table.
+     */
+    public function getTable()
+    {
+        return config('laragram.auth.user.table', parent::getTable());
+    }
+
+    /**
+     * Get the current user sessions.
+     */
+    public function session()
+    {
+        return $this->sessions()->where('activity', '<=', now()->addMinutes(config('laragram.auth.session.lifetime')))->first();
+    }
+
+    /**
+     * Get the user sessions.
      */
     public function sessions()
     {
-        return $this->hasMany('Wekser\Laragram\Models\Session');
+        return $this->hasMany(config('laragram.auth.session.model'))->orderBy('activity', 'desc');
     }
 }

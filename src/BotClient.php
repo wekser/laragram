@@ -27,28 +27,28 @@ class BotClient
      *
      * @var string
      */
-    protected $token;
+    protected string $token;
 
     /**
      * Indicates if the request to Telegram will be asynchronous (non-blocking).
      *
      * @var bool
      */
-    protected $isAsyncRequest = false;
+    protected bool $isAsyncRequest = false;
 
     /**
      * Timeout of the request in seconds.
      *
      * @var int
      */
-    protected $timeOut = 60;
+    protected int $timeOut = 60;
 
     /**
      * Connection timeout of the request in seconds.
      *
      * @var int
      */
-    protected $connectTimeOut = 10;
+    protected int $connectTimeOut = 10;
 
     /**
      * BotClient Constructor

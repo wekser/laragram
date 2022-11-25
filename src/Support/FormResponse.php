@@ -13,7 +13,6 @@ namespace Wekser\Laragram\Support;
 
 use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\BotResponse;
-use Wekser\Laragram\Exceptions\ResponseEmptyException;
 use Wekser\Laragram\Exceptions\ResponseInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 
@@ -23,25 +22,26 @@ class FormResponse
      * Prepares the Response before it is sent to the client.
      *
      * @param \Wekser\Laragram\BotRequest $request
-     * @param \Wekser\Laragram\BotResponse|string $response
-     * @return array
-     * @throws ResponseEmptyException|ResponseInvalidException
+     * @param string|\Wekser\Laragram\BotResponse $response
+     * @return array|null
+     * @throws ResponseInvalidException
      */
-    public function getResponse(BotRequest $request, $response): array
+    public function getResponse(BotRequest $request, $response): ?array
     {
-        $request = $request->getRequest();
+        $output = $request->getRequest();
 
         if ($response instanceof BotResponse) {
-            $request['view'] = $response->contents ?? [];
-            $response->location ?? $request['route']['location'] = $response->location;
+            $output['response']['view'] = $response->contents ?? [];
+            $output['response']['redirect'] = $response->station ?? $output['route']['form'];
         } elseif (is_string($response)) {
-            $request['view'] = ['method' => 'sendMessage', 'chat_id' => BotAuth::user()->uid, 'text' => $response];
+            $output['response']['view'] = ['method' => 'sendMessage', 'chat_id' => BotAuth::user()->uid, 'text' => $response];
+            $output['response']['redirect'] = $output['route']['form'];
         } elseif (empty($response)) {
-            throw new ResponseEmptyException();
+            return null;
         } else {
-            throw new ResponseInvalidException($request['route']['uses']);
+            throw new ResponseInvalidException($output['route']['uses']);
         }
 
-        return $request;
+        return $output;
     }
 }
