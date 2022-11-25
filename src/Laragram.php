@@ -20,11 +20,11 @@ use Wekser\Laragram\Facades\BotAuth;
 class Laragram
 {
     /**
-     * The current user location.
+     * The current user station.
      *
      * @var string|null
      */
-    protected $location;
+    protected $station;
 
     /**
      * The request from to Telegram.
@@ -34,11 +34,11 @@ class Laragram
     protected $request;
 
     /**
-     * The response back to webhook.
+     * The output data.
      *
      * @var array|null
      */
-    protected $response;
+    protected $output;
 
     /**
      * The current authorized user.
@@ -83,7 +83,19 @@ class Laragram
     {
         app('translator')->setLocale($this->user->settings['language']);
 
-        if (config('laragram.auth.driver') == 'database') $this->location = $this->user->sessions()->latest()->value('location');
+        $this->station = (config('laragram.auth.driver') == 'database') ? 'start' : $this->defineStation();
+    }
+
+    /**
+     * Get or set user station.
+     *
+     * @return string
+     */
+    protected function defineStation()
+    {
+        $session = $this->user->session();
+
+        return empty($session) ? 'start' : $session->station;
     }
 
     /**
@@ -94,7 +106,7 @@ class Laragram
     protected function run()
     {
         try {
-            $this->response = (new BotRouter())->dispatch($this->request->all(), $this->location);
+            $this->output = (new BotRouter($this->station))->dispatch($this->request->all());
         } catch (Exception $exception) {
             return BotException::handle($exception);
         }
@@ -119,6 +131,6 @@ class Laragram
      */
     protected function back()
     {
-        return empty($this->response) ? response('ok', 200) : response()->json($this->response['view']);
+        return empty($this->output) ? response('OK', 200) : response()->json($this->output['response']['view']);
     }
 }

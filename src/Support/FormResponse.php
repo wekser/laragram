@@ -24,24 +24,25 @@ class FormResponse
      *
      * @param \Wekser\Laragram\BotRequest $request
      * @param \Wekser\Laragram\BotResponse|string $response
-     * @return array
-     * @throws ResponseEmptyException|ResponseInvalidException
+     * @return array|null
+     * @throws ResponseInvalidException
      */
-    public function getResponse(BotRequest $request, $response): array
+    public function getResponse(BotRequest $request, $response): ?array
     {
-        $request = $request->getRequest();
+        $output = $request->getRequest();
 
         if ($response instanceof BotResponse) {
-            $request['view'] = $response->contents ?? [];
-            $response->location ?? $request['route']['location'] = $response->location;
+            $output['response']['view'] = $response->contents ?? [];
+            $output['response']['redirect'] = $response->station ?? $request['route']['form'];
         } elseif (is_string($response)) {
-            $request['view'] = ['method' => 'sendMessage', 'chat_id' => BotAuth::user()->uid, 'text' => $response];
+            $output['response']['view'] = ['method' => 'sendMessage', 'chat_id' => BotAuth::user()->uid, 'text' => $response];
+            $output['response']['redirect'] = $request['route']['form'];
         } elseif (empty($response)) {
-            throw new ResponseEmptyException();
+            return null;
         } else {
             throw new ResponseInvalidException($request['route']['uses']);
         }
 
-        return $request;
+        return $output;
     }
 }

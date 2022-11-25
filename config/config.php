@@ -20,6 +20,7 @@ return [
     'auth' => [
         'driver' => 'database',
         'session' => [
+            'lifetime' => 10080, // minutes
             'model' => \Wekser\Laragram\Models\Session::class,
             'table' => 'laragram_sessions'
         ],

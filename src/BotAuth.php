@@ -140,14 +140,14 @@ class BotAuth
             'language' => $this->defineUserLanguage($sender)
         ];
 
-        return (object)$user;
+        return (object) $user;
     }
 
     /**
      * Create a new user.
      *
      * @param array $sender
-     * @return mixed
+     * @return object
      */
     protected function register(array $sender)
     {
@@ -156,7 +156,7 @@ class BotAuth
         $user->first_name = $sender['first_name'];
         $user->last_name = $sender['last_name'] ?? null;
         $user->username = $sender['username'] ?? null;
-        $user->settings['language'] = $this->defineUserLanguage($sender);
+        $user->settings = ['language' => $this->defineUserLanguage($sender)];
         $user->save();
 
         return $user;
@@ -180,7 +180,7 @@ class BotAuth
      *
      * @param mixed $user
      * @param array $sender
-     * @return mixed
+     * @return object
      */
     protected function login($user, array $sender)
     {

@@ -5,17 +5,19 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [v1.4.2] (2022-11-24)
+## [v1.5.0] (2022-11-25)
 
 ### Added
 
 - Added customatization auth in `config.php` and models
+- Rewritten `Session` model and migration
 
 ### Changed
 
+- Upgraded version PHP to ^9.0
+- Rewritten
 - Replaced `language` column on table `laragram_user` to `settings`
-- Replaced type `contains` column on table `laragram_sessions`
-- Improved code
+- Improved code and fix bugs
 
 ## [v1.4.1] (2022-11-22)
 

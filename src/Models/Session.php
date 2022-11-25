@@ -17,13 +17,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $user_id
  * @property int $update_id
- * @property string $event
- * @property string $listener
- * @property string $contains
- * @property string $uses
- * @property string $location
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
+ * @property string $station
+ * @property array $payload
+ * @property \Carbon\Carbon $activity
  * @property-read User $user
  */
 class Session extends Model
@@ -36,12 +32,19 @@ class Session extends Model
     protected $table;
 
     /**
+     * Indicates if the model should be timestamped.
+     *
+     * @var bool
+     */
+    public $timestamps = false;
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'event', 'listener', 'contains', 'uses', 'location',
+        'user_id', 'update_id', 'station', 'payload', 'activity',
     ];
 
     /**
@@ -50,7 +53,7 @@ class Session extends Model
      * @var array
      */
     protected $casts = [
-        'contains' => 'array',
+        'payload' => 'array',
     ];
 
     /**

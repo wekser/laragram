@@ -21,11 +21,11 @@ use Wekser\Laragram\Support\FormResponse;
 class BotRouter
 {
     /**
-     * The currently user location.
+     * The currently user station.
      *
      * @var string
      */
-    protected $location;
+    protected $station;
 
     /**
      * The current update event.
@@ -41,30 +41,22 @@ class BotRouter
      */
     protected $request;
 
+    public function __construct(string $station)
+    {
+        $this->station = $station;
+    }
+
     /**
      * Dispatch the update to a route and return the response.
      *
      * @param array $update
-     * @param string|null $location
      * @return array
      */
-    public function dispatch(array $update, ?string $location): array
+    public function dispatch(array $update): array
     {
-        $this->locatePath($location);
         $this->getType($update);
 
-        return $this->runRoute($update, $this->findRoute($update, $this->location));
-    }
-
-    /**
-     * Set a path for the current user.
-     *
-     * @param string|null $location
-     * @return void
-     */
-    protected function locatePath(?string $location)
-    {
-        $this->location = $location ?? 'start';
+        return $this->runRoute($update, $this->findRoute($update, $this->station));
     }
 
     /**
@@ -128,18 +120,18 @@ class BotRouter
      */
     protected function prepareRequest(array $update, array $route): BotRequest
     {
-        return $this->request = (new FormRequest($this->type, $update))->setRequest($route, $this->location);
+        return $this->request = (new FormRequest($this->type, $update))->setRequest($route, $this->station);
     }
 
     /**
      * Find the first route matching a given request.
      *
      * @param array $update
-     * @param string $location
+     * @param string $station
      * @return array
      * @throws NotFoundRouteException
      */
-    public function findRoute(array $update, string $location): array
+    public function findRoute(array $update, string $station): array
     {
         $object = $update[$this->type];
         $routes = (new BotRouteCollection())->collectRoutes();
@@ -156,7 +148,7 @@ class BotRouter
 
                 $EM = empty($from);
                 $EC = empty($contains);
-                $FEL = $from == $location;
+                $FEL = $from == $station;
                 $CD = ($contains['is_command'] && Str::startsWith($data, '/')) && (Str::before($contains['pattern'], ' ') == Str::before($data, ' '));
                 $PD = Str::startsWith($contains['pattern'], '{') && !empty($contains['params']);
                 $PEI = $contains['pattern'] == $data;

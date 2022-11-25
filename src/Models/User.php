@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -26,6 +27,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class User extends Model
 {
+    use HasUlids;
+
     /**
      * The table associated with the model.
      *
@@ -60,28 +63,18 @@ class User extends Model
     }
 
     /**
-     * The attributes that should be cast.
-     *
-     * @param null $key
-     * @param null $value
-     * @param bool $saving
-     * @return mixed
+     * Get the current user sessions.
      */
-    public function setting($key = null, $value = null, bool $saving = false)
+    public function session()
     {
-        if ($saving && !empty($key)) {
-            return $this->setJsonColumn('settings', $key, $value);
-        }
-        else {
-            return $this->getJsonColumn('settings', $key, $value);
-        }
+        return $this->sessions()->where('activity', '<=', now()->addMinutes(config('laragram.auth.session.lifetime')))->first();
     }
 
     /**
-     * Get the sessions associated with the user.
+     * Get the user sessions.
      */
     public function sessions()
     {
-        return $this->hasMany(config('laragram.auth.session.model'))->orderBy('updated_at', 'desc');
+        return $this->hasMany(config('laragram.auth.session.model'))->orderBy('activity', 'desc');
     }
 }

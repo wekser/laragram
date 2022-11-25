@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Facade;
 /**
  * This is the BotResponse facade class.
  *
- * @method static \Wekser\Laragram\BotResponse redirect(string $location)
+ * @method static \Wekser\Laragram\BotResponse redirect(string $station)
  * @method static \Wekser\Laragram\BotResponse text(string $view)
  * @method static \Wekser\Laragram\BotResponse view(string $view, array | null $data = [])
  * @method static \Wekser\Laragram\BotResponse user(User $user)

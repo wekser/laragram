@@ -25,16 +25,16 @@ class CallbackFormed
     /**
      * @return array
      */
-    public $response;
+    public $output;
 
     /**
      * Create a new event instance.
      *
      * @return void
      */
-    public function __construct($user, $response)
+    public function __construct($user, $output)
     {
         $this->user = $user;
-        $this->response = $response;
+        $this->output = $output;
     }
 }

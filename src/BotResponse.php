@@ -20,11 +20,11 @@ use Wekser\Laragram\Facades\BotAuth;
 class BotResponse
 {
     /**
-     * The location to next user request.
+     * The station to next user request.
      *
      * @var string
      */
-    public $location;
+    public $station;
 
     /**
      * The contents of rendered view.
@@ -95,14 +95,14 @@ class BotResponse
     }
 
     /**
-     * Set the location to next user request.
+     * Set the station to next user request.
      *
-     * @param string $location
+     * @param string $station
      * @return $this
      */
-    public function redirect(string $location): self
+    public function redirect(string $station): self
     {
-        $this->location = $location;
+        $this->station = $station;
 
         return $this;
     }
