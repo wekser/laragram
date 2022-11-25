@@ -14,7 +14,7 @@ class CreateLaragramUsersTable extends Migration
     public function up()
     {
         Schema::create(config('laragram.auth.user.table'), function (Blueprint $table) {
-            $table->ulid();
+            $table->ulid('id');
             $table->integer('uid')->unique();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
