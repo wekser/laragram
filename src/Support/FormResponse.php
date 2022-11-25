@@ -23,13 +23,13 @@ class FormResponse
      * Prepares the Response before it is sent to the client.
      *
      * @param \Wekser\Laragram\BotRequest $request
-     * @param \Wekser\Laragram\BotResponse|string $response
+     * @param string|\Wekser\Laragram\BotResponse $response
      * @return array|null
      * @throws ResponseInvalidException
      */
     public function getResponse(BotRequest $request, $response): ?array
     {
-        $output = $request->getRequest();
+        $output = (array) $request->getRequest();
 
         if ($response instanceof BotResponse) {
             $output['response']['view'] = $response->contents ?? [];
