@@ -19,7 +19,7 @@ class CreateLaragramUsersTable extends Migration
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->string('username')->nullable();
-            $table->json('settings')->nullable();
+            $table->json('settings');
             $table->timestamps();
         });
     }
