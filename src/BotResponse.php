@@ -41,6 +41,13 @@ class BotResponse
     protected $data;
 
     /**
+     * The view callback method.
+     *
+     * @var string
+     */
+    protected $method;
+
+    /**
      * The path to the view file.
      *
      * @var string
@@ -129,12 +136,14 @@ class BotResponse
     /**
      * Get the contents of the view.
      *
+     * @param string $method
      * @param string $view
      * @param array|null $data
      * @return $this
      */
-    public function view(string $view, ?array $data = []): self
+    public function view(string $method, string $view, ?array $data = []): self
     {
+        $this->method = $method;
         $this->contents = $this->render($view, $data);
 
         return $this;
@@ -202,7 +211,20 @@ class BotResponse
             throw new ViewInvalidException($this->path);
         }
 
-        return array_merge($response, ['chat_id' => $this->user->uid]);
+        return array_merge($response, $this->renderExtension());
+    }
+
+    /**
+     * Get the extension view contents.
+     *
+     * @return array
+     */
+    protected function renderExtension()
+    {
+        return [
+            'chat_id' => $this->user->uid,
+            'method' => $this->method
+        ];
     }
 
     /**
