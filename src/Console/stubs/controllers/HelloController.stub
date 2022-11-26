@@ -16,7 +16,9 @@ class HelloController extends Controller
      */
     public function start()
     {
-        return BotResponse::redirect('home')->view('start', ['first_name' => BotAuth::user()->first_name]);
+        $user = BotAuth::user();
+
+        return BotResponse::redirect('home')->view('sendMessage', 'start', ['first_name' => $user->first_name]);
     }
 
     /**
@@ -27,7 +29,7 @@ class HelloController extends Controller
      */
     public function home(BotRequest $request)
     {
-        return BotResponse::text($request->query());
+        return $request->query();
     }
 
     /**
