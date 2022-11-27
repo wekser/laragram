@@ -16,7 +16,6 @@ use GuzzleHttp\Psr7;
 use Psr\Http\Message\ResponseInterface;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
 use Wekser\Laragram\Exceptions\FileInvalidException;
-use Wekser\Laragram\Exceptions\TokenInvalidException;
 
 class BotClient
 {
@@ -54,14 +53,9 @@ class BotClient
      * BotClient Constructor
      *
      * @param string $token
-     * @throws TokenInvalidException
      */
     public function __construct(string $token)
     {
-        if (empty($token)) {
-            throw new TokenInvalidException();
-        }
-
         $this->token = $token;
     }
 

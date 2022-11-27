@@ -15,7 +15,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\ServiceProvider;
 use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\BotAuth;
-use Wekser\Laragram\BotClient;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
@@ -63,8 +62,8 @@ class LaragramServiceProvider extends ServiceProvider
 
         $this->registerAliases();
 
+        $this->registerAPI();
         $this->registerAuth();
-        $this->registerClient();
         $this->registerResponse();
     }
 
@@ -101,19 +100,16 @@ class LaragramServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the bindings for the main BotAuth class.
+     * Register the bindings for the main Bot class.
      *
      * @return void
      */
-    protected function registerAuth()
+    protected function registerAPI()
     {
-        $this->app->singleton('laragram.auth', function ($app) {
-            return (new BotAuth(
-                $app['request'],
-                $this->config('auth.driver'),
-                $this->config('bot.languages'),
-                $this->config('auth.user.model')
-            ))->authenticate();
+        $this->app->singleton('laragram.api', function () {
+            return new BotAPI(
+                $this->config('env.token')
+            );
         });
     }
 
@@ -131,16 +127,19 @@ class LaragramServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the bindings for the main Bot class.
+     * Register the bindings for the main BotAuth class.
      *
      * @return void
      */
-    protected function registerClient()
+    protected function registerAuth()
     {
-        $this->app->singleton('laragram.client', function () {
-            return new BotClient(
-                $this->config('env.token')
-            );
+        $this->app->singleton('laragram.auth', function ($app) {
+            return (new BotAuth(
+                $app['request'],
+                $this->config('auth.driver'),
+                $this->config('bot.languages'),
+                $this->config('auth.user.model')
+            ))->authenticate();
         });
     }
 
