@@ -7,8 +7,12 @@ return [
         'inline_keyboard' => [
             [
                 [
-                    'text' => trans('laragram.start.btn_inline'),
-                    'callback_data' => 'callback_test'
+                    'text' => 'Foo',
+                    'callback_data' => '/click Foo'
+                ],
+                [
+                    'text' => 'Bar',
+                    'callback_data' => '/click Bar'
                 ]
             ]
         ]

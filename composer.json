@@ -54,8 +54,8 @@
                 "Wekser\\Laragram\\Providers\\LaragramServiceProvider"
             ],
             "aliases": {
+                "BotAPI": "Wekser\\Laragram\\Facades\\BotAPI",
                 "BotAuth": "Wekser\\Laragram\\Facades\\BotAuth",
-                "BotClient": "Wekser\\Laragram\\Facades\\BotClient",
                 "BotResponse": "Wekser\\Laragram\\Facades\\BotResponse"
             }
         }

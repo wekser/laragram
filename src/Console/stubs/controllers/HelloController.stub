@@ -40,6 +40,6 @@ class HelloController extends Controller
      */
     public function callback(BotRequest $request)
     {
-        return BotResponse::text(trans('laragram.callback.btn_test'));
+        return BotResponse::text(trans('laragram.callback.btn_click', ['name' => $request->input('name')]));
     }
 }

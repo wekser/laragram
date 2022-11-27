@@ -12,20 +12,34 @@
 namespace Wekser\Laragram;
 
 use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Facades\BotClient;
 
-class BotApi
+class BotAPI
 {
+    /**
+     * BotAPI Class.
+     *
+     * @var BotClient
+     */
+    protected $client;
+
+    /**
+     * BotAPI Constructor.
+     */
+    public function __construct()
+    {
+        $this->api = new BotClient();
+    }
+
     /**
      * A simple method for testing your bot's auth token.
      *
      * @link https://core.telegram.org/bots/api#getMe
      *
-     * @return array
+     * @return mixed
      */
     public function getMe()
     {
-        return BotClient::request('getMe');
+        return $this->client->request('getMe');
     }
 
     /**
@@ -43,26 +57,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendMessage(array $params)
     {
-        return BotClient::request('sendMessage', $this->setParameters($params, 'chat_id'));
-    }
-
-    /**
-     * Set parameter array before request.
-     *
-     * @param array $params
-     * @param string|null $targetKey
-     *
-     * @return array
-     */
-    protected function setParameters(array $params, ?string $targetKey)
-    {
-        empty($targetKey) ?: $params[$targetKey] = $params[$targetKey] ?? BotAuth::user()->uid;
-
-        return $params;
+        return $this->client->request('sendMessage', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -77,11 +76,11 @@ class BotApi
      * @var bool $params ['disable_notification']
      * @var int $params ['message_id']
      *
-     * @return array
+     * @return mixed
      */
     public function forwardMessage(array $params)
     {
-        return BotClient::request('forwardMessage', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('forwardMessage', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -99,11 +98,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendPhoto(array $params)
     {
-        return BotClient::request('sendPhoto', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendPhoto', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -125,11 +124,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendAudio(array $params)
     {
-        return BotClient::request('sendAudio', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendAudio', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -148,11 +147,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendDocument(array $params)
     {
-        return BotClient::request('sendDocument', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendDocument', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -175,11 +174,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendVideo(array $params)
     {
-        return BotClient::request('sendVideo', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendVideo', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -201,11 +200,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendAnimation(array $params)
     {
-        return BotClient::request('sendAnimation', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendAnimation', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -224,11 +223,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendVoice(array $params)
     {
-        return BotClient::request('sendVoice', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendVoice', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -247,11 +246,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendVideoNote(array $params)
     {
-        return BotClient::request('sendVideoNote', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendVideoNote', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -268,11 +267,11 @@ class BotApi
      * @var bool $params ['disable_notification']
      * @var int $params ['reply_to_message_id']
      *
-     * @return array
+     * @return mixed
      */
     public function sendLocation(array $params)
     {
-        return BotClient::request('sendLocation', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendLocation', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -289,11 +288,11 @@ class BotApi
      * @var float $params ['longitude']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function editMessageLiveLocation(array $params)
     {
-        return BotClient::request('editMessageLiveLocation', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageLiveLocation', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -308,11 +307,11 @@ class BotApi
      * @var string $params ['inline_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function stopMessageLiveLocation(array $params)
     {
-        return BotClient::request('stopMessageLiveLocation', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('stopMessageLiveLocation', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -333,11 +332,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendVenue(array $params)
     {
-        return BotClient::request('sendVenue', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendVenue', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -356,11 +355,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendContact(array $params)
     {
-        return BotClient::request('sendContact', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendContact', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -373,11 +372,11 @@ class BotApi
      * @var int|string $params ['chat_id']
      * @var string $params ['action']
      *
-     * @return array
+     * @return mixed
      */
     public function sendChatAction(array $params)
     {
-        return BotClient::request('sendChatAction', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendChatAction', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -391,11 +390,11 @@ class BotApi
      * @var int $params ['offset']
      * @var int $params ['limit']
      *
-     * @return array
+     * @return mixed
      */
     public function getUserProfilePhotos(array $params)
     {
-        return BotClient::request('getUserProfilePhotos', $this->setParameters($params, 'user_id'));
+        return $this->client->request('getUserProfilePhotos', $this->setParameters($params, 'user_id'));
     }
 
     /**
@@ -407,11 +406,11 @@ class BotApi
      *
      * @var string $params ['file_id']
      *
-     * @return array
+     * @return mixed
      */
     public function getFile(array $params)
     {
-        return BotClient::request('getFile', $params);
+        return $this->client->request('getFile', $params);
     }
 
     /**
@@ -423,11 +422,11 @@ class BotApi
      *
      * @var string|int $params ['chat_id']
      *
-     * @return array
+     * @return mixed
      */
     public function getChat(array $params)
     {
-        return BotClient::request('getChat', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('getChat', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -443,11 +442,11 @@ class BotApi
      * @var string $params ['url']
      * @var int $params ['cache_time']
      *
-     * @return array
+     * @return mixed
      */
     public function answerCallbackQuery(array $params)
     {
-        return BotClient::request('answerCallbackQuery', $params);
+        return $this->client->request('answerCallbackQuery', $params);
     }
 
     /**
@@ -465,11 +464,11 @@ class BotApi
      * @var bool $params ['disable_web_page_preview']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function editMessageText(array $params)
     {
-        return BotClient::request('editMessageText', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageText', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -486,11 +485,11 @@ class BotApi
      * @var string $params ['parse_mode']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function editMessageCaption(array $params)
     {
-        return BotClient::request('editMessageCaption', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageCaption', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -505,11 +504,11 @@ class BotApi
      * @var string $params ['inline_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function editMessageReplyMarkup(array $params)
     {
-        return BotClient::request('editMessageReplyMarkup', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageReplyMarkup', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -522,11 +521,11 @@ class BotApi
      * @var int|string $params ['chat_id']
      * @var int $params ['message_id']
      *
-     * @return array
+     * @return mixed
      */
     public function deleteMessage(array $params)
     {
-        return BotClient::request('deleteMessage', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('deleteMessage', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -542,11 +541,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendSticker(array $params)
     {
-        return BotClient::request('sendSticker', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendSticker', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -558,11 +557,11 @@ class BotApi
      *
      * @var string $params ['name']
      *
-     * @return array
+     * @return mixed
      */
     public function getStickerSet(array $params)
     {
-        return BotClient::request('getStickerSet', $params);
+        return $this->client->request('getStickerSet', $params);
     }
 
     /**
@@ -580,11 +579,11 @@ class BotApi
      * @var string|null $params ['switch_pm_text']
      * @var string|null $params ['switch_pm_parameter']
      *
-     * @return array
+     * @return mixed
      */
     public function answerInlineQuery(array $params)
     {
-        return BotClient::request('answerInlineQuery', $params);
+        return $this->client->request('answerInlineQuery', $params);
     }
 
     /**
@@ -618,11 +617,11 @@ class BotApi
      * @var int $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendInvoice(array $params)
     {
-        return BotClient::request('sendInvoice', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendInvoice', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -637,11 +636,11 @@ class BotApi
      * @var array $params ['shipping_options']
      * @var string $params ['error_message']
      *
-     * @return array
+     * @return mixed
      */
     public function answerShippingQuery(array $params)
     {
-        return BotClient::request('answerShippingQuery', $params);
+        return $this->client->request('answerShippingQuery', $params);
     }
 
     /**
@@ -655,11 +654,11 @@ class BotApi
      * @var bool $params ['ok']
      * @var string $params ['error_message']
      *
-     * @return array
+     * @return mixed
      */
     public function answerPreCheckoutQuery(array $params)
     {
-        return BotClient::request('answerPreCheckoutQuery', $params);
+        return $this->client->request('answerPreCheckoutQuery', $params);
     }
 
     /**
@@ -675,11 +674,11 @@ class BotApi
      * @var string $params ['reply_to_message_id']
      * @var string $params ['reply_markup']
      *
-     * @return array
+     * @return mixed
      */
     public function sendGame(array $params)
     {
-        return BotClient::request('sendGame', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendGame', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -697,11 +696,11 @@ class BotApi
      * @var int $params ['message_id']
      * @var string $params ['inline_message_id']
      *
-     * @return array
+     * @return mixed
      */
     public function setGameScore(array $params)
     {
-        return BotClient::request('setGameScore', $this->setParameters($params, 'user_id'));
+        return $this->client->request('setGameScore', $this->setParameters($params, 'user_id'));
     }
 
     /**
@@ -716,11 +715,45 @@ class BotApi
      * @var int $params ['message_id']
      * @var string $params ['inline_message_id']
      *
-     * @return array
+     * @return mixed
      */
     public function getGameHighScores(array $params)
     {
-        return BotClient::request('getGameHighScores', $this->setParameters($params, 'user_id'));
+        return $this->client->request('getGameHighScores', $this->setParameters($params, 'user_id'));
+    }
+
+    /**
+     * Use this method to send a native poll.
+     *
+     * @link https://core.telegram.org/bots/api#sendPoll
+     *
+     * @param array $params
+     *
+     * @var int $params ['chat_id']
+     * @var string $params ['question']
+     * @var string|array $params ['options']
+     *
+     * @return mixed
+     */
+    public function sendPoll(array $params)
+    {
+        return $this->client->request('sendPoll', $this->setParameters($params, 'chat_id'));
+    }
+
+    /**
+     * Use this method to send an animated emoji that will display a random value.
+     *
+     * @link https://core.telegram.org/bots/api#sendDice
+     *
+     * @param array $params
+     *
+     * @var int $params ['chat_id']
+     *
+     * @return mixed
+     */
+    public function sendDice(array $params)
+    {
+        return $this->client->request('sendDice', $this->setParameters($params, 'chat_id'));
     }
 
     /**
@@ -735,11 +768,11 @@ class BotApi
      * @var int $params ['max_connections']
      * @var string|array $params ['allowed_updates']
      *
-     * @return array
+     * @return mixed
      */
     public function setWebhook(array $params)
     {
-        return BotClient::request('setWebhook', $params, true);
+        return $this->client->request('setWebhook', $params, true);
     }
 
     /**
@@ -747,10 +780,25 @@ class BotApi
      *
      * @link https://core.telegram.org/bots/api#deleteWebhook
      *
-     * @return array
+     * @return mixed
      */
     public function deleteWebhook()
     {
-        return BotClient::request('deleteWebhook');
+        return $this->client->request('deleteWebhook');
+    }
+
+    /**
+     * Set parameter array before request.
+     *
+     * @param array $params
+     * @param string|null $targetKey
+     *
+     * @return array
+     */
+    protected function setParameters(array $params, ?string $targetKey)
+    {
+        empty($targetKey) ?: $params[$targetKey] = $params[$targetKey] ?? BotAuth::user()->uid;
+
+        return $params;
     }
 }

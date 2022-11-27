@@ -12,7 +12,7 @@
 namespace Wekser\Laragram\Console;
 
 use Illuminate\Console\Command;
-use Wekser\Laragram\BotApi;
+use Wekser\Laragram\Facades\BotAPI;
 
 class SetWebhookCommand extends Command
 {
@@ -71,7 +71,7 @@ class SetWebhookCommand extends Command
             return $this->error('Invalid URL Provided');
         }
 
-        $response = (new BotApi())->setWebhook(['url' => $url]);
+        $response = BotAPI::setWebhook(['url' => $url]);
 
         if (isset($response['error_code'])) {
             return $this->error($response['description']);

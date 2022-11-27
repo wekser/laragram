@@ -12,7 +12,7 @@
 namespace Wekser\Laragram\Console;
 
 use Illuminate\Console\Command;
-use Wekser\Laragram\Facades\BotClient;
+use Wekser\Laragram\Facades\BotAPI;
 
 class RemoveWebhookCommand extends Command
 {
@@ -47,7 +47,7 @@ class RemoveWebhookCommand extends Command
      */
     public function handle()
     {
-        $response = BotClient::deleteWebhook();
+        $response = BotAPI::deleteWebhook();
 
         $this->info($response['description']);
     }
