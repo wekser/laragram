@@ -12,6 +12,7 @@
 namespace Wekser\Laragram;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Validator;
 
 class BotRequest
 {
@@ -138,5 +139,18 @@ class BotRequest
     public function has(string $key): bool
     {
         return Arr::has($this->all(), $key);
+    }
+
+    /**
+     * Validate the given data against the provided rules.
+     *
+     * @param array $rules
+     * @param array $messages
+     * @param array $customAttributes
+     * @return array
+     */
+    public function validate(array $rules, array $messages = [], array $customAttributes = [])
+    {
+        return Validator::make($this->all(), $rules, $messages, $customAttributes);
     }
 }

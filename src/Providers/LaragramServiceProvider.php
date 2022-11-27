@@ -13,6 +13,7 @@ namespace Wekser\Laragram\Providers;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\ServiceProvider;
+use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotClient;
 use Wekser\Laragram\BotResponse;
@@ -94,8 +95,8 @@ class LaragramServiceProvider extends ServiceProvider
      */
     protected function registerAliases()
     {
+        $this->app->alias('laragram.api', BotAPI::class);
         $this->app->alias('laragram.auth', BotAuth::class);
-        $this->app->alias('laragram.client', BotClient::class);
         $this->app->alias('laragram.response', BotResponse::class);
     }
 

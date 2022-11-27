@@ -5,6 +5,19 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v1.5.2] (2022-11-27)
+
+### Added
+
+- Added facade for `BotAPI`
+- Added new API methods in `BotAPI`
+- Added `BotRequest::validate()`
+
+### Changed
+
+- Delete facade for `BotClient`
+- Extend basic bot example
+
 ## [v1.5.1] (2022-11-26)
 
 ### Added
@@ -21,7 +34,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - Upgraded version PHP to ^9.0
-- Rewritten
 - Replaced `language` column on table `laragram_user` to `settings`
 - Improved code and fix bugs
 

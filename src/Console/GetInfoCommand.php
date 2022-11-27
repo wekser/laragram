@@ -12,7 +12,7 @@
 namespace Wekser\Laragram\Console;
 
 use Illuminate\Console\Command;
-use Wekser\Laragram\Facades\BotClient;
+use Wekser\Laragram\Facades\BotAPI;
 
 class GetInfoCommand extends Command
 {
@@ -47,7 +47,7 @@ class GetInfoCommand extends Command
      */
     public function handle()
     {
-        $response = BotClient::request('getMe');
+        $response = BotAPI::getMe();
 
         if (isset($response['error_code'])) {
             return $this->error($response['description']);

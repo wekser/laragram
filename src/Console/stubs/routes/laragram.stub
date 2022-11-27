@@ -3,4 +3,4 @@ use App\Http\Controllers\Laragram\HelloController;
 
 $bot->get('message')->contains('/start')->call([HelloController::class, 'start']);
 $bot->get('message')->from('home')->call([HelloController::class, 'home']);
-$bot->get('callback_query')->contains('callback_test')->call([HelloController::class, 'callback']);
+$bot->get('callback_query')->contains('/click {name}')->call([HelloController::class, 'callback']);
