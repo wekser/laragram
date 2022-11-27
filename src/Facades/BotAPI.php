@@ -14,7 +14,7 @@ namespace Wekser\Laragram\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * This is the BotApi facade class.
+ * This is the BotAPI facade class.
  *
  * @method static mixed getMe()
  * @method static mixed sendMessage(array $params)
