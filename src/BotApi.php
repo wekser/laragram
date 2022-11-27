@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram;
 
+use Wekser\Laragram\Exceptions\TokenInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 
 class BotAPI
@@ -24,10 +25,15 @@ class BotAPI
 
     /**
      * BotAPI Constructor.
+     *
+     * @param string $token
+     * @throws TokenInvalidException
      */
-    public function __construct()
+    public function __construct(string $token)
     {
-        $this->api = new BotClient();
+        if (empty($token)) throw new TokenInvalidException();
+
+        $this->client = new BotClient($token);
     }
 
     /**
