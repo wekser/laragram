@@ -138,10 +138,10 @@ class BotResponse
      *
      * @param string $method
      * @param string $view
-     * @param array|null $data
+     * @param array $data
      * @return $this
      */
-    public function view(string $method, string $view, ?array $data = []): self
+    public function view(string $method, string $view, array $data = []): self
     {
         $this->method = $method;
         $this->contents = $this->render($view, $data);

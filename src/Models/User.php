@@ -11,8 +11,11 @@
 
 namespace Wekser\Laragram\Models;
 
+use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 /**
  * @property string $id
@@ -25,9 +28,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\Carbon $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection|\Session[] $sessions
  */
-class User extends Model
+class User extends Authenticatable
 {
-    use HasUlids;
+    use HasFactory, HasUlids, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -44,7 +47,7 @@ class User extends Model
      * @var array
      */
     protected $casts = [
-        'settings' => 'array',
+        'settings' => AsArrayObject::class,
     ];
 
     /**
