@@ -14,7 +14,6 @@ namespace Wekser\Laragram;
 use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
-use Wekser\Laragram\Exceptions\NotFoundRouteException;
 use Wekser\Laragram\Support\FormRequest;
 use Wekser\Laragram\Support\FormResponse;
 
@@ -50,9 +49,9 @@ class BotRouter
      * Dispatch the update to a route and return the response.
      *
      * @param array $update
-     * @return array
+     * @return array|null
      */
-    public function dispatch(array $update): array
+    public function dispatch(array $update): ?array
     {
         $this->getType($update);
 
@@ -76,28 +75,30 @@ class BotRouter
      * Run the route action and return the response.
      *
      * @param array $update
-     * @param array $route
-     * @return array
+     * @param array|null $route
+     * @return array|null
      * @throws NotExistsControllerException|NotExistMethodException
      */
-    protected function runRoute(array $update, array $route): array
+    protected function runRoute(array $update, ?array $route): ?array
     {
         if (isset($route['callback'])) {
             return $this->prepareResponse(call_user_func($route['callback'], $this->prepareRequest($update, $route)));
+        } elseif (isset($route['controller']) && isset($route['method'])) {
+            $controller = '\\' . $route['controller'];
+            $method = $route['method'];
+
+            if (!class_exists($controller)) {
+                throw new NotExistsControllerException($route['controller']);
+            }
+
+            if (!method_exists($controller, $method)) {
+                throw new NotExistMethodException($route['method'], $route['controller']);
+            }
+
+            return $this->prepareResponse((new $controller())->$method($this->prepareRequest($update, $route)));
         }
 
-        $controller = '\\' . $route['controller'];
-        $method = $route['method'];
-
-        if (!class_exists($controller)) {
-            throw new NotExistsControllerException($route['controller']);
-        }
-
-        if (!method_exists($controller, $method)) {
-            throw new NotExistMethodException($route['method'], $route['controller']);
-        }
-
-        return $this->prepareResponse((new $controller())->$method($this->prepareRequest($update, $route)));
+        return null;
     }
 
     /**
@@ -128,10 +129,10 @@ class BotRouter
      *
      * @param array $update
      * @param string $station
-     * @return array
+     * @return array|null
      * @throws NotFoundRouteException
      */
-    public function findRoute(array $update, string $station): array
+    public function findRoute(array $update, string $station): ?array
     {
         $object = $update[$this->type];
         $routes = (new BotRouteCollection())->collectRoutes();
@@ -139,29 +140,35 @@ class BotRouter
         foreach ($routes as $route) {
             $event = $route['event'] ?? null;
             $listener = $route['listener'] ?? null;
-            $from = $route['from'] ?? null;
-            $contains = $route['contains'] ?? null;
 
             if ($event == $this->type && collect($object)->has($listener)) {
                 $data = $object[$listener] ?? null;
+                $from = $route['from'] ?? null;
+                $contains = $route['contains'] ?? null;
 
-                $EM = empty($from);
+                $EF = $EC = $FS = $CD = $PD = $PEI = null;
+
+                $EF = empty($from);
                 $EC = empty($contains);
-                $FEL = $from == $station;
+                $FS = $from == $station;
 
                 if (is_array($contains)) {
-                    foreach ($contains as $contain) {
-                        $CD[] = ($contain['is_command'] && Str::startsWith($data, '/')) && (Str::before($contain['pattern'], ' ') == Str::before($data, ' '));
-                        $PD[] = Str::startsWith($contain['pattern'], '{') && !empty($contain['params']);
-                        $PEI[] = $contain['pattern'] == $data;
+                    foreach ($contains as $key => $contain) {
+                        $CD[$key] = ($contain['is_command'] && Str::startsWith($data, '/'))
+                            && (Str::before($contain['pattern'], ' ') == Str::before($data, ' '));
+                        $PD[$key] = Str::startsWith($contain['pattern'], '{') && !empty($contain['params']);
+                        $PEI[$key] = $contain['pattern'] == $data;
                     }
-                } else {
-                    $CD[] = $PD[] = $PEI[] = false;
-                }
+                } else $CD = $PD = $PEI = [false];
 
-                if (($EM && $EC) || ($EM && in_array(true, $CD)) || ($FEL && in_array(true, $PD)) || ($FEL && in_array(true, $PEI)) || ($FEL && $EC)) return $route;
+                if (($EF && $EC) ||
+                    ($EF && in_array(true, $CD)) ||
+                    ($FS && in_array(true, $PD)) ||
+                    ($FS && in_array(true, $PEI)) ||
+                    ($EF && in_array(true, $PEI) && $contains[0]['is_command']) ||
+                    ($FS && $EC)) return $route;
             }
         }
-        throw new NotFoundRouteException();
+        return null;
     }
 }

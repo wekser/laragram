@@ -122,7 +122,7 @@ class BotRouteCollection
         $is_command = Str::startsWith($value, '/');
 
         $this->route['contains'][$key]['pattern'] = $value;
-        $this->route['contains'][$key]['params'] = !$is_command ?: $this->getContainParams($value);
+        $this->route['contains'][$key]['params'] = !$is_command ? [] : $this->getContainParams($value);
         $this->route['contains'][$key]['is_command'] = $is_command;
     }
 
