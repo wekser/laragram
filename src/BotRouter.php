@@ -159,9 +159,7 @@ class BotRouter
                     $CD[] = $PD[] = $PEI[] = false;
                 }
 
-                return match (true) {
-                    $EM && $EC, $EM && in_array(true, $CD), $FEL && in_array(true, $PD), $FEL && in_array(true, $PEI), $FEL && $EC => $route,
-                };
+                if (($EM && $EC) || ($EM && in_array(true, $CD)) || ($FEL && in_array(true, $PD)) || ($FEL && in_array(true, $PEI)) || ($FEL && $EC)) return $route;
             }
         }
         throw new NotFoundRouteException();
