@@ -144,23 +144,24 @@ class BotRouter
 
             if ($event == $this->type && collect($object)->has($listener)) {
                 $data = $object[$listener] ?? null;
-                $is_command = Str::of($data)->before(' ')->startsWith('/');
 
                 $EM = empty($from);
                 $EC = empty($contains);
                 $FEL = $from == $station;
 
                 if (is_array($contains)) {
-                    $CD = ($contains['is_command'] && Str::startsWith($data, '/')) && (Str::before($contains['pattern'], ' ') == Str::before($data, ' '));
-                    $PD = Str::startsWith($contains['pattern'], '{') && !empty($contains['params']);
-                    $PEI = $contains['pattern'] == $data;
+                    foreach ($contains as $contain) {
+                        $CD[] = ($contain['is_command'] && Str::startsWith($data, '/')) && (Str::before($contain['pattern'], ' ') == Str::before($data, ' '));
+                        $PD[] = Str::startsWith($contain['pattern'], '{') && !empty($contain['params']);
+                        $PEI[] = $contain['pattern'] == $data;
+                    }
                 } else {
-                    $CD = $PD = $PEI = false;
+                    $CD[] = $PD[] = $PEI[] = false;
                 }
 
-                if (($EM && $EC) || ($EM && $CD) || ($FEL && $PD) || ($FEL && $PEI) || ($FEL && $EC)) {
-                    return $route;
-                }
+                return match (true) {
+                    $EM && $EC, $EM && in_array(true, $CD), $FEL && in_array(true, $PD), $FEL && in_array(true, $PEI), $FEL && $EC => $route,
+                };
             }
         }
         throw new NotFoundRouteException();
