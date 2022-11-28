@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram\Models;
 
+use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
@@ -44,7 +45,7 @@ class User extends Model
      * @var array
      */
     protected $casts = [
-        'settings' => 'array',
+        'settings' => AsArrayObject::class,
     ];
 
     /**
