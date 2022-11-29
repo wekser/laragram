@@ -1,7 +1,7 @@
 Laragram
 =====
 
-Laravel framework for easy develop Telegram Bot in REST style in REST style.
+Laravel framework for easy develop Telegram Bot in REST style.
 
 ## Documentation
 
