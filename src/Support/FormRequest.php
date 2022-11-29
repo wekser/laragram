@@ -65,7 +65,7 @@ class FormRequest
         $this->request['route']['contains'] = $route['contains'] ?? null;
         $this->request['route']['uses'] = isset($route['controller']) ? $route['controller'] . '@' . $route['method'] : 'callback';
         $this->request['route']['form'] = $route['from'] ?? $station;
-        $this->request['data']['query'] = collect($this->request['update']['object'])->get($route['listener']);
+        $this->request['data']['query'] = Arr::get($this->request['update']['object'], $route['listener']);
         $this->request['data']['all'] = $this->getDataAll($this->request['data']['query'], $this->request['route']['contains']);
 
         return new BotRequest($this->request);
@@ -80,16 +80,16 @@ class FormRequest
      */
     protected function getDataAll(string $query, ?array $contains): array
     {
-        if (empty($contains) || empty($contains['params'])) return [];
+        if (empty($contains) || empty($contains[0]['params'])) return [];
 
         $mix = explode(' ', $query);
-        $args = $contains['is_command'] ? array_values(Arr::except($mix, 0)) : $mix;
+        $args = $contains[0]['is_command'] ? array_values(Arr::except($mix, 0)) : $mix;
 
         if (empty($args)) return [];
 
         $data = [];
 
-        foreach ($contains['params'] as $key => $param) {
+        foreach ($contains[0]['params'] as $key => $param) {
             $data[$param] = $args[$key] ?? null;
         }
 
