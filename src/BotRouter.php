@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
@@ -141,8 +142,8 @@ class BotRouter
             $event = $route['event'] ?? null;
             $listener = $route['listener'] ?? null;
 
-            if ($event == $this->type && collect($object)->has($listener)) {
-                $data = $object[$listener] ?? null;
+            if ($event == $this->type && Arr::has($object, $listener)) {
+                $data = Arr::get($object, $listener);
                 $from = $route['from'] ?? null;
                 $contains = $route['contains'] ?? null;
 
