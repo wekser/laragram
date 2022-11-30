@@ -5,11 +5,17 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v1.5.5] (2022-11-30)
+
+## Changed
+
+- Improved code
+
 ## [v1.5.4] (2022-11-29)
 
 ## Changed
 
-- Impoved code in `BotRouter`
+- Improved code in `BotRouter`
 
 ## [v1.5.3] (2022-11-28)
 
