@@ -11,6 +11,7 @@
 
 namespace Wekser\Laragram\Models;
 
+use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $update_id
  * @property string $station
  * @property array $payload
- * @property \Carbon\Carbon $activity
+ * @property \Carbon\Carbon $last_activity
  * @property-read User $user
  */
 class Session extends Model
@@ -37,7 +38,7 @@ class Session extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'station', 'payload', 'activity',
+        'user_id', 'update_id', 'station', 'payload', 'last_activity',
     ];
 
     /**
@@ -46,7 +47,7 @@ class Session extends Model
      * @var array
      */
     protected $casts = [
-        'payload' => 'array',
+        'payload' => AsArrayObject::class,
     ];
 
     /**

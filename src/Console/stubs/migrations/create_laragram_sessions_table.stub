@@ -15,11 +15,11 @@ class CreateLaragramSessionsTable extends Migration
     {
         Schema::create(config('laragram.auth.session.table'), function (Blueprint $table) {
             $table->id();
-            $table->ulid('user_id');
+            $table->foreignId('user_id')->constrained(config('laragram.auth.user.table'));
             $table->bigInteger('update_id')->unique();
             $table->string('station');
             $table->json('payload');
-            $table->dateTime('activity');
+            $table->dateTime('last_activity');
         });
     }
 

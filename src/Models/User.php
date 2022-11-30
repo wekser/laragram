@@ -12,13 +12,12 @@
 namespace Wekser\Laragram\Models;
 
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 /**
- * @property string $id
+ * @property int $id
  * @property int $uid
  * @property string $first_name
  * @property string|null $last_name
@@ -30,7 +29,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class User extends Authenticatable
 {
-    use HasFactory, HasUlids, Notifiable;
+    use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -63,7 +62,7 @@ class User extends Authenticatable
      */
     public function session()
     {
-        return $this->sessions()->where('activity', '<=', now()->addMinutes(config('laragram.auth.session.lifetime')))->first();
+        return $this->sessions()->where('last_activity', '<=', now()->addMinutes(config('laragram.auth.session.lifetime')))->first();
     }
 
     /**
@@ -71,6 +70,6 @@ class User extends Authenticatable
      */
     public function sessions()
     {
-        return $this->hasMany(config('laragram.auth.session.model'))->orderBy('activity', 'desc');
+        return $this->hasMany(config('laragram.auth.session.model'))->orderBy('last_activity', 'desc');
     }
 }
