@@ -21,7 +21,7 @@ class BotAPI
      *
      * @var BotClient
      */
-    protected $client;
+    protected BotClient $client;
 
     /**
      * BotAPI Constructor.

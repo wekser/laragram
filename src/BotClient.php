@@ -29,20 +29,6 @@ class BotClient
     protected int $connectTimeOut;
 
     /**
-     * Indicates if the request to Telegram will be asynchronous (non-blocking).
-     *
-     * @var bool
-     */
-    protected bool $isAsyncRequest;
-
-    /**
-     * HTTP Request Method.
-     *
-     * @var string
-     */
-    protected string $method;
-
-    /**
      * Timeout of the request in seconds.
      *
      * @var int
@@ -57,6 +43,13 @@ class BotClient
     protected string $token;
 
     /**
+     * User agent in the Request.
+     *
+     * @var string
+     */
+    protected string $userAgent;
+
+    /**
      * BotClient Constructor
      *
      * @param string $token
@@ -65,10 +58,9 @@ class BotClient
     public function __construct(string $token, array $config)
     {
         $this->token = $token;
-        $this->method = $config['method'];
         $this->connectTimeOut = $config['connectTimeOut'];
-        $this->isAsyncRequest = $config['isAsyncRequest'];
         $this->timeOut = $config['timeOut'];
+        $this->userAgent = $config['userAgent'];
     }
 
     /**
@@ -81,8 +73,8 @@ class BotClient
      */
     public function request(string $method, array $params = [], bool $fileUpload = false)
     {
-        return $this->response((new Client())->{$this->isAsyncRequest ? 'requestAsync' : 'request'}(
-            $this->method,
+        return $this->response((new Client())->request(
+            'POST',
             $this->buildUrl($method),
             $this->buildOptions($params, $fileUpload)
         ));
@@ -170,7 +162,7 @@ class BotClient
         $settings = [
             'connect_timeout' => $this->connectTimeOut,
             'headers' => [
-                'User-Agent' => 'Wekser\Laragram BotClient'
+                'User-Agent' => $this->userAgent
             ],
             'timeout' => $this->timeOut
         ];
@@ -205,9 +197,9 @@ class BotClient
      *
      * @param string $name
      * @param mixed $contents
-     * @return bool
+     * @return mixed
      */
-    protected function isValidFileOrUrl(string $name, string $contents): bool
+    protected function isValidFileOrUrl(string $name, mixed $contents)
     {
         if ($name == 'url') return false;
 

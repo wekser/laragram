@@ -47,10 +47,9 @@ return [
     */
 
     'client' => [
-        'method' => 'POST', // POST or GET
-        'isAsyncRequest' => true,
         'timeOut' => 60,
         'connectTimeOut' => 10,
+        'User-Agent' => 'Wekser\Laragram BotClient',
     ],
 
     /*
