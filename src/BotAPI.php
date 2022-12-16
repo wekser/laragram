@@ -27,13 +27,14 @@ class BotAPI
      * BotAPI Constructor.
      *
      * @param string $token
+     * @param array $config
      * @throws TokenInvalidException
      */
-    public function __construct(string $token)
+    public function __construct(string $token, array $config)
     {
         if (empty($token)) throw new TokenInvalidException();
 
-        $this->client = new BotClient($token);
+        $this->client = new BotClient($token, $config);
     }
 
     /**

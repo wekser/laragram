@@ -22,6 +22,34 @@ class BotClient
     const API_URL = 'https://api.telegram.org/bot';
 
     /**
+     * Connection timeout of the request in seconds.
+     *
+     * @var int
+     */
+    protected int $connectTimeOut;
+
+    /**
+     * Indicates if the request to Telegram will be asynchronous (non-blocking).
+     *
+     * @var bool
+     */
+    protected bool $isAsyncRequest;
+
+    /**
+     * HTTP Request Method.
+     *
+     * @var string
+     */
+    protected string $method;
+
+    /**
+     * Timeout of the request in seconds.
+     *
+     * @var int
+     */
+    protected int $timeOut;
+
+    /**
      * The bot token.
      *
      * @var string
@@ -29,34 +57,18 @@ class BotClient
     protected string $token;
 
     /**
-     * Indicates if the request to Telegram will be asynchronous (non-blocking).
-     *
-     * @var bool
-     */
-    protected bool $isAsyncRequest = false;
-
-    /**
-     * Timeout of the request in seconds.
-     *
-     * @var int
-     */
-    protected int $timeOut = 60;
-
-    /**
-     * Connection timeout of the request in seconds.
-     *
-     * @var int
-     */
-    protected int $connectTimeOut = 10;
-
-    /**
      * BotClient Constructor
      *
      * @param string $token
+     * @param array $config
      */
-    public function __construct(string $token)
+    public function __construct(string $token, array $config)
     {
         $this->token = $token;
+        $this->method = $config['method'];
+        $this->connectTimeOut = $config['connectTimeOut'];
+        $this->isAsyncRequest = $config['isAsyncRequest'];
+        $this->timeOut = $config['timeOut'];
     }
 
     /**
@@ -69,12 +81,8 @@ class BotClient
      */
     public function request(string $method, array $params = [], bool $fileUpload = false)
     {
-        $request = $this->isAsyncRequest ? 'requestAsync' : 'request';
-
-        $client = new Client();
-
-        return $this->response($client->{$request}(
-            'POST',
+        return $this->response((new Client())->{$this->isAsyncRequest ? 'requestAsync' : 'request'}(
+            $this->method,
             $this->buildUrl($method),
             $this->buildOptions($params, $fileUpload)
         ));
@@ -179,26 +187,16 @@ class BotClient
      */
     protected function prepareParameters(array $params = [], bool $fileUpload = false): array
     {
-        if ($fileUpload) {
-            $multipart_params = collect($params)->reject(function ($value) {
-                return is_null($value);
-            })->map(function ($contents, $name) {
-                if (!is_resource($contents) && $this->isValidFileOrUrl($name, $contents)) {
-                    $contents = $this->inputFile($contents);
-                }
-                return ['name' => $name, 'contents' => $contents];
-            })->values()->all();
+        $data = collect($params)->reject(function ($value) {
+            return is_null($value);
+        });
 
-            $parameters = ['multipart' => $multipart_params];
-        } else {
-            $form_params = collect($params)->reject(function ($value) {
-                return is_null($value);
-            })->all();
-
-            $parameters = ['form_params' => $form_params];
-        }
-
-        return $parameters;
+        return $fileUpload ? ['multipart' => $data->map(function ($contents, $name) {
+            if (!is_resource($contents) && $this->isValidFileOrUrl($name, $contents)) {
+                $contents = $this->inputFile($contents);
+            }
+            return ['name' => $name, 'contents' => $contents];
+        })->all()] : ['form_params' => $data->all()];
     }
 
     /**
@@ -206,22 +204,16 @@ class BotClient
      * file on the local file system, or a valid remote URL.
      *
      * @param string $name
-     * @param string $contents
+     * @param mixed $contents
      * @return bool
      */
     protected function isValidFileOrUrl(string $name, string $contents): bool
     {
-        if ($name == 'url') {
-            return false;
-        }
+        if ($name == 'url') return false;
 
-        if ($name == 'certificate') {
-            return true;
-        }
+        if ($name == 'certificate') return true;
 
-        if (is_readable($contents)) {
-            return true;
-        }
+        if (is_file($contents) || is_readable($contents)) return true;
 
         return filter_var($contents, FILTER_VALIDATE_URL);
     }
@@ -229,20 +221,16 @@ class BotClient
     /**
      * Opens file stream.
      *
-     * @param string $contents
+     * @param mixed $contents
      * @return resource
      * @throws FileInvalidException
      */
-    protected function inputFile(string $contents)
+    protected function inputFile(mixed $contents)
     {
-        if (is_resource($contents)) {
-            return $contents;
-        }
-
-        if (!preg_match('/^(https?|ftp):\/\/.*/', $contents) == 1 && !is_readable($contents)) {
+        if (is_string($contents) && (!(preg_match('/^(https|ftp):\/\/.*/', $contents) == 1) || !strpos(get_headers($contents)[0], '200'))) {
             throw new FileInvalidException($contents);
         }
 
-        return Psr7\try_fopen($contents, 'r');
+        return fopen($contents, 'r');
     }
 }
