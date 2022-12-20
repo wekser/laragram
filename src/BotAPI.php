@@ -62,7 +62,7 @@ class BotAPI
      * @var bool $params ['disable_web_page_preview']
      * @var bool $params ['disable_notification']
      * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
+     * @var array|string $params ['reply_markup']
      *
      * @return mixed
      */
@@ -186,6 +186,28 @@ class BotAPI
     public function sendVideo(array $params)
     {
         return $this->client->request('sendVideo', $this->setParameters($params, 'chat_id'), true);
+    }
+
+    /**
+     * Use this method to send a group of photos, videos, documents or audios as an album. Documents and audio files can be only grouped in an album with messages of the same type.
+     *
+     * @link https://core.telegram.org/bots/api#sendMediaGroup
+     *
+     * @param array $params
+     *
+     * @var int|string $params ['chat_id']
+     * @var int $params ['message_thread_id']
+     * @var array $params ['media']
+     * @var bool $params ['disable_notification']
+     * @var bool $params ['protect_content']
+     * @var int $params ['reply_to_message_id']
+     * @var bool $params ['allow_sending_without_reply']
+     *
+     * @return mixed
+     */
+    public function sendMediaGroup(array $params)
+    {
+        return $this->client->request('sendMediaGroup', $this->setParameters($params, 'chat_id'), true);
     }
 
     /**
@@ -755,6 +777,13 @@ class BotAPI
      * @param array $params
      *
      * @var int $params ['chat_id']
+     * @var int $params ['message_thread_id']
+     * @var string $params ['emoji']
+     * @var bool $params ['disable_notification']
+     * @var bool $params ['protect_content']
+     * @var int $params ['reply_to_message_id']
+     * @var bool $params ['allow_sending_without_reply']
+     * @var array|string $params ['reply_markup']
      *
      * @return mixed
      */
