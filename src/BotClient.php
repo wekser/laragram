@@ -11,112 +11,95 @@
 
 namespace Wekser\Laragram;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Psr7;
-use Psr\Http\Message\ResponseInterface;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
-use Wekser\Laragram\Exceptions\FileInvalidException;
 
 class BotClient
 {
-    const API_URL = 'https://api.telegram.org/bot';
-
     /**
-     * Connection timeout of the request in seconds.
+     * Telegram Bot API url.
      *
-     * @var int
+     * @var string
      */
-    protected int $connectTimeOut;
-
-    /**
-     * Timeout of the request in seconds.
-     *
-     * @var int
-     */
-    protected int $timeOut;
+    private string $api = 'https://api.telegram.org/bot';
 
     /**
      * The bot token.
      *
      * @var string
      */
-    protected string $token;
-
-    /**
-     * User agent in the Request.
-     *
-     * @var string
-     */
-    protected string $userAgent;
+    private string $token;
 
     /**
      * BotClient Constructor
      *
      * @param string $token
-     * @param array $config
      */
-    public function __construct(string $token, array $config)
+    public function __construct(string $token)
     {
         $this->token = $token;
-        $this->connectTimeOut = $config['connectTimeOut'];
-        $this->timeOut = $config['timeOut'];
-        $this->userAgent = $config['userAgent'];
     }
 
     /**
      * Send a request to Telegram Bot API and return the response.
      *
      * @param string $method
-     * @param array $params
-     * @param bool $fileUpload
+     * @param array $data
      * @return mixed
      */
-    public function request(string $method, array $params = [], bool $fileUpload = false)
+    public function request(string $method, array $data = [])
     {
-        return $this->response((new Client())->request(
-            'POST',
-            $this->buildUrl($method),
-            $this->buildOptions($params, $fileUpload)
-        ));
+        return $this->response($this->curl($this->buildUrl($method), $this->prepareData($data)));
     }
 
     /**
      * Prepare a response and return the result.
      *
-     * @param \Psr\Http\Message\ResponseInterface $response
+     * @param string $response
      * @return mixed
      * @throws ClientResponseInvalidException
      */
-    protected function response(ResponseInterface $response)
+    protected function response(string $response)
     {
-        if ($response->getStatusCode() !== 200) {
-            throw new ClientResponseInvalidException();
-        }
+        if (!Str::isJson($response)) throw new ClientResponseInvalidException();
 
-        $body = trim((string)$response->getBody());
+        $result = json_decode($response, true);
 
-        if (!$this->isJson($body)) {
-            throw new ClientResponseInvalidException();
-        }
+        if (empty(Arr::get($result, 'ok'))) throw new ClientResponseInvalidException();
 
-        $result = json_decode($body, true);
-
-        if (!isset($result['ok'])) {
-            throw new ClientResponseInvalidException();
-        }
-
-        return $result['ok'] ? $result['result'] : $result;
+        return $result['result'] ?? $result;
     }
 
     /**
-     * Finds whether a variable is a json string.
+     * The CURL request implementation.
      *
-     * @param void $string
-     * @return bool
+     * @param string $url
+     * @param array $data
+     * @return string
+     * @throws ClientResponseInvalidException
      */
-    protected function isJson($string): bool
+    private function curl(string $url, array $data): string
     {
-        return is_string($string) && is_array(json_decode($string, true));
+        $options = [
+            CURLOPT_POST => 1,
+            CURLOPT_POSTFIELDS => $data,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER => false,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ];
+
+        $ch = curl_init($url);
+
+        curl_setopt_array($ch, $options);
+
+        $result = curl_exec($ch);
+
+        curl_close($ch);
+
+        if ($result === false) throw new ClientResponseInvalidException('Curl error: ' . curl_error($ch), curl_errno($ch));
+
+        return $result;
     }
 
     /**
@@ -127,102 +110,19 @@ class BotClient
      */
     protected function buildUrl(string $method): string
     {
-        return $this->getApiUrl() . $this->getToken() . '/' . $method;
+        return $this->api . $this->token . '/' . $method;
     }
 
     /**
-     * Get Telegram Bot API url.
+     * Prepare data for request.
      *
-     * @return string
-     */
-    protected function getApiUrl(): string
-    {
-        return static::API_URL;
-    }
-
-    /**
-     * Get the bot token.
-     *
-     * @return string
-     */
-    protected function getToken(): string
-    {
-        return $this->token;
-    }
-
-    /**
-     * Build options for request.
-     *
-     * @param array $params
-     * @param bool $fileUpload
+     * @param array $data
      * @return array
      */
-    protected function buildOptions(array $params = [], bool $fileUpload = false): array
+    protected function prepareData($data)
     {
-        $settings = [
-            'connect_timeout' => $this->connectTimeOut,
-            'headers' => [
-                'User-Agent' => $this->userAgent
-            ],
-            'timeout' => $this->timeOut
-        ];
-
-        return array_merge($settings, $this->prepareParameters($params, $fileUpload));
-    }
-
-    /**
-     * Prepare parameters.
-     *
-     * @param array $params
-     * @param bool $fileUpload
-     * @return array
-     */
-    protected function prepareParameters(array $params = [], bool $fileUpload = false): array
-    {
-        $data = collect($params)->reject(function ($value) {
+        return collect($data)->reject(function ($value, $key) {
             return is_null($value);
-        });
-
-        return $fileUpload ? ['multipart' => $data->map(function ($contents, $name) {
-            if (!is_resource($contents) && $this->isValidFileOrUrl($name, $contents)) {
-                $contents = $this->inputFile($contents);
-            }
-            return ['name' => $name, 'contents' => $contents];
-        })->all()] : ['form_params' => $data->all()];
-    }
-
-    /**
-     * Determines if the string passed to be uploaded is a valid
-     * file on the local file system, or a valid remote URL.
-     *
-     * @param string $name
-     * @param mixed $contents
-     * @return mixed
-     */
-    protected function isValidFileOrUrl(string $name, mixed $contents)
-    {
-        if ($name == 'url') return false;
-
-        if ($name == 'certificate') return true;
-
-        if (is_file($contents) || is_readable($contents)) return true;
-
-        return filter_var($contents, FILTER_VALIDATE_URL);
-    }
-
-    /**
-     * Opens file stream.
-     *
-     * @param mixed $contents
-     * @return resource
-     * @throws FileInvalidException
-     */
-    protected function inputFile(mixed $contents)
-    {
-        if (is_string($contents) && (!(preg_match('/^(https|ftp):\/\/.*/', $contents) == 1) || !strpos(get_headers($contents)[0], '200'))) {
-            throw new FileInvalidException($contents);
-        }
-
-        return fopen($contents, 'r');
+        })->all();
     }
 }

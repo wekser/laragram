@@ -57,25 +57,17 @@ class SetWebhookCommand extends Command
      */
     public function handle()
     {
-        if ($this->appUrl != $_SERVER['APP_URL']) {
-            return $this->error('Invalid current APP URL in .env file');
-        }
+        if ($this->appUrl != $_SERVER['APP_URL']) return $this->error('Invalid current APP URL in .env file');
 
-        if (parse_url($this->appUrl, PHP_URL_SCHEME) !== 'https') {
-            return $this->error('Invalid URL, should be an HTTPS url');
-        }
+        if (parse_url($this->appUrl, PHP_URL_SCHEME) !== 'https') return $this->error('Invalid URL, should be an HTTPS url');
 
         $url = implode('/', [trim($this->appUrl, '/'), $this->botPrefix, $this->botSecret]);
 
-        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
-            return $this->error('Invalid URL Provided');
-        }
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) return $this->error('Invalid URL Provided');
 
         $response = BotAPI::setWebhook(['url' => $url]);
 
-        if (isset($response['error_code'])) {
-            return $this->error($response['description']);
-        }
+        if (isset($response['error_code'])) return $this->error($response['description']);
 
         $this->info("Webhook [$url] was successfully set!");
     }

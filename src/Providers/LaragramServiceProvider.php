@@ -108,8 +108,7 @@ class LaragramServiceProvider extends ServiceProvider
     {
         $this->app->singleton('laragram.api', function () {
             return new BotAPI(
-                $this->config('env.token'),
-                $this->config('client')
+                $this->config('env.token')
             );
         });
     }
