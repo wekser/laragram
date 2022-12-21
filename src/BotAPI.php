@@ -11,7 +11,6 @@
 
 namespace Wekser\Laragram;
 
-use Wekser\Laragram\Exceptions\TokenInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 
 class BotAPI
@@ -27,14 +26,10 @@ class BotAPI
      * BotAPI Constructor.
      *
      * @param string $token
-     * @param array $config
-     * @throws TokenInvalidException
      */
-    public function __construct(string $token, array $config)
+    public function __construct(string $token)
     {
-        if (empty($token)) throw new TokenInvalidException();
-
-        $this->client = new BotClient($token, $config);
+        $this->client = new BotClient($token);
     }
 
     /**
@@ -42,7 +37,7 @@ class BotAPI
      *
      * @link https://core.telegram.org/bots/api#getMe
      *
-     * @return mixed
+     * @return array
      */
     public function getMe()
     {
@@ -50,48 +45,33 @@ class BotAPI
     }
 
     /**
-     * Send text message.
+     * Use this method to send text messages.
      *
      * @link https://core.telegram.org/bots/api#sendMessage
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['text']
-     * @var string $params ['parse_mode']
-     * @var bool $params ['disable_web_page_preview']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var array|string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendMessage(array $params)
     {
-        return $this->client->request('sendMessage', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendMessage', $params);
     }
 
     /**
-     * Forward message of any kind.
+     * Use this method to forward messages of any kind.
      *
      * @link https://core.telegram.org/bots/api#forwardMessage
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['from_chat_id']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['message_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function forwardMessage(array $params)
     {
-        return $this->client->request('forwardMessage', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('forwardMessage', $params);
     }
 
     /**
-     * Send photo.
+     * Use this method to send photos.
      *
      * @link https://core.telegram.org/bots/api#sendPhoto
      *
@@ -109,83 +89,46 @@ class BotAPI
      */
     public function sendPhoto(array $params)
     {
-        return $this->client->request('sendPhoto', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendPhoto', $params);
     }
 
     /**
-     * Send regular audio file.
+     * Use this method to send audio files, if you want Telegram clients to display them in the music player. Your audio must be in the .MP3 or .M4A format.
      *
      * @link https://core.telegram.org/bots/api#sendAudio
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['audio']
-     * @var string $params ['caption']
-     * @var bool $params ['parse_mode']
-     * @var int $params ['duration']
-     * @var string $params ['performer']
-     * @var string $params ['title']
-     * @var string $params ['thumb']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendAudio(array $params)
     {
-        return $this->client->request('sendAudio', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendAudio', $params);
     }
 
     /**
-     * Send general file.
+     * Use this method to send general files.
      *
      * @link https://core.telegram.org/bots/api#sendDocument
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['document']
-     * @var string $params ['thumb']
-     * @var string $params ['caption']
-     * @var bool $params ['parse_mode']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendDocument(array $params)
     {
-        return $this->client->request('sendDocument', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendDocument', $params);
     }
 
     /**
-     * Send video file.
+     * Use this method to send video files, Telegram clients support MPEG4 videos (other formats may be sent as Document).
      *
      * @link https://core.telegram.org/bots/api#sendVideo
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['video']
-     * @var int $params ['duration']
-     * @var int $params ['width']
-     * @var int $params ['height']
-     * @var string $params ['thumb']
-     * @var string $params ['caption']
-     * @var bool $params ['parse_mode']
-     * @var bool $params ['supports_streaming']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendVideo(array $params)
     {
-        return $this->client->request('sendVideo', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendVideo', $params);
     }
 
     /**
@@ -194,248 +137,150 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#sendMediaGroup
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_thread_id']
-     * @var array $params ['media']
-     * @var bool $params ['disable_notification']
-     * @var bool $params ['protect_content']
-     * @var int $params ['reply_to_message_id']
-     * @var bool $params ['allow_sending_without_reply']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendMediaGroup(array $params)
     {
-        return $this->client->request('sendMediaGroup', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendMediaGroup', $params);
     }
 
     /**
-     * Send animation file (GIF or H.264/MPEG-4 AVC video without sound).
+     * Use this method to send animation files (GIF or H.264/MPEG-4 AVC video without sound).
      *
      * @link https://core.telegram.org/bots/api#sendAnimation
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['animation']
-     * @var int $params ['duration']
-     * @var int $params ['width']
-     * @var int $params ['height']
-     * @var string $params ['thumb']
-     * @var string $params ['caption']
-     * @var bool $params ['parse_mode']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendAnimation(array $params)
     {
-        return $this->client->request('sendAnimation', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendAnimation', $params);
     }
 
     /**
-     * Send voice audio file.
+     * Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .OGG file encoded with OPUS (other formats may be sent as Audio or Document).
      *
      * @link https://core.telegram.org/bots/api#sendVoice
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['voice']
-     * @var string $params ['caption']
-     * @var bool $params ['parse_mode']
-     * @var int $params ['duration']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendVoice(array $params)
     {
-        return $this->client->request('sendVoice', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendVoice', $params);
     }
 
     /**
-     * Send rounded square mp4 video file of up to 1 minute long.
+     * As of v.4.0, Telegram clients support rounded square MPEG4 videos of up to 1 minute long. Use this method to send video messages.
      *
      * @link https://core.telegram.org/bots/api#sendVideoNote
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['video_note']
-     * @var int $params ['duration']
-     * @var int $params ['length']
-     * @var string $params ['thumb']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendVideoNote(array $params)
     {
-        return $this->client->request('sendVideoNote', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendVideoNote', $params);
     }
 
     /**
-     * Send point on the map.
+     * Use this method to send point on the map.
      *
      * @link https://core.telegram.org/bots/api#sendLocation
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var float $params ['latitude']
-     * @var float $params ['longitude']
-     * @var int $params ['live_period']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendLocation(array $params)
     {
-        return $this->client->request('sendLocation', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendLocation', $params);
     }
 
     /**
-     * Edit live location messages sent by the bot or via the bot.
+     * Use this method to edit live location messages. A location can be edited until its live_period expires or editing is explicitly disabled by a call to stopMessageLiveLocation.
      *
      * @link https://core.telegram.org/bots/api#editMessageLiveLocation
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     * @var int $params ['latitude']
-     * @var float $params ['longitude']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function editMessageLiveLocation(array $params)
     {
-        return $this->client->request('editMessageLiveLocation', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageLiveLocation', $params);
     }
 
     /**
-     * Stop updating a live location message sent by the bot or via the bot.
+     * Use this method to stop updating a live location message before live_period expires.
      *
      * @link https://core.telegram.org/bots/api#stopMessageLiveLocation
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function stopMessageLiveLocation(array $params)
     {
-        return $this->client->request('stopMessageLiveLocation', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('stopMessageLiveLocation', $params);
     }
 
     /**
-     * Send information about a venue.
+     * Use this method to send information about a venue.
      *
      * @link https://core.telegram.org/bots/api#sendVenue
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var float $params ['latitude']
-     * @var float $params ['longitude']
-     * @var string $params ['title']
-     * @var string $params ['address']
-     * @var string $params ['foursquare_id']
-     * @var string $params ['foursquare_type']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendVenue(array $params)
     {
-        return $this->client->request('sendVenue', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendVenue', $params);
     }
 
     /**
-     * Send phone contact.
+     * Use this method to send phone contacts.
      *
      * @link https://core.telegram.org/bots/api#sendContact
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['phone_number']
-     * @var string $params ['first_name']
-     * @var string $params ['last_name']
-     * @var string $params ['vcard']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendContact(array $params)
     {
-        return $this->client->request('sendContact', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendContact', $params);
     }
 
     /**
-     * Broadcast a Chat Action.
+     * Use this method when you need to tell the user that something is happening on the bot's side. The status is set for 5 seconds or less (when a message arrives from your bot, Telegram clients clear its typing status).
      *
      * @link https://core.telegram.org/bots/api#sendChatAction
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['action']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendChatAction(array $params)
     {
-        return $this->client->request('sendChatAction', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendChatAction', $params);
     }
 
     /**
-     * Returns a list of profile pictures for a user.
+     * Use this method to get a list of profile pictures for a user.
      *
      * @link https://core.telegram.org/bots/api#getUserProfilePhotos
      *
      * @param array $params
-     *
-     * @var int $params ['user_id']
-     * @var int $params ['offset']
-     * @var int $params ['limit']
-     *
-     * @return mixed
+     * @return array
      */
     public function getUserProfilePhotos(array $params)
     {
-        return $this->client->request('getUserProfilePhotos', $this->setParameters($params, 'user_id'));
+        return $this->client->request('getUserProfilePhotos', $params);
     }
 
     /**
-     * Returns basic info about a file and prepare it for downloading.
+     * Use this method to get basic information about a file and prepare it for downloading.
      *
      * @link https://core.telegram.org/bots/api#getFile
      *
      * @param array $params
-     *
-     * @var string $params ['file_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function getFile(array $params)
     {
@@ -443,35 +288,25 @@ class BotAPI
     }
 
     /**
-     * Get up to date information about the chat.
+     * Use this method to get up to date information about the chat (current name of the user for one-on-one conversations, current username of a user, group or channel, etc.).
      *
      * @link https://core.telegram.org/bots/api#getChat
      *
      * @param array $params
-     *
-     * @var string|int $params ['chat_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function getChat(array $params)
     {
-        return $this->client->request('getChat', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('getChat', $params);
     }
 
     /**
-     * Send answers to callback query sent from inline keyboard.
+     * Use this method to send answers to callback queries sent from inline keyboards. The answer will be displayed to the user as a notification at the top of the chat screen or as an alert.
      *
      * @link https://core.telegram.org/bots/api#answerCallbackQuery
      *
      * @param array $params
-     *
-     * @var string $params ['callback_query_id']
-     * @var string $params ['text']
-     * @var bool $params ['show_alert']
-     * @var string $params ['url']
-     * @var int $params ['cache_time']
-     *
-     * @return mixed
+     * @return array
      */
     public function answerCallbackQuery(array $params)
     {
@@ -479,65 +314,55 @@ class BotAPI
     }
 
     /**
-     * Edit text message sent by the bot or via the bot (for inline bots).
+     * Use this method to edit text and game messages.
      *
      * @link https://core.telegram.org/bots/api#editMessageText
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     * @var string $params ['text']
-     * @var string $params ['parse_mode']
-     * @var bool $params ['disable_web_page_preview']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function editMessageText(array $params)
     {
-        return $this->client->request('editMessageText', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageText', $params);
     }
 
     /**
-     * Edit caption of message sent by the bot or via the bot (for inline bots).
+     * Use this method to edit captions of messages.
      *
      * @link https://core.telegram.org/bots/api#editMessageCaption
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     * @var string $params ['caption']
-     * @var string $params ['parse_mode']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function editMessageCaption(array $params)
     {
-        return $this->client->request('editMessageCaption', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageCaption', $params);
     }
 
     /**
-     * Edit only the reply markup of message sent by the bot or via the bot (for inline bots).
+     * Use this method to edit animation, audio, document, photo, or video messages.
+     *
+     * @link https://core.telegram.org/bots/api#editMessageMedia
+     *
+     * @param array $params
+     * @return array
+     */
+    public function editMessageMedia(array $params)
+    {
+        return $this->client->request('editMessageMedia', $params);
+    }
+
+    /**
+     * Use this method to edit only the reply markup of messages.
      *
      * @link https://core.telegram.org/bots/api#editMessageReplyMarkup
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function editMessageReplyMarkup(array $params)
     {
-        return $this->client->request('editMessageReplyMarkup', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('editMessageReplyMarkup', $params);
     }
 
     /**
@@ -546,35 +371,24 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#deleteMessage
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var int $params ['message_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function deleteMessage(array $params)
     {
-        return $this->client->request('deleteMessage', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('deleteMessage', $params);
     }
 
     /**
-     * Send .webp stickers.
+     * Use this method to send static .WEBP, animated .TGS, or video .WEBM stickers.
      *
      * @link https://core.telegram.org/bots/api#sendSticker
      *
      * @param array $params
-     *
-     * @var int|string $params ['chat_id']
-     * @var string $params ['sticker']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendSticker(array $params)
     {
-        return $this->client->request('sendSticker', $this->setParameters($params, 'chat_id'), true);
+        return $this->client->request('sendSticker', $params);
     }
 
     /**
@@ -583,10 +397,7 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#getStickerSet
      *
      * @param array $params
-     *
-     * @var string $params ['name']
-     *
-     * @return mixed
+     * @return array
      */
     public function getStickerSet(array $params)
     {
@@ -599,16 +410,7 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#answerInlineQuery
      *
      * @param array $params
-     *
-     * @var string $params ['inline_query_id']
-     * @var array $params ['results']
-     * @var int|null $params ['cache_time']
-     * @var bool|null $params ['is_personal']
-     * @var string|null $params ['next_offset']
-     * @var string|null $params ['switch_pm_text']
-     * @var string|null $params ['switch_pm_parameter']
-     *
-     * @return mixed
+     * @return array
      */
     public function answerInlineQuery(array $params)
     {
@@ -621,51 +423,20 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#sendInvoice
      *
      * @param array $params
-     *
-     * @var int $params ['chat_id']
-     * @var string $params ['title']
-     * @var string $params ['description']
-     * @var string $params ['payload']
-     * @var string $params ['provider_token']
-     * @var string $params ['start_parameter']
-     * @var string $params ['currency']
-     * @var array $params ['prices']
-     * @var string $params ['provider_data']
-     * @var string $params ['photo_url']
-     * @var int $params ['photo_size']
-     * @var int $params ['photo_width']
-     * @var int $params ['photo_height']
-     * @var bool $params ['need_name']
-     * @var bool $params ['need_phone_number']
-     * @var bool $params ['need_email']
-     * @var bool $params ['need_shipping_address']
-     * @var bool $params ['send_phone_number_to_provider']
-     * @var bool $params ['send_email_to_provider']
-     * @var bool $params ['is_flexible']
-     * @var bool $params ['disable_notification']
-     * @var int $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendInvoice(array $params)
     {
-        return $this->client->request('sendInvoice', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendInvoice', $params);
     }
 
     /**
-     * Send an Update with a shipping_query field to the bot.
+     * If you sent an invoice requesting a shipping address and the parameter is_flexible was specified, the Bot API will send an Update with a shipping_query field to the bot. Use this method to reply to shipping queries.
      *
      * @link https://core.telegram.org/bots/api#answerShippingQuery
      *
      * @param array $params
-     *
-     * @var string $params ['shipping_query_id']
-     * @var bool $params ['ok']
-     * @var array $params ['shipping_options']
-     * @var string $params ['error_message']
-     *
-     * @return mixed
+     * @return array
      */
     public function answerShippingQuery(array $params)
     {
@@ -678,12 +449,7 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#answerPreCheckoutQuery
      *
      * @param array $params
-     *
-     * @var string $params ['pre_checkout_query_id']
-     * @var bool $params ['ok']
-     * @var string $params ['error_message']
-     *
-     * @return mixed
+     * @return array
      */
     public function answerPreCheckoutQuery(array $params)
     {
@@ -696,18 +462,11 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#sendGame
      *
      * @param array $params
-     *
-     * @var int $params ['chat_id']
-     * @var string $params ['game_short_name']
-     * @var bool $params ['disable_notification']
-     * @var string $params ['reply_to_message_id']
-     * @var string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendGame(array $params)
     {
-        return $this->client->request('sendGame', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendGame', $params);
     }
 
     /**
@@ -716,20 +475,11 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#setGameScore
      *
      * @param array $params
-     *
-     * @var int $params ['user_id']
-     * @var int $params ['score']
-     * @var bool $params ['force']
-     * @var bool $params ['disable_edit_message']
-     * @var int $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function setGameScore(array $params)
     {
-        return $this->client->request('setGameScore', $this->setParameters($params, 'user_id'));
+        return $this->client->request('setGameScore', $params);
     }
 
     /**
@@ -738,17 +488,11 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#getGameHighScores
      *
      * @param array $params
-     *
-     * @var int $params ['user_id']
-     * @var int $params ['chat_id']
-     * @var int $params ['message_id']
-     * @var string $params ['inline_message_id']
-     *
-     * @return mixed
+     * @return array
      */
     public function getGameHighScores(array $params)
     {
-        return $this->client->request('getGameHighScores', $this->setParameters($params, 'user_id'));
+        return $this->client->request('getGameHighScores', $params);
     }
 
     /**
@@ -757,16 +501,11 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#sendPoll
      *
      * @param array $params
-     *
-     * @var int $params ['chat_id']
-     * @var string $params ['question']
-     * @var string|array $params ['options']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendPoll(array $params)
     {
-        return $this->client->request('sendPoll', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendPoll', $params);
     }
 
     /**
@@ -775,66 +514,35 @@ class BotAPI
      * @link https://core.telegram.org/bots/api#sendDice
      *
      * @param array $params
-     *
-     * @var int $params ['chat_id']
-     * @var int $params ['message_thread_id']
-     * @var string $params ['emoji']
-     * @var bool $params ['disable_notification']
-     * @var bool $params ['protect_content']
-     * @var int $params ['reply_to_message_id']
-     * @var bool $params ['allow_sending_without_reply']
-     * @var array|string $params ['reply_markup']
-     *
-     * @return mixed
+     * @return array
      */
     public function sendDice(array $params)
     {
-        return $this->client->request('sendDice', $this->setParameters($params, 'chat_id'));
+        return $this->client->request('sendDice', $params);
     }
 
     /**
-     * Set a Webhook to receive incoming updates via an outgoing webhook.
+     * Use this method to specify a URL and receive incoming updates via an outgoing webhook.
      *
      * @link https://core.telegram.org/bots/api#setWebhook
      *
      * @param array $params
-     *
-     * @var string $params ['url']
-     * @var string $params ['certificate']
-     * @var int $params ['max_connections']
-     * @var string|array $params ['allowed_updates']
-     *
-     * @return mixed
+     * @return array
      */
     public function setWebhook(array $params)
     {
-        return $this->client->request('setWebhook', $params, true);
+        return $this->client->request('setWebhook', $params);
     }
 
     /**
-     * Delete the outgoing webhook (if any).
+     * Use this method to remove webhook integration if you decide to switch back to getUpdates.
      *
      * @link https://core.telegram.org/bots/api#deleteWebhook
      *
-     * @return mixed
+     * @return array
      */
     public function deleteWebhook()
     {
         return $this->client->request('deleteWebhook');
-    }
-
-    /**
-     * Set parameter array before request.
-     *
-     * @param array $params
-     * @param string|null $targetKey
-     *
-     * @return array
-     */
-    protected function setParameters(array $params, ?string $targetKey)
-    {
-        empty($targetKey) ?: $params[$targetKey] = $params[$targetKey] ?? BotAuth::user()->uid;
-
-        return $params;
     }
 }

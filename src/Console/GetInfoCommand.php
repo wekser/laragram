@@ -49,11 +49,10 @@ class GetInfoCommand extends Command
     {
         $response = BotAPI::getMe();
 
-        if (isset($response['error_code'])) {
-            return $this->error($response['description']);
-        }
+        if (isset($response['error_code'])) return $this->error($response['description']);
 
         $headers = ['id', 'name', 'username'];
+        
         $rows = [[$response['id'], $response['first_name'], $response['username']]];
 
         $this->table($headers, $rows);
