@@ -1,6 +1,6 @@
 {
     "name": "wekser/laragram",
-    "description": "Laravel framework for easy develop Telegram Bot.",
+    "description": "Laravel package for easy develop Telegram Bot.",
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/wekser/laragram",
@@ -22,9 +22,8 @@
     ],
     "require": {
         "php": "^8.0",
-        "guzzlehttp/guzzle": "^7.2",
         "illuminate/support": "^8.0|^9.0",
-        "nesbot/carbon": "^2.63"
+        "ext-curl": "*"
     },
     "require-dev": {
         "laravel/framework": "^9.0",

@@ -84,9 +84,15 @@ class BotAuth
 
         $driver = $this->getDriver();
 
-        $this->user = ($driver == 'database') ?
-            empty($user = $this->getUser($sender)) ?
-                $this->register($sender) : $this->login($user, $sender) : $this->setUser($sender);
+        if ($driver == 'database') {
+            $this->user = $this->setUser($sender);
+        } else {
+            if ($user = $this->getUser($sender)) {
+                $this->user = $this->login($user, $sender);
+            } else {
+                $this->user = $this->register($sender);
+            }
+        }
 
         return $this;
     }
