@@ -93,9 +93,7 @@ class Laragram
      */
     protected function defineStation()
     {
-        $session = $this->user->session();
-
-        return empty($session) ? 'start' : $session->station;
+        return empty($session = $this->user->session()) ? 'start' : $session->station;
     }
 
     /**

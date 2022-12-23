@@ -66,7 +66,7 @@ class BotClient
 
         $result = json_decode($response, true);
 
-        if (empty(Arr::get($result, 'ok'))) throw new ClientResponseInvalidException();
+        if (empty(Arr::get($result, 'ok'))) throw new ClientResponseInvalidException($response);
 
         return $result['result'] ?? $result;
     }
@@ -82,7 +82,7 @@ class BotClient
     private function curl(string $url, array $data): string
     {
         $options = [
-            CURLOPT_POST => 1,
+            CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $data,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER => false,
@@ -119,7 +119,7 @@ class BotClient
      * @param array $data
      * @return array
      */
-    protected function prepareData($data)
+    protected function prepareData(array $data)
     {
         return collect($data)->reject(function ($value, $key) {
             return is_null($value);
