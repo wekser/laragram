@@ -25,7 +25,7 @@ class CallbackFormed
     /**
      * @return array
      */
-    public $output;
+    public array $output;
 
     /**
      * Create a new event instance.

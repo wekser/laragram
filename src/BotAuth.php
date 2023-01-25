@@ -143,7 +143,7 @@ class BotAuth
             'first_name' => $sender['first_name'],
             'last_name' => $sender['last_name'] ?? null,
             'username' => $sender['username'] ?? null,
-            'language' => $this->defineUserLanguage($sender)
+            'settings' => ['language' => $this->defineUserLanguage($sender)]
         ];
 
         return (object) $user;
