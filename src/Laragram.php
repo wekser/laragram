@@ -24,21 +24,21 @@ class Laragram
      *
      * @var string|null
      */
-    protected $station;
+    protected ?string $station;
 
     /**
      * The request from to Telegram.
      *
      * @var \Illuminate\Http\Request
      */
-    protected $request;
+    protected Request $request;
 
     /**
      * The output data.
      *
      * @var array|null
      */
-    protected $output;
+    protected ?array $output;
 
     /**
      * The current authorized user.

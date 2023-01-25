@@ -66,7 +66,7 @@ class BotClient
 
         $result = json_decode($response, true);
 
-        if (empty(Arr::get($result, 'ok'))) throw new ClientResponseInvalidException($response);
+        if (Arr::get($result, 'ok') === null) throw new ClientResponseInvalidException($response);
 
         return $result['result'] ?? $result;
     }
