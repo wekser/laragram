@@ -81,7 +81,7 @@ class Laragram
      */
     protected function bootstrap()
     {
-        app('translator')->setLocale($this->user->settings['language']);
+        app('translator')->setLocale($this->user->settings->get('language'));
 
         $this->station = (config('laragram.auth.driver') == 'database') ? 'start' : $this->defineStation();
     }

@@ -5,6 +5,12 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [v1.5.11] (2023-02-07)
+
+## Changed
+
+- Change `settings` implementation in `User` model
+
 ## [v1.5.10] (2023-01-25)
 
 ## Changed
