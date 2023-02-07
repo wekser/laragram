@@ -143,7 +143,7 @@ class BotAuth
             'first_name' => $sender['first_name'],
             'last_name' => $sender['last_name'] ?? null,
             'username' => $sender['username'] ?? null,
-            'settings' => ['language' => $this->defineUserLanguage($sender)]
+            'settings' => ['active' => true, 'language' => $this->defineUserLanguage($sender)]
         ];
 
         return (object) $user;
@@ -159,13 +159,7 @@ class BotAuth
     {
         $user = new ($this->model)();
         $user->uid = $sender['id'];
-        $user->first_name = $sender['first_name'];
-        $user->last_name = $sender['last_name'] ?? null;
-        $user->username = $sender['username'] ?? null;
-        $user->settings = ['language' => $this->defineUserLanguage($sender)];
-        $user->save();
-
-        return $user;
+        return $this->extracted($sender, $user);
     }
 
     /**
@@ -188,14 +182,9 @@ class BotAuth
      * @param array $sender
      * @return object
      */
-    protected function login($user, array $sender)
+    protected function login(mixed $user, array $sender)
     {
-        $user->first_name = $sender['first_name'];
-        $user->last_name = $sender['last_name'] ?? null;
-        $user->username = $sender['username'] ?? null;
-        $user->save();
-
-        return $user;
+        return $this->extracted($sender, $user);
     }
 
     /**
@@ -206,5 +195,21 @@ class BotAuth
     public function user()
     {
         return $this->user;
+    }
+
+    /**
+     * @param array $sender
+     * @param mixed $user
+     * @return mixed
+     */
+    protected function extracted(array $sender, mixed $user): mixed
+    {
+        $user->first_name = $sender['first_name'];
+        $user->last_name = $sender['last_name'] ?? null;
+        $user->username = $sender['username'] ?? null;
+        $user->settings = ['active' => true, 'language' => $this->defineUserLanguage($sender)];
+        $user->save();
+
+        return $user;
     }
 }
