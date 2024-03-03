@@ -12,9 +12,9 @@ class HelloController extends Controller
     /**
      * Start a new chat with bot.
      *
-     * @return BotResponse
+     * @return \Wekser\Laragram\BotResponse
      */
-    public function start()
+    public function start(): \Wekser\Laragram\BotResponse
     {
         $user = BotAuth::user();
 
@@ -25,9 +25,9 @@ class HelloController extends Controller
      * Return to the user a his message
      *
      * @param BotRequest $request
-     * @return BotResponse
+     * @return string
      */
-    public function home(BotRequest $request)
+    public function home(BotRequest $request): string
     {
         return $request->query();
     }
@@ -36,9 +36,9 @@ class HelloController extends Controller
      * Reaction to inline button pressing
      *
      * @param BotRequest $request
-     * @return BotResponse
+     * @return \Wekser\Laragram\BotResponse
      */
-    public function callback(BotRequest $request)
+    public function callback(BotRequest $request): \Wekser\Laragram\BotResponse
     {
         return BotResponse::text(trans('laragram.callback.btn_click', ['name' => $request->input('name')]));
     }
