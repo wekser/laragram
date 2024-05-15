@@ -108,7 +108,7 @@ class BotRouter
      * @param \Wekser\Laragram\BotResponse|string $response
      * @return array
      */
-    protected function prepareResponse($response): array
+    protected function prepareResponse($response): ?array
     {
         return (new FormResponse())->getResponse($this->request, $response);
     }
