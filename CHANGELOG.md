@@ -5,7 +5,7 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [v2.0.0] (2026-03-28)
+## [v2.0.0] (2026-06-18)
 
 This is a major release. It introduces a redesigned namespace structure, an auth driver system, a full test suite, and several breaking changes. Deprecated aliases are provided where possible to ease migration.
 
@@ -97,6 +97,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `security.verify_secret` — toggle for `X-Telegram-Bot-Api-Secret-Token` validation
 
 **Other**
+- Laravel 13.x support (`illuminate/support: ^13.0`)
 - Support for 7 additional Telegram update types: `channel_post`, `edited_channel_post`, `poll`, `poll_answer`, `my_chat_member`, `chat_member`, `chat_join_request`
 - `BotAPI` PHPDoc `@method` annotations expanded from ~35 to ~70 Telegram API methods
 - `Facades\BotAPI`, `Facades\BotAuth`, `Facades\BotRoute`, `Facades\BotResponse` — registered facades
@@ -123,6 +124,8 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotRouter::findRoute()` — cryptic internal variable names (`$EF`, `$EC`, `$FS`, `$CD`, `$PD`, `$PEI`) replaced with descriptive ones
 - User settings no longer store a redundant `active` key — only `language` is written on authentication
 - Middleware stack order: `laragram.verify` → `laragram.auth` → `laragram.hook` → `laragram.throttle`
+- `require-dev` updated: `laravel/framework ^12.0|^13.0`, `orchestra/testbench ^10.0|^11.0`, `phpunit/phpunit ^11.0|^12.0`
+- Removed deprecated `stopOnFailure` attribute from `phpunit.xml` (removed in PHPUnit 11+; `false` is the default)
 
 ### Removed
 
