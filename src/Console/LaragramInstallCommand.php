@@ -64,7 +64,7 @@ class LaragramInstallCommand extends Command
 
             $this->newLine();
             $this->line('<fg=yellow>Set your bot token, then register the webhook:</>');
-            $this->line('  php artisan laragram:setWebhook');
+            $this->line('  php artisan laragram:webhook:set');
             $this->line('  (or use <fg=cyan>laragram:poll</> for local development without a public URL)');
 
             $this->newLine();

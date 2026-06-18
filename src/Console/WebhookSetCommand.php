@@ -14,14 +14,14 @@ namespace Wekser\Laragram\Console;
 use Illuminate\Console\Command;
 use Wekser\Laragram\Facades\BotAPI;
 
-class SetWebhookCommand extends Command
+class WebhookSetCommand extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'laragram:setWebhook';
+    protected $signature = 'laragram:webhook:set';
 
     /**
      * The console command description.
@@ -67,7 +67,10 @@ class SetWebhookCommand extends Command
 
         if (filter_var($url, FILTER_VALIDATE_URL) === false) return $this->error('Invalid URL Provided');
 
-        $response = BotAPI::setWebhook(['url' => $url]);
+        $response = BotAPI::setWebhook([
+            'url'          => $url,
+            'secret_token' => $this->botSecret,
+        ]);
 
         if (isset($response['error_code'])) return $this->error($response['description']);
 
