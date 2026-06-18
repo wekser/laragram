@@ -3,9 +3,6 @@
 /*
  * Laragram bot routes
  *
- * $collection is injected automatically — it works like Route:: in web.php.
- * You can also use the static BotRoute facade: BotRoute::get('message')->...
- *
  * DSL reference:
  *   ->get('event')          Telegram update type (message, callback_query, etc.)
  *   ->from('station')       Only match when user is at this station (state)
@@ -23,20 +20,20 @@ use App\Http\Controllers\Laragram\HelloController;
 use Wekser\Laragram\Facades\BotRoute;
 
 // Any station: match /start command
-$collection->get('message')
+BotRoute::get('message')
     ->contains('/start')
     ->call([HelloController::class, 'start']);
 
 // Station 'home': echo back whatever the user sends
-$collection->get('message')
+BotRoute::get('message')
     ->from('home')
     ->call([HelloController::class, 'home']);
 
 // Station 'home': react to inline button
-$collection->get('callback_query')
+BotRoute::get('callback_query')
     ->from('home')
     ->contains('/click {name}')
     ->call([HelloController::class, 'callback']);
 
 // Catch-all: handles any update that did not match a route above
-// $collection->fallback()->call([HelloController::class, 'fallback']);
+// BotRoute::fallback()->call([HelloController::class, 'fallback']);
