@@ -30,10 +30,10 @@ There is no build or lint step. Tests live under `tests/` (PSR-4: `Wekser\Laragr
 |---|---|
 | `laragram:install` | Publishes all package assets |
 | `laragram:publish` | Selective publish (config / migrations / views / lang / routes) |
-| `laragram:setWebhook` | Registers webhook with Telegram |
-| `laragram:removeWebhook` | Removes the webhook |
-| `laragram:getInfo` | Calls `getMe`, displays bot info |
-| `laragram:webhookInfo` | Calls `getWebhookInfo`, displays current webhook state |
+| `laragram:webhook:set` | Registers webhook with Telegram |
+| `laragram:webhook:remove` | Removes the webhook |
+| `laragram:getMe` | Calls `getMe`, displays bot info |
+| `laragram:webhook:info` | Calls `getWebhookInfo`, displays current webhook state |
 | `laragram:poll` | Starts long-polling (dev/testing without a public URL); auto-removes webhook first. Options: `--timeout=25`, `--limit=100`, `--once`, `--no-confirm` |
 | `laragram:route:list` | Lists all registered bot routes |
 | `laragram:session:prune` | Deletes expired sessions |
