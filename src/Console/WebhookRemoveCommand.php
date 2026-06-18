@@ -14,14 +14,14 @@ namespace Wekser\Laragram\Console;
 use Illuminate\Console\Command;
 use Wekser\Laragram\Facades\BotAPI;
 
-class RemoveWebhookCommand extends Command
+class WebhookRemoveCommand extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'laragram:removeWebhook';
+    protected $signature = 'laragram:webhook:remove';
 
     /**
      * The console command description.

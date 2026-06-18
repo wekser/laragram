@@ -31,7 +31,7 @@ class WebhookInfoCommand extends Command
         }
 
         if (empty($info['url'])) {
-            $this->warn('No webhook is set. Run php artisan laragram:setWebhook to configure one.');
+            $this->warn('No webhook is set. Run php artisan laragram:webhook:set to configure one.');
         }
 
         $lastErrorDate = isset($info['last_error_date'])

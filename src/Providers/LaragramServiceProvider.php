@@ -26,12 +26,12 @@ use Wekser\Laragram\Console\LaragramPublishCommand;
 use Wekser\Laragram\Console\MakeControllerCommand;
 use Wekser\Laragram\Console\MakeViewCommand;
 use Wekser\Laragram\Console\PollCommand;
-use Wekser\Laragram\Console\RemoveWebhookCommand;
+use Wekser\Laragram\Console\WebhookRemoveCommand;
 use Wekser\Laragram\Console\RouteListCommand;
 use Wekser\Laragram\Console\RouteMatchCommand;
 use Wekser\Laragram\Console\SessionPruneCommand;
 use Wekser\Laragram\Console\SetRoleCommand;
-use Wekser\Laragram\Console\SetWebhookCommand;
+use Wekser\Laragram\Console\WebhookSetCommand;
 use Wekser\Laragram\Console\WebhookInfoCommand;
 use Wekser\Laragram\Middleware\CheckAuth;
 use Wekser\Laragram\Middleware\FrameHook;
@@ -273,7 +273,7 @@ class LaragramServiceProvider extends ServiceProvider
         if ($this->config('security.verify_secret') && empty($this->config('telegram.secret'))) {
             $this->app['log']->warning(
                 'laragram: verify_secret is enabled but LARAGRAM_WEBHOOK_SECRET is not set — ' .
-                'all webhook requests will be rejected with 401.'
+                'all webhook requests will be rejected with 500. Set LARAGRAM_WEBHOOK_SECRET or disable with LARAGRAM_VERIFY_SECRET=false.'
             );
         }
     }
@@ -287,8 +287,8 @@ class LaragramServiceProvider extends ServiceProvider
     {
         $this->commands([
             GetInfoCommand::class,
-            SetWebhookCommand::class,
-            RemoveWebhookCommand::class,
+            WebhookSetCommand::class,
+            WebhookRemoveCommand::class,
             LaragramInstallCommand::class,
             LaragramPublishCommand::class,
             AddUserActivityFieldsCommand::class,
