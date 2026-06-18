@@ -135,7 +135,7 @@ class LaragramInstallCommand extends Command
             }
         }
 
-        copy(__DIR__ . '/stubs/routes/laragram.stub', $file);
+        copy(__DIR__ . '/stubs/routes/routes.stub', $file);
     }
 
     /**
