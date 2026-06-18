@@ -41,8 +41,35 @@ class LaragramPublishCommand extends Command
             $this->call('vendor:publish', ['--tag' => 'laragram-views', '--force' => $this->option('force')]);
             $this->call('vendor:publish', ['--tag' => 'laragram-lang', '--force' => $this->option('force')]);
             $this->call('vendor:publish', ['--tag' => 'laragram-routes', '--force' => $this->option('force')]);
-            $this->info('Laragram views, translations and routes were published.');
+            $this->createController();
+            $this->info('Laragram views, translations, routes and HelloController were published.');
         }
+    }
+
+    /**
+     * Publish the example HelloController to the application.
+     *
+     * @return void
+     */
+    protected function createController()
+    {
+        $directory = app_path('Http/Controllers/Laragram');
+        $file      = $directory . '/HelloController.php';
+
+        if (file_exists($file) && !$this->option('force')) {
+            if (!$this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
+                return;
+            }
+        }
+
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $stub = file_get_contents(__DIR__ . '/stubs/controllers/HelloController.stub');
+        $stub = str_replace('{{namespace}}', $this->getAppNamespace(), $stub);
+
+        file_put_contents($file, $stub);
     }
 
     /**
