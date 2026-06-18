@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 /*
  * This file is part of Laragram.
@@ -11,11 +12,12 @@
 
 namespace Wekser\Laragram;
 
-use Exception;
 use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
-use Wekser\Laragram\Exceptions\BotException;
+use Wekser\Laragram\Exceptions\ExceptionHandler;
 use Wekser\Laragram\Facades\BotAuth;
+use Wekser\Laragram\Models\User;
+use Wekser\Laragram\Routing\Router;
 
 class Laragram
 {
@@ -43,9 +45,9 @@ class Laragram
     /**
      * The current authorized user.
      *
-     * @var User
+     * @var User|null
      */
-    protected $user;
+    protected ?User $user;
 
     /**
      * Laragram Constructor
@@ -61,7 +63,7 @@ class Laragram
      * @param \Illuminate\Http\Request $request
      * @return mixed
      */
-    public function index(Request $request)
+    public function index(Request $request): mixed
     {
         $this->request = $request;
 
@@ -79,11 +81,12 @@ class Laragram
      *
      * @return void
      */
-    protected function bootstrap()
+    protected function bootstrap(): void
     {
-        app('translator')->setLocale($this->user->settings->get('language'));
+        $locale = $this->user?->settings?->get('language', config('app.locale'));
+        app('translator')->setLocale($locale ?? config('app.locale') ?? 'en');
 
-        $this->station = (config('laragram.auth.driver') != 'database') ? 'start' : $this->defineStation();
+        $this->station = (config('laragram.auth.driver') !== 'database') ? 'start' : $this->defineStation();
     }
 
     /**
@@ -91,9 +94,9 @@ class Laragram
      *
      * @return string
      */
-    protected function defineStation()
+    protected function defineStation(): string
     {
-        return empty($session = $this->user->session()) ? 'start' : $session->station;
+        return empty($session = $this->user?->session()) ? 'start' : $session->station;
     }
 
     /**
@@ -104,9 +107,9 @@ class Laragram
     protected function run()
     {
         try {
-            $this->output = (new BotRouter($this->station))->dispatch($this->request->all());
-        } catch (Exception $exception) {
-            return BotException::handle($exception);
+            $this->output = (new Router($this->station))->dispatch($this->request->all());
+        } catch (\Throwable $exception) {
+            ExceptionHandler::handle($exception);
         }
     }
 
@@ -115,9 +118,9 @@ class Laragram
      *
      * @return void
      */
-    protected function fireEvent()
+    protected function fireEvent(): void
     {
-        if (!empty($this->output) && config('laragram.auth.driver') == 'database') {
+        if (!empty($this->output)) {
             event(new CallbackFormed($this->user, $this->output));
         }
     }
@@ -127,8 +130,14 @@ class Laragram
      *
      * @return mixed
      */
-    protected function back()
+    protected function back(): mixed
     {
-        return empty($this->output) ? response('OK', 200) : response()->json($this->output['response']['view']);
+        if (empty($this->output)) {
+            return response('OK', 200);
+        }
+
+        $view = $this->output['response']['view'] ?? [];
+
+        return response()->json($view);
     }
 }

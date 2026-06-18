@@ -1,0 +1,35 @@
+<?php
+
+namespace {{namespace}}Http\Controllers\Laragram;
+
+use App\Http\Controllers\Controller;
+use Wekser\Laragram\BotAuth;
+use Wekser\Laragram\BotRequest;
+use Wekser\Laragram\BotResponse;
+
+class {{class}} extends Controller
+{
+    /**
+     * BotResponse and BotAuth are resolved via Laravel's IoC container.
+     * All methods share the same instances within a single request.
+     */
+    public function __construct(
+        protected BotResponse $response,
+        protected BotAuth $auth,
+    ) {}
+
+    /**
+     * Rename this method to match the route's ->call([{{class}}::class, 'methodName']).
+     *
+     * $request->get('text')      — access any field from the Telegram update
+     * $request->input('param')   — named parameters from ->contains('/cmd {param}')
+     * ->redirect('station')      — move user to the next station (state)
+     * ->keyboard([...])          — attach a keyboard (must come after text/photo/etc.)
+     */
+    public function handle(BotRequest $request): BotResponse
+    {
+        $user = $this->auth->user();
+
+        return $this->response->text("Hello, {$user->first_name}!");
+    }
+}

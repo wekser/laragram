@@ -1,0 +1,8 @@
+<?php
+/*
+ * Write your message text below.
+ * Use {{ $variable }} to output values from the $data array passed to view().
+ * Example: view('welcome', ['name' => $user->first_name])
+ */
+?>
+Hello, {{ $name }}!

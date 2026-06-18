@@ -1,0 +1,9 @@
+<?php
+/*
+ * Add photos and videos to this media group (sendMediaGroup).
+ * Use file_id values from $data passed to view().
+ * Minimum 2 items, maximum 10.
+ */
+
+photo($data['photo_id'], caption: 'Caption here');
+video($data['video_id']);

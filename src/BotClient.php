@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 /*
  * This file is part of Laragram.
@@ -12,117 +13,380 @@
 namespace Wekser\Laragram;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
+use Wekser\Laragram\Services\TelegramErrorHandler;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
+/**
+ * BotClient handles HTTP requests to Telegram Bot API.
+ * 
+ * @package Wekser\Laragram
+ */
 class BotClient
 {
     /**
-     * Telegram Bot API url.
-     *
-     * @var string
+     * Telegram Bot API base URL.
      */
-    private string $api = 'https://api.telegram.org/bot';
+    private const API_BASE_URL = 'https://api.telegram.org/bot';
+
+    /**
+     * Default cURL options.
+     * Note: CURLOPT_TIMEOUT and CURLOPT_CONNECTTIMEOUT are intentionally absent —
+     * they are always set from $this->timeout / $this->connectTimeout properties.
+     */
+    private const DEFAULT_CURL_OPTIONS = [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER         => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS      => 3,
+        CURLOPT_USERAGENT      => 'Laragram Bot Client/2.0',
+    ];
 
     /**
      * The bot token.
-     *
-     * @var string
      */
     private string $token;
 
     /**
+     * Logger instance.
+     */
+    private LoggerInterface $logger;
+
+    /**
+     * Telegram error handler.
+     */
+    private TelegramErrorHandler $errorHandler;
+
+    /**
+     * Custom cURL options.
+     */
+    private array $curlOptions = [];
+
+    /**
+     * Request timeout in seconds.
+     */
+    private int $timeout = 30;
+
+    /**
+     * Connection timeout in seconds.
+     */
+    private int $connectTimeout = 10;
+
+    /**
      * BotClient Constructor
      *
-     * @param string $token
+     * @param string $token The bot token
+     * @param LoggerInterface|null $logger Logger instance
      */
-    public function __construct(string $token)
+    public function __construct(string $token, ?LoggerInterface $logger = null)
     {
+        $this->validateToken($token);
         $this->token = $token;
+        $this->logger = $logger ?? new NullLogger();
+        $this->errorHandler = new TelegramErrorHandler();
     }
 
     /**
      * Send a request to Telegram Bot API and return the response.
      *
-     * @param string $method
-     * @param array $data
-     * @return mixed
+     * @param string $method The API method name
+     * @param array $data Request data
+     * @return mixed The API response
+     * @throws ClientResponseInvalidException
      */
-    public function request(string $method, array $data = [])
+    public function request(string $method, array $data = []): mixed
     {
-        return $this->response($this->curl($this->buildUrl($method), $this->prepareData($data)));
+        $this->validateMethod($method);
+        
+        $url = $this->buildUrl($method);
+        $preparedData = $this->prepareData($data);
+        
+        $this->logger->info('Sending request to Telegram API', [
+            'method' => $method,
+            'data'   => $this->sanitizeDataForLogging($preparedData),
+        ]);
+
+        try {
+            $response = $this->makeCurlRequest($url, $preparedData);
+            $result   = $this->processResponse($response, $method);
+
+            $this->logger->info('Received response from Telegram API', [
+                'method'  => $method,
+                'success' => true,
+            ]);
+
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger->error('Error making request to Telegram API', [
+                'method' => $method,
+                'error'  => $e->getMessage(),
+                'code'   => $e->getCode(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /**
-     * Prepare a response and return the result.
+     * Set custom cURL options.
      *
-     * @param string $response
-     * @return mixed
-     * @throws ClientResponseInvalidException
+     * @param array $options cURL options
+     * @return $this
      */
-    protected function response(string $response)
+    public function setCurlOptions(array $options): self
     {
-        if (!Str::isJson($response)) throw new ClientResponseInvalidException();
-
-        $result = json_decode($response, true);
-
-        if (Arr::get($result, 'ok') === null) throw new ClientResponseInvalidException($response);
-
-        return $result['result'] ?? $result;
+        $this->curlOptions = $options + $this->curlOptions;
+        return $this;
     }
 
     /**
-     * The CURL request implementation.
+     * Set request timeout.
      *
-     * @param string $url
-     * @param array $data
-     * @return string
+     * @param int $timeout Timeout in seconds
+     * @return $this
+     */
+    public function setTimeout(int $timeout): self
+    {
+        if ($timeout <= 0) {
+            throw new \InvalidArgumentException('Request timeout must be a positive integer.');
+        }
+
+        $this->timeout = $timeout;
+        return $this;
+    }
+
+    /**
+     * Set connection timeout.
+     *
+     * @param int $timeout Connection timeout in seconds
+     * @return $this
+     */
+    public function setConnectTimeout(int $timeout): self
+    {
+        if ($timeout <= 0) {
+            throw new \InvalidArgumentException('Connection timeout must be a positive integer.');
+        }
+
+        $this->connectTimeout = $timeout;
+        return $this;
+    }
+
+    /**
+     * Get the bot token (masked for security).
+     *
+     * @return string Masked token
+     */
+    public function getMaskedToken(): string
+    {
+        return substr($this->token, 0, 10) . '...' . substr($this->token, -4);
+    }
+
+    /**
+     * Validate the bot token format.
+     *
+     * @param string $token The token to validate
      * @throws ClientResponseInvalidException
      */
-    private function curl(string $url, array $data): string
+    private function validateToken(string $token): void
     {
-        $options = [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $data,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HEADER => false,
-            CURLOPT_SSL_VERIFYPEER => false,
-        ];
+        if (empty($token)) {
+            throw new ClientResponseInvalidException('Bot token cannot be empty');
+        }
 
-        $ch = curl_init($url);
+        if (!preg_match('/^\d+:[A-Za-z0-9_-]+$/', $token)) {
+            throw new ClientResponseInvalidException('Invalid bot token format');
+        }
+    }
 
-        curl_setopt_array($ch, $options);
+    /**
+     * Validate the API method name.
+     *
+     * @param string $method The method to validate
+     * @throws ClientResponseInvalidException
+     */
+    private function validateMethod(string $method): void
+    {
+        if (empty($method)) {
+            throw new ClientResponseInvalidException('API method cannot be empty');
+        }
+
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $method)) {
+            throw new ClientResponseInvalidException('Invalid API method format');
+        }
+    }
+
+    /**
+     * Process the API response.
+     *
+     * @param string $response Raw response from API
+     * @param string $method The API method that was called
+     * @return mixed Processed response
+     * @throws ClientResponseInvalidException
+     */
+    private function processResponse(string $response, string $method): mixed
+    {
+        if (empty($response)) {
+            throw new ClientResponseInvalidException('Empty response from Telegram API');
+        }
+
+        $decoded = json_decode($response, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ClientResponseInvalidException(
+                'Invalid JSON response from Telegram API: ' . json_last_error_msg()
+            );
+        }
+
+        if (!isset($decoded['ok'])) {
+            throw new ClientResponseInvalidException('Invalid response format from Telegram API');
+        }
+
+        if (!$decoded['ok']) {
+            throw $this->errorHandler->handleError([
+                'error_code'  => $decoded['error_code']  ?? 0,
+                'description' => $decoded['description'] ?? 'Unknown error',
+                'parameters'  => $decoded['parameters']  ?? [],
+            ], []);
+        }
+
+        return $decoded['result'] ?? $decoded;
+    }
+
+    /**
+     * Make a cURL request to the API.
+     *
+     * @param string $url The request URL
+     * @param array $data Request data
+     * @return string Response body
+     * @throws ClientResponseInvalidException
+     */
+    private function makeCurlRequest(string $url, array $data): string
+    {
+        $ch = curl_init();
+        
+        if ($ch === false) {
+            throw new ClientResponseInvalidException('Failed to initialize cURL');
+        }
+
+        $options = $this->buildCurlOptions($url, $data);
+        
+        if (!curl_setopt_array($ch, $options)) {
+            curl_close($ch);
+            throw new ClientResponseInvalidException('Failed to set cURL options');
+        }
 
         $result = curl_exec($ch);
-
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        $errorCode = curl_errno($ch);
+        
         curl_close($ch);
 
-        if ($result === false) throw new ClientResponseInvalidException('Curl error: ' . curl_error($ch), curl_errno($ch));
+        if ($result === false) {
+            throw new ClientResponseInvalidException(
+                "cURL error: {$error}",
+                $errorCode
+            );
+        }
+
+        // Telegram returns JSON error bodies for 4xx/5xx — let processResponse()
+        // parse them and dispatch to TelegramErrorHandler for typed exceptions.
+        // Only throw here for transport-level failures (no body at all).
+        if ($httpCode >= 400 && empty($result)) {
+            throw new ClientResponseInvalidException(
+                "HTTP error {$httpCode} with empty response body",
+                $httpCode
+            );
+        }
 
         return $result;
     }
 
     /**
-     * Build url for request.
+     * Build cURL options array.
      *
-     * @param string $method
-     * @return string
+     * @param string $url The request URL
+     * @param array $data Request data
+     * @return array cURL options
      */
-    protected function buildUrl(string $method): string
+    private function buildCurlOptions(string $url, array $data): array
     {
-        return $this->api . $this->token . '/' . $method;
+        $options = $this->curlOptions + self::DEFAULT_CURL_OPTIONS;
+        
+        $options[CURLOPT_URL] = $url;
+        $options[CURLOPT_POSTFIELDS] = $data;
+        $options[CURLOPT_TIMEOUT] = $this->timeout;
+        $options[CURLOPT_CONNECTTIMEOUT] = $this->connectTimeout;
+
+        return $options;
     }
 
     /**
-     * Prepare data for request.
+     * Build URL for the API request.
      *
-     * @param array $data
-     * @return array
+     * @param string $method The API method
+     * @return string Complete API URL
      */
-    protected function prepareData(array $data)
+    private function buildUrl(string $method): string
     {
-        return collect($data)->reject(function ($value, $key) {
-            return is_null($value);
-        })->all();
+        return self::API_BASE_URL . $this->token . '/' . $method;
     }
+
+    /**
+     * Prepare data for the request by removing null values.
+     *
+     * @param array $data Raw data
+     * @return array Cleaned data
+     */
+    private function prepareData(array $data): array
+    {
+        return array_filter($data, fn($value) => $value !== null);
+    }
+
+    /**
+     * Sanitize data for logging by removing sensitive information.
+     *
+     * @param array $data Data to sanitize
+     * @return array Sanitized data
+     */
+    private function sanitizeDataForLogging(array $data): array
+    {
+        $sensitiveKeys = ['token', 'password', 'secret', 'key'];
+
+        foreach ($data as $key => &$value) {
+            if (in_array($key, $sensitiveKeys, true)) {
+                $value = '***';
+            } elseif (is_array($value)) {
+                $value = $this->sanitizeDataForLogging($value);
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Test the connection to Telegram API.
+     *
+     * @return bool True if connection is successful
+     */
+    public function testConnection(): bool
+    {
+        try {
+            $this->getApiInfo();
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** @throws ClientResponseInvalidException */
+    public function getApiInfo(): array
+    {
+        return $this->request('getMe');
+    }
+
 }

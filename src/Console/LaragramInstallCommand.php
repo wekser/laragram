@@ -47,9 +47,30 @@ class LaragramInstallCommand extends Command
 
             $this->createRoutes();
 
-            $this->addVariables();
+            $secret = $this->addVariables();
 
             $this->info('The installation was successful!');
+
+            $this->newLine();
+            $this->line('<fg=yellow>Run the following command to apply migrations:</>');
+            $this->line('  php artisan migrate');
+
+            $this->newLine();
+            $this->line('<fg=yellow>The following variables were added to your .env file:</>');
+            $this->line('  LARAGRAM_BOT_TOKEN=<your_bot_token_from_BotFather>');
+            $this->line('  LARAGRAM_WEBHOOK_PREFIX=laragram');
+            $this->line('  LARAGRAM_WEBHOOK_SECRET=' . $secret);
+            $this->line('  LARAGRAM_VERIFY_SECRET=true');
+
+            $this->newLine();
+            $this->line('<fg=yellow>Set your bot token, then register the webhook:</>');
+            $this->line('  php artisan laragram:setWebhook');
+            $this->line('  (or use <fg=cyan>laragram:poll</> for local development without a public URL)');
+
+            $this->newLine();
+            $this->line('<fg=yellow>Add session cleanup to your scheduler (app/Console/Kernel.php or routes/console.php):</>');
+            $this->line("  \$schedule->command('laragram:session:prune')->daily();");
+            $this->newLine();
         }
     }
 
@@ -78,7 +99,7 @@ class LaragramInstallCommand extends Command
             }
         }
 
-        copy(__DIR__ . '/../../config/config.php', $file);
+        copy(__DIR__ . '/../../config/laragram.php', $file);
     }
 
     /**
@@ -114,26 +135,31 @@ class LaragramInstallCommand extends Command
             }
         }
 
-        copy(__DIR__ . '/stubs/routes/routes.stub', $file);
+        copy(__DIR__ . '/stubs/routes/laragram.stub', $file);
     }
 
     /**
-     * Add variables and generate secret token in .env file
+     * Add variables and generate secret token in .env file.
      *
-     * @return void
+     * @return string Generated webhook secret.
      */
-    protected function addVariables()
+    protected function addVariables(): string
     {
-        $file = base_path('.env');
-        $key = Str::random(18);
+        $file   = base_path('.env');
+        $secret = Str::random(18);
 
         if (file_exists($file)) {
-            file_put_contents(
-                $file,
-                PHP_EOL . 'LARAGRAM_BOT_TOKEN=' . PHP_EOL . 'LARAGRAM_WEBHOOK_SECRET=' . $key . PHP_EOL,
-                FILE_APPEND);
+            $vars = PHP_EOL
+                . 'LARAGRAM_BOT_TOKEN=' . PHP_EOL
+                . 'LARAGRAM_WEBHOOK_PREFIX=laragram' . PHP_EOL
+                . 'LARAGRAM_WEBHOOK_SECRET=' . $secret . PHP_EOL
+                . 'LARAGRAM_VERIFY_SECRET=true' . PHP_EOL;
+
+            file_put_contents($file, $vars, FILE_APPEND);
         } else {
             $this->comment('.env file in base path your application not found.');
         }
+
+        return $secret;
     }
 }

@@ -1,0 +1,4 @@
+<?php
+
+button('Foo', '/click Foo');
+button('Bar', '/click Bar');

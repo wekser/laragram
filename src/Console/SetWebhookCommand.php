@@ -46,8 +46,8 @@ class SetWebhookCommand extends Command
         parent::__construct();
 
         $this->appUrl = config('app.url');
-        $this->botPrefix = config('laragram.env.prefix');
-        $this->botSecret = config('laragram.env.secret');
+        $this->botPrefix = config('laragram.telegram.prefix');
+        $this->botSecret = config('laragram.telegram.secret');
     }
 
     /**
@@ -57,9 +57,11 @@ class SetWebhookCommand extends Command
      */
     public function handle()
     {
-        if ($this->appUrl != $_SERVER['APP_URL']) return $this->error('Invalid current APP URL in .env file');
-
         if (parse_url($this->appUrl, PHP_URL_SCHEME) !== 'https') return $this->error('Invalid URL, should be an HTTPS url');
+
+        if (empty($this->botSecret) || !preg_match('/^[A-Za-z0-9_-]{8,}$/', (string) $this->botSecret)) {
+            return $this->error('Invalid or empty webhook secret. Please set LARAGRAM_WEBHOOK_SECRET in .env');
+        }
 
         $url = implode('/', [trim($this->appUrl, '/'), $this->botPrefix, $this->botSecret]);
 

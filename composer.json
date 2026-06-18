@@ -4,7 +4,7 @@
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/wekser/laragram",
-    "keywords": ["laravel", "lumen", "telegram", "api", "bot", "chatbot"],
+    "keywords": ["laravel", "telegram", "api", "bot", "chatbot"],
     "support": {
         "email": "me@wekser.com",
         "issues": "https://github.com/wekser/laragram/issues",
@@ -21,14 +21,15 @@
         }
     ],
     "require": {
-		"php": "^8.0",
-		"illuminate/support": "^8.0|^9.0|^10.17|^11.0|^12.0",
+		"php": "^8.2",
+		"illuminate/support": "^11.0|^12.0",
         "ext-curl": "*"
     },
     "require-dev": {
-        "laravel/framework": "^10.0",
-        "mockery/mockery": "^1.4.4",
-        "phpunit/phpunit": "^10.1"
+        "laravel/framework": "^12.0",
+        "mockery/mockery": "^1.6",
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.0"
     },
     "config": {
         "sort-packages": true,
@@ -37,7 +38,10 @@
     "autoload": {
         "psr-4": {
             "Wekser\\Laragram\\": "src/"
-        }
+        },
+        "files": [
+            "src/View/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -55,7 +59,8 @@
             "aliases": {
                 "BotAPI": "Wekser\\Laragram\\Facades\\BotAPI",
                 "BotAuth": "Wekser\\Laragram\\Facades\\BotAuth",
-                "BotResponse": "Wekser\\Laragram\\Facades\\BotResponse"
+                "BotResponse": "Wekser\\Laragram\\Facades\\BotResponse",
+                "BotRoute": "Wekser\\Laragram\\Facades\\BotRoute"
             }
         }
     },

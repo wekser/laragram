@@ -1,0 +1,5 @@
+<?php
+
+button('Button', 'action');
+row();
+href('Open site', 'https://example.com');

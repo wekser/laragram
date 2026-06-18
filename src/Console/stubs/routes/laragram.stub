@@ -1,6 +1,42 @@
+<?php
+
+/*
+ * Laragram bot routes
+ *
+ * $collection is injected automatically — it works like Route:: in web.php.
+ * You can also use the static BotRoute facade: BotRoute::get('message')->...
+ *
+ * DSL reference:
+ *   ->get('event')          Telegram update type (message, callback_query, etc.)
+ *   ->from('station')       Only match when user is at this station (state)
+ *   ->contains('/command')  Match a command, text, or {param} pattern
+ *   ->role('admin')         Only match users with this role
+ *   ->call([Controller::class, 'method'])
+ *
+ * Stations let you build multi-step conversation flows. Use BotResponse::redirect()
+ * in your controller to move the user to a different station.
+ *
+ * See: https://github.com/wekser/laragram
+ */
 
 use App\Http\Controllers\Laragram\HelloController;
+use Wekser\Laragram\Facades\BotRoute;
 
-$bot->get('message')->contains('/start')->call([HelloController::class, 'start']);
-$bot->get('message')->from('home')->call([HelloController::class, 'home']);
-$bot->get('callback_query')->contains('/click {name}')->call([HelloController::class, 'callback']);
+// Any station: match /start command
+$collection->get('message')
+    ->contains('/start')
+    ->call([HelloController::class, 'start']);
+
+// Station 'home': echo back whatever the user sends
+$collection->get('message')
+    ->from('home')
+    ->call([HelloController::class, 'home']);
+
+// Station 'home': react to inline button
+$collection->get('callback_query')
+    ->from('home')
+    ->contains('/click {name}')
+    ->call([HelloController::class, 'callback']);
+
+// Catch-all: handles any update that did not match a route above
+// $collection->fallback()->call([HelloController::class, 'fallback']);
