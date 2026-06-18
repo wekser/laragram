@@ -1,10 +1,7 @@
 <?php
 
 return [
-    'start' => [
-        'text' => "*Hello, :first_name!*\nThank you for using Laragram!\nTry to write something and I will answer you the same."
+'callback' => [
+        'btn_click' => 'You clicked :name!',
     ],
-    'callback' => [
-        'btn_click' => 'You click :name:'
-    ]
 ];

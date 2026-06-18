@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 /*
  * This file is part of Laragram.
@@ -12,29 +13,17 @@
 namespace Wekser\Laragram\Events;
 
 use Illuminate\Queue\SerializesModels;
+use Wekser\Laragram\Models\User;
 
 class CallbackFormed
 {
     use SerializesModels;
 
     /**
-     * @return User
-     */
-    public $user;
-
-    /**
-     * @return array
-     */
-    public array $output;
-
-    /**
      * Create a new event instance.
-     *
-     * @return void
      */
-    public function __construct($user, $output)
-    {
-        $this->user = $user;
-        $this->output = $output;
-    }
+    public function __construct(
+        public readonly User  $user,
+        public readonly array $output,
+    ) {}
 }

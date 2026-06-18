@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 /*
  * This file is part of Laragram.
@@ -12,204 +13,232 @@
 namespace Wekser\Laragram;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
+use Wekser\Laragram\Auth\ArrayAuthDriver;
+use Wekser\Laragram\Auth\AuthDriverInterface;
+use Wekser\Laragram\Auth\DatabaseAuthDriver;
+use Wekser\Laragram\Exceptions\AuthenticationException;
+use Wekser\Laragram\Models\User;
 
+/**
+ * Authenticates the Telegram sender and exposes the resolved User.
+ *
+ * Driver selection is injected at construction time via AuthDriverInterface,
+ * so adding a new driver requires no changes to this class.
+ */
 class BotAuth
 {
-    /**
-     * Current authorized user.
-     *
-     * @var mixed
-     */
-    protected $user;
+    private ?User $user = null;
+
+    /** Validated sender data extracted from the update payload. */
+    private ?array $sender = null;
+
+    private readonly AuthDriverInterface $driverInstance;
+
+    /** Driver name ('database' or 'array') — kept for backward compatibility. */
+    private readonly string $driverName;
 
     /**
-     * The authentication driver.
-     *
-     * @var string
+     * @param Request            $request
+     * @param string             $driverName  'database' or 'array'
+     * @param array              $languages   Accepted language codes
+     * @param class-string<User> $userModel
      */
-    protected $driver;
-
-    /**
-     * The array languages in bot.
-     *
-     * @var array
-     */
-    protected $languages;
-
-    /**
-     * The basic or custom User model.
-     *
-     * @var mixed
-     */
-    protected $model;
-
-    /**
-     * User object from the request.
-     *
-     * @var array
-     */
-    protected $sender;
-
-    /**
-     * The current request.
-     *
-     * @var \Illuminate\Http\Request
-     */
-    protected $request;
-
-    /**
-     * BotAuth Constructor.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param string $driver
-     * @param array $languages
-     * @param mixed $model
-     */
-    public function __construct(Request $request, string $driver, array $languages, $model)
-    {
-        $this->request = $request;
-        $this->driver = $driver;
-        $this->languages = $languages;
-        $this->model = $model;
+    public function __construct(
+        private readonly Request $request,
+        string                   $driverName,
+        private readonly array   $languages,
+        string                   $userModel,
+    ) {
+        $this->driverName     = $driverName;
+        $this->driverInstance = match ($driverName) {
+            'database' => new DatabaseAuthDriver($userModel),
+            'array'    => new ArrayAuthDriver($userModel),
+            default    => throw new \InvalidArgumentException(
+                "Unknown auth driver: '{$driverName}'. Supported values: 'database', 'array'."
+            ),
+        };
     }
 
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
+
     /**
-     * Run the authorization service.
+     * Extract, validate and authenticate the Telegram sender.
      *
-     * @return $this
+     * @throws AuthenticationException
      */
-    public function authenticate(): self
+    public function authenticate(): static
     {
-        $sender = $this->defineSender();
+        $sender = $this->extractSender();
 
-        $driver = $this->getDriver();
+        if ($sender === null) {
+            throw new AuthenticationException('No sender information found in the update payload');
+        }
 
-        if ($driver == 'database') {
-            if ($user = $this->getUser($sender)) {
-                $this->user = $this->login($user, $sender);
-            } else {
-                $this->user = $this->register($sender);
-            }
-        } else {
-            $this->user = $this->setUser($sender);
+        $this->sender = $sender;
+
+        try {
+            $this->user = $this->driverInstance->resolveUser($sender, $this->resolveLanguage($sender));
+        } catch (\Throwable $e) {
+            throw new AuthenticationException('Authentication failed: ' . $e->getMessage(), 0, $e);
         }
 
         return $this;
     }
 
-    /**
-     * Define sender from request.
-     *
-     * @return array
-     */
-    protected function defineSender(): array
-    {
-        return $this->sender = collect(collect($this->request->all())->first(function ($value, $key) {
-            return is_array($value) && isset($value['from']);
-        }))->get('from');
-    }
-
-    /**
-     * Get authentication driver.
-     *
-     * @return string
-     */
-    public function getDriver(): string
-    {
-        return $this->driver ?? 'array';
-    }
-
-    /**
-     * Get user from database.
-     *
-     * @param array $sender
-     * @return mixed
-     */
-    protected function getUser(array $sender)
-    {
-        return (new ($this->model))::where('uid', $sender['id'])->first();
-    }
-
-    /**
-     * Set user for array driver.
-     *
-     * @param array $sender
-     * @return object
-     */
-    protected function setUser(array $sender): object
-    {
-        $user = [
-            'uid' => $sender['id'],
-            'first_name' => $sender['first_name'],
-            'last_name' => $sender['last_name'] ?? null,
-            'username' => $sender['username'] ?? null,
-            'settings' => collect(['active' => true, 'language' => $this->defineUserLanguage($sender)])
-        ];
-
-        return (object) $user;
-    }
-
-    /**
-     * Create a new user.
-     *
-     * @param array $sender
-     * @return object
-     */
-    protected function register(array $sender)
-    {
-        $user = new ($this->model)();
-        $user->uid = $sender['id'];
-        return $this->extracted($sender, $user);
-    }
-
-    /**
-     * Define user language.
-     *
-     * @param array $sender
-     * @return string
-     */
-    protected function defineUserLanguage(array $sender): string
-    {
-        $userLanguage = $sender['language_code'] ?? null;
-
-        return !empty($userLanguage) && in_array($userLanguage, $this->languages) ? $userLanguage : app('translator')->getLocale();
-    }
-
-    /**
-     * Update user when login.
-     *
-     * @param mixed $user
-     * @param array $sender
-     * @return object
-     */
-    protected function login(mixed $user, array $sender)
-    {
-        return $this->extracted($sender, $user);
-    }
-
-    /**
-     * Get authorized user.
-     *
-     * @return object
-     */
-    public function user()
+    /** Return the authenticated user or null before authenticate() is called. */
+    public function user(): ?User
     {
         return $this->user;
     }
 
-    /**
-     * @param array $sender
-     * @param mixed $user
-     * @return mixed
-     */
-    protected function extracted(array $sender, mixed $user): mixed
+    /** Whether a user has been authenticated in this request lifecycle. */
+    public function isAuthenticated(): bool
     {
-        $user->first_name = $sender['first_name'];
-        $user->last_name = $sender['last_name'] ?? null;
-        $user->username = $sender['username'] ?? null;
-        $user->settings = ['active' => true, 'language' => $this->defineUserLanguage($sender)];
-        $user->save();
+        return $this->user !== null;
+    }
 
-        return $user;
+    /**
+     * Return the driver name ('database' or 'array').
+     *
+     * @deprecated Use getDriverInstance() to obtain the AuthDriverInterface object.
+     */
+    public function getDriver(): string
+    {
+        return $this->driverName;
+    }
+
+    /** Return the active authentication driver instance. */
+    public function getDriverInstance(): AuthDriverInterface
+    {
+        return $this->driverInstance;
+    }
+
+    /** Return the raw sender data from the update payload. */
+    public function getSender(): ?array
+    {
+        return $this->sender;
+    }
+
+    /** Telegram user ID of the sender, or null if not yet authenticated. */
+    public function getUserId(): ?int
+    {
+        return $this->sender['id'] ?? null;
+    }
+
+    /** Resolved language code for the sender. */
+    public function getUserLanguage(): string
+    {
+        return $this->resolveLanguage($this->sender ?? []);
+    }
+
+    /** Clear the authenticated user and sender (useful in tests or multi-step flows). */
+    public function logout(): void
+    {
+        $this->user   = null;
+        $this->sender = null;
+    }
+
+    /** Whether the authenticated user is active. */
+    public function isUserActive(): bool
+    {
+        return $this->user !== null && $this->driverInstance->isActive($this->user);
+    }
+
+    /** Full name (first + last) of the authenticated user. */
+    public function getUserFullName(): string
+    {
+        if ($this->user === null) {
+            return '';
+        }
+
+        return trim(($this->user->first_name ?? '') . ' ' . ($this->user->last_name ?? ''));
+    }
+
+    // -------------------------------------------------------------------------
+    // Internals
+    // -------------------------------------------------------------------------
+
+    /**
+     * Find the raw 'from' object in an arbitrary Telegram update payload.
+     *
+     * Shared with CheckAuth middleware to avoid duplicating the traversal logic.
+     */
+    public static function findFromInPayload(array $payload): ?array
+    {
+        foreach ($payload as $value) {
+            if (!is_array($value)) {
+                continue;
+            }
+
+            // Most update types (message, callback_query, inline_query, etc.) use 'from'.
+            if (isset($value['from']) && is_array($value['from'])) {
+                return $value['from'];
+            }
+
+            // poll_answer uses 'user' instead of 'from'.
+            if (isset($value['user']) && is_array($value['user'])) {
+                return $value['user'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Return true for update types that carry no sender at all (e.g. poll).
+     * CheckAuth uses this to let senderless updates pass through.
+     */
+    public static function isSenderlessPayload(array $payload): bool
+    {
+        return isset($payload['poll']) && !isset($payload['poll_answer']);
+    }
+
+    /**
+     * Find the 'from' object inside the raw Telegram update and validate it.
+     */
+    private function extractSender(): ?array
+    {
+        $from = static::findFromInPayload($this->request->all());
+
+        return $from !== null ? $this->validateSender($from) : null;
+    }
+
+    /**
+     * Validate the raw 'from' data and cast to typed scalars.
+     *
+     * Returns null when required fields (id, first_name) are absent.
+     */
+    private function validateSender(array $from): ?array
+    {
+        if (!isset($from['id']) || !is_numeric($from['id'])) {
+            return null;
+        }
+
+        if (empty($from['first_name'])) {
+            return null;
+        }
+
+        return [
+            'id'            => (int)    $from['id'],
+            'first_name'    => (string) $from['first_name'],
+            'last_name'     => isset($from['last_name'])     ? (string) $from['last_name']     : null,
+            'username'      => isset($from['username'])      ? (string) $from['username']      : null,
+            'language_code' => isset($from['language_code']) ? (string) $from['language_code'] : null,
+        ];
+    }
+
+    /**
+     * Pick the best matching language code, falling back to the app locale.
+     */
+    private function resolveLanguage(array $sender): string
+    {
+        $code = $sender['language_code'] ?? null;
+
+        return ($code !== null && in_array($code, $this->languages, true))
+            ? $code
+            : App::getLocale();
     }
 }

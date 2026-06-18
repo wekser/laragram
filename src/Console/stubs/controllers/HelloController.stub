@@ -3,43 +3,44 @@
 namespace {{namespace}}Http\Controllers\Laragram;
 
 use App\Http\Controllers\Controller;
+use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotRequest;
-use Wekser\Laragram\Facades\BotAuth;
-use Wekser\Laragram\Facades\BotResponse;
+use Wekser\Laragram\BotResponse;
 
 class HelloController extends Controller
 {
-    /**
-     * Start a new chat with bot.
-     *
-     * @return \Wekser\Laragram\BotResponse
-     */
-    public function start(): \Wekser\Laragram\BotResponse
-    {
-        $user = BotAuth::user();
+    public function __construct(
+        protected BotResponse $response,
+        protected BotAuth $auth,
+    ) {}
 
-        return BotResponse::redirect('home')->view('sendMessage', 'start', ['first_name' => $user->first_name]);
+    /**
+     * Entry point: /start command from any station.
+     */
+    public function start(BotRequest $request): BotResponse
+    {
+        $user = $this->auth->user();
+
+        return $this->response
+            ->redirect('home')
+            ->view('start', ['first_name' => $user->first_name]);
     }
 
     /**
-     * Return to the user a his message
-     *
-     * @param BotRequest $request
-     * @return string
+     * Echo the user's message back while they are at the 'home' station.
      */
-    public function home(BotRequest $request): string
+    public function home(BotRequest $request): BotResponse
     {
-        return $request->query();
+        return $this->response->text($request->query());
     }
 
     /**
-     * Reaction to inline button pressing
-     *
-     * @param BotRequest $request
-     * @return \Wekser\Laragram\BotResponse
+     * React to the inline button press (callback_query with '/click {name}').
      */
-    public function callback(BotRequest $request): \Wekser\Laragram\BotResponse
+    public function callback(BotRequest $request): BotResponse
     {
-        return BotResponse::text(trans('laragram.callback.btn_click', ['name' => $request->input('name')]));
+        return $this->response->text(
+            trans('laragram.callback.btn_click', ['name' => $request->input('name')])
+        );
     }
 }

@@ -1,20 +1,4 @@
-<?php
+Hello, {{ $first_name }}!
 
-return [
-    'parse_mode' => 'Markdown',
-    'text' => trans('laragram.start.text', ['first_name' => $first_name]),
-    'reply_markup' => [
-        'inline_keyboard' => [
-            [
-                [
-                    'text' => 'Foo',
-                    'callback_data' => '/click Foo'
-                ],
-                [
-                    'text' => 'Bar',
-                    'callback_data' => '/click Bar'
-                ]
-            ]
-        ]
-    ]
-];
+Thank you for using Laragram!
+Try to write something and I will answer you the same.

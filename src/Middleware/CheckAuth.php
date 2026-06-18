@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 /*
  * This file is part of Laragram.
@@ -13,6 +14,8 @@ namespace Wekser\Laragram\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Wekser\Laragram\BotAuth;
 
 class CheckAuth
 {
@@ -23,18 +26,25 @@ class CheckAuth
      * @param \Closure $next
      * @return mixed
      */
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next): mixed
     {
-        $entity = collect($request->all())->first(function ($value, $key) {
-            return is_array($value) && isset($value['from']);
-        });
+        $payload = $request->all();
+        $user    = BotAuth::findFromInPayload($payload);
 
-        $user = collect($entity)->get('from');
-
-        if (!empty($user) && !$user['is_bot']) {
+        if (!empty($user) && !($user['is_bot'] ?? false)) {
             return $next($request);
         }
 
-        return response('Unauthorized.', 401);
+        // Allow senderless update types (e.g. poll) to pass through without a sender.
+        if (empty($user) && BotAuth::isSenderlessPayload($payload)) {
+            return $next($request);
+        }
+
+        Log::warning('laragram: unauthorized request rejected', [
+            'ip'     => $request->ip(),
+            'is_bot' => $user['is_bot'] ?? null,
+        ]);
+
+        return response()->json(['message' => 'Unauthorized.'], 401);
     }
 }

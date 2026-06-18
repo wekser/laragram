@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 /*
  * This file is part of Laragram.
@@ -13,6 +14,7 @@ namespace Wekser\Laragram\Models;
 
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
@@ -53,15 +55,15 @@ class Session extends Model
     /**
      * Get name model table.
      */
-    public function getTable()
+    public function getTable(): string
     {
         return config('laragram.auth.session.table', parent::getTable());
     }
 
     /**
-     * Get the user that owns the hook.
+     * Get the user that owns the session.
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(config('laragram.auth.user.model'));
     }
