@@ -40,10 +40,66 @@ class LaragramPublishCommand extends Command
         if ($this->confirm('This command will publish Laragram assets on your application. To continue, enters y or yes.')) {
             $this->call('vendor:publish', ['--tag' => 'laragram-views', '--force' => $this->option('force')]);
             $this->call('vendor:publish', ['--tag' => 'laragram-lang', '--force' => $this->option('force')]);
-            $this->call('vendor:publish', ['--tag' => 'laragram-routes', '--force' => $this->option('force')]);
+            $this->createRoute();
             $this->createController();
             $this->info('Laragram views, translations, routes and HelloController were published.');
         }
+    }
+
+    /**
+     * Publish (or append) demo routes to the bot route file.
+     *
+     * @return void
+     */
+    protected function createRoute(): void
+    {
+        $routeName = config('laragram.paths.route', 'laragram');
+        $file      = base_path("routes/{$routeName}.php");
+        $stub      = file_get_contents(__DIR__ . '/stubs/routes/laragram.stub');
+
+        if (!file_exists($file)) {
+            file_put_contents($file, $stub);
+            $this->info("Route file [{$file}] created.");
+            return;
+        }
+
+        if ($this->option('force')) {
+            file_put_contents($file, $stub);
+            $this->info("Route file [{$file}] overwritten.");
+            return;
+        }
+
+        // Strip `<?php` and the opening block comment so we only append the route body.
+        $appendable = preg_replace('/^<\?php\s*\/\*.*?\*\/\s*/s', '', $stub);
+
+        // Separate use-import lines from the rest of the body.
+        $lines        = explode("\n", $appendable);
+        $useLines     = [];
+        $bodyLines    = [];
+        $pastUseBlock = false;
+
+        foreach ($lines as $line) {
+            if (!$pastUseBlock && preg_match('/^use\s+/', $line)) {
+                $useLines[] = $line;
+            } else {
+                $pastUseBlock = true;
+                $bodyLines[]  = $line;
+            }
+        }
+
+        $existing = file_get_contents($file);
+
+        // Only include use statements that are not already in the file.
+        $newUses = array_filter($useLines, fn($use) => !str_contains($existing, trim($use)));
+
+        $append  = "\n// --- Demo routes (added by laragram:publish) ---\n";
+        if (!empty($newUses)) {
+            $append .= implode("\n", $newUses) . "\n";
+        }
+        $append .= ltrim(implode("\n", $bodyLines));
+
+        file_put_contents($file, rtrim($existing) . "\n" . $append);
+        $this->info("Demo routes appended to [{$file}].");
     }
 
     /**
