@@ -30,7 +30,7 @@ LARAGRAM_WEBHOOK_SECRET=generated-secret
 Register the webhook:
 
 ```bash
-php artisan laragram:setWebhook
+php artisan laragram:webhook:set
 ```
 
 ---
@@ -278,10 +278,10 @@ php artisan laragram:route:match message "hello" --station=ask_name
 |---|---|
 | `laragram:install` | Publish all package assets |
 | `laragram:publish` | Selective publish (config / migrations / views / routes) |
-| `laragram:setWebhook` | Register the webhook with Telegram |
-| `laragram:removeWebhook` | Remove the webhook |
-| `laragram:getInfo` | Display bot info (`getMe`) |
-| `laragram:webhookInfo` | Display current webhook state |
+| `laragram:webhook:set` | Register the webhook with Telegram |
+| `laragram:webhook:remove` | Remove the webhook |
+| `laragram:getMe` | Display bot info (`getMe`) |
+| `laragram:webhook:info` | Display current webhook state |
 | `laragram:poll` | Start long-polling (dev without a public URL) |
 | `laragram:route:list` | List all registered bot routes |
 | `laragram:route:match {event} {text}` | Debug: show which route matches |

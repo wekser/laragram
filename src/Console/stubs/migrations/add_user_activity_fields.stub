@@ -12,8 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('{{ $table }}', function (Blueprint $table) {
-            $table->boolean('is_active')->default(true)->after('settings');
-            $table->timestamp('deactivated_at')->nullable()->after('is_active');
+            if (! Schema::hasColumn('{{ $table }}', 'is_active')) {
+                $table->boolean('is_active')->default(true)->after('settings');
+            }
+
+            if (! Schema::hasColumn('{{ $table }}', 'deactivated_at')) {
+                $table->timestamp('deactivated_at')->nullable()->after('is_active');
+            }
         });
     }
 
