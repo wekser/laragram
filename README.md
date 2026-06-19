@@ -127,8 +127,8 @@ $request->validate([...]);      // Laravel validation on the update payload
 **`BotResponse`** builds the reply:
 
 ```php
-$response->text('Hello!')                          // sendMessage (MarkdownV2 by default)
-$response->text('Hello!', 'HTML')                  // HTML parse mode
+$response->text('Hello!')                          // sendMessage (HTML by default)
+$response->text('Hello!', 'MarkdownV2')            // MarkdownV2 parse mode
 $response->text('Hello!', null)                    // no escaping
 $response->view('welcome', ['name' => 'Alice'])    // render a view directory
 $response->photo($fileId, caption: 'A photo')      // sendPhoto
@@ -157,14 +157,14 @@ resources/laragram/
     └── reply_keyboard.php     ← call reply() / row() / resize() / one_time()
 ```
 
-**`text.php`** — write plain text, use `{{ }}` for variables:
+**`text.php`** — write plain text plus your own HTML markup (default parse mode is `HTML`); `{{ }}` escapes a value, `{!! !!}` emits it raw:
 
 ```
-Hello, {{ $first_name }}!
-Your email: {{ $data['email'] }}
+Hello, <b>{{ $first_name }}</b>!
+{!! __('laragram.welcome.body') !!}
 ```
 
-Variables from `$data` are extracted into scope, so `$name` works directly. `$user` (the authenticated `User` model) is also available.
+Static markup (`<b>…</b>`) renders as-is. `{{ }}` values are auto-escaped (safe for user data); `{!! !!}` values are emitted raw (use for trusted, pre-formatted content like translation strings). Variables from `$data` are extracted into scope, so `$name` works directly. `$user` (the authenticated `User` model) is also available.
 
 **`inline_keyboard.php`** — use global helper functions:
 
