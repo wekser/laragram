@@ -18,8 +18,6 @@ use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Services\MediaUploader;
-use Wekser\Laragram\Console\AddRoleFieldCommand;
-use Wekser\Laragram\Console\AddUserActivityFieldsCommand;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
 use Wekser\Laragram\Console\LaragramPublishCommand;
@@ -291,8 +289,6 @@ class LaragramServiceProvider extends ServiceProvider
             WebhookRemoveCommand::class,
             LaragramInstallCommand::class,
             LaragramPublishCommand::class,
-            AddUserActivityFieldsCommand::class,
-            AddRoleFieldCommand::class,
             MakeControllerCommand::class,
             MakeViewCommand::class,
             RouteListCommand::class,

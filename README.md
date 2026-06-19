@@ -289,8 +289,6 @@ php artisan laragram:route:match message "hello" --station=ask_name
 | `laragram:make:controller` | Scaffold a new bot controller |
 | `laragram:make:view` | Scaffold a new bot view directory |
 | `laragram:set-role {uid} {role}` | Assign a role to a user |
-| `laragram:add-user-activity-fields` | Publish migration for `is_active` / `deactivated_at` |
-| `laragram:add-role-field` | Publish migration for the `role` column |
 
 ---
 
