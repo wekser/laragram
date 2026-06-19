@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Telegram\Keyboards;
 
+use Wekser\Laragram\Enums\ButtonStyle;
+
 /**
  * Fluent builder for Telegram InlineKeyboardMarkup.
  *
@@ -49,56 +51,78 @@ class InlineKeyboard
 
     /**
      * Add a button that fires a callback query.
+     *
+     * @param ButtonStyle|string|null $style Optional color: 'primary', 'success', 'danger' (Bot API 9.4+).
+     * @param string|null             $icon  Optional custom emoji id shown on the button (Bot API 9.4+).
      */
-    public function button(string $text, string $callbackData): static
+    public function button(string $text, string $callbackData, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'callback_data' => $callbackData];
-        return $this;
+        return $this->push(['text' => $text, 'callback_data' => $callbackData], $style, $icon);
     }
 
     /**
      * Add a button that opens a URL.
      */
-    public function href(string $text, string $url): static
+    public function href(string $text, string $url, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'url' => $url];
-        return $this;
+        return $this->push(['text' => $text, 'url' => $url], $style, $icon);
     }
 
     /**
      * Add a button that switches to inline mode in the current chat.
      */
-    public function switchInline(string $text, string $query = ''): static
+    public function switchInline(string $text, string $query = '', ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'switch_inline_query_current_chat' => $query];
-        return $this;
+        return $this->push(['text' => $text, 'switch_inline_query_current_chat' => $query], $style, $icon);
     }
 
     /**
      * Add a button that switches to inline mode in a chosen chat.
      */
-    public function switchInlineChosen(string $text, string $query = ''): static
+    public function switchInlineChosen(string $text, string $query = '', ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'switch_inline_query' => $query];
-        return $this;
+        return $this->push(['text' => $text, 'switch_inline_query' => $query], $style, $icon);
+    }
+
+    /**
+     * Add a button that prompts the user to select a chat (filtered by type)
+     * and inserts the bot's username with an inline query into the input field.
+     * Bot API 6.7+: SwitchInlineQueryChosenChat
+     */
+    public function switchInlineChosenChat(
+        string $text,
+        string $query             = '',
+        bool   $allowUserChats    = false,
+        bool   $allowBotChats     = false,
+        bool   $allowGroupChats   = false,
+        bool   $allowChannelChats = false,
+        ButtonStyle|string|null $style = null,
+        ?string $icon              = null,
+    ): static {
+        $chosen = ['query' => $query];
+
+        if ($allowUserChats)    $chosen['allow_user_chats']    = true;
+        if ($allowBotChats)     $chosen['allow_bot_chats']     = true;
+        if ($allowGroupChats)   $chosen['allow_group_chats']   = true;
+        if ($allowChannelChats) $chosen['allow_channel_chats'] = true;
+
+        return $this->push(['text' => $text, 'switch_inline_query_chosen_chat' => $chosen], $style, $icon);
     }
 
     /**
      * Add a button that opens a Telegram Mini App (WebApp).
      */
-    public function webApp(string $text, string $url): static
+    public function webApp(string $text, string $url, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'web_app' => ['url' => $url]];
-        return $this;
+        return $this->push(['text' => $text, 'web_app' => ['url' => $url]], $style, $icon);
     }
 
     /**
      * Add a Pay button (must be the first button in the keyboard for invoices).
      */
-    public function pay(string $text): static
+    public function pay(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'pay' => true];
-        return $this;
+        return $this->push(['text' => $text, 'pay' => true], $style, $icon);
     }
 
     /**
@@ -109,6 +133,8 @@ class InlineKeyboard
         string  $url,
         ?string $forwardText  = null,
         bool    $writeAccess  = false,
+        ButtonStyle|string|null $style = null,
+        ?string $icon         = null,
     ): static {
         $loginUrl = array_filter([
             'url'                  => $url,
@@ -116,18 +142,25 @@ class InlineKeyboard
             'request_write_access' => $writeAccess ?: null,
         ], fn ($v) => $v !== null);
 
-        $this->currentRow[] = ['text' => $text, 'login_url' => $loginUrl];
-        return $this;
+        return $this->push(['text' => $text, 'login_url' => $loginUrl], $style, $icon);
     }
 
     /**
      * Add a button that copies text to the clipboard when pressed.
      * Bot API 7.11+
      */
-    public function copyText(string $text, string $copyText): static
+    public function copyText(string $text, string $copyText, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'copy_text' => ['text' => $copyText]];
-        return $this;
+        return $this->push(['text' => $text, 'copy_text' => ['text' => $copyText]], $style, $icon);
+    }
+
+    /**
+     * Add a button that launches a game (callback_game).
+     * NOTE: must always be the first button in the first row.
+     */
+    public function callbackGame(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): static
+    {
+        return $this->push(['text' => $text, 'callback_game' => (object) []], $style, $icon);
     }
 
     /**
@@ -136,6 +169,15 @@ class InlineKeyboard
     public function raw(array $button): static
     {
         $this->currentRow[] = $button;
+        return $this;
+    }
+
+    /**
+     * Append a button to the current row, merging optional style / custom-emoji fields.
+     */
+    private function push(array $button, ButtonStyle|string|null $style = null, ?string $icon = null): static
+    {
+        $this->currentRow[] = ButtonStyle::decorate($button, $style, $icon);
         return $this;
     }
 
