@@ -251,7 +251,7 @@ class Router
         $paramMatch = Str::startsWith($pattern, '{') && $hasParams;
         $exactMatch = $pattern === $data;
 
-        return ($noStationFilter && $commandMatch)
+        return (($noStationFilter || $stationMatches) && $commandMatch)
             || ($stationMatches  && $paramMatch)
             || ($stationMatches  && $exactMatch);
     }
