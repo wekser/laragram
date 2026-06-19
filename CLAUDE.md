@@ -40,8 +40,6 @@ There is no build or lint step. Tests live under `tests/` (PSR-4: `Wekser\Laragr
 | `laragram:session:prune` | Deletes expired sessions |
 | `laragram:make:controller` | Scaffolds a new bot controller |
 | `laragram:make:view` | Scaffolds a new bot view |
-| `laragram:add-user-activity-fields` | Publishes migration to add `is_active` / `deactivated_at` columns |
-| `laragram:add-role-field` | Publishes migration to add `role VARCHAR DEFAULT 'user'` column |
 | `laragram:set-role {uid} {role}` | Assigns a role to a user by their Telegram ID (requires `database` driver) |
 | `laragram:route:match {event} {text}` | Debug: shows which route would match a given event + text (`--station=` optional) |
 
