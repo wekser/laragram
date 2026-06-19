@@ -37,3 +37,9 @@ $collection->get('message')
     ->from('admin_panel')
     ->role('admin')
     ->call(fn () => null);
+
+// Route 6: command-with-param '/click {name}' from 'home' station (mirrors the demo bot)
+$collection->get('message')
+    ->from('home')
+    ->contains('/click {name}')
+    ->call(fn () => null);

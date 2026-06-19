@@ -132,6 +132,26 @@ class RouterTest extends TestCase
         $this->assertSame('callback_query', $route['event']);
     }
 
+    public function test_find_route_matches_command_with_param_when_station_matches(): void
+    {
+        // Fixture route 6: message + from='home' + contains='/click {name}' (mirrors the demo bot)
+        // Matching condition: stationMatches=true AND commandMatch=true (command prefix '/click').
+        // Regression: a command route constrained to a station was previously unreachable.
+        $route = $this->findRoute('home', 'message', $this->messageUpdate('/click Foo'));
+
+        $this->assertNotNull($route);
+        $this->assertSame(['home'], $route['from']);
+        $this->assertSame('/click {name}', $route['contains'][0]['pattern']);
+    }
+
+    public function test_find_route_does_not_match_command_with_param_when_station_is_wrong(): void
+    {
+        // Route 6 requires station 'home'; a wrong station must NOT match it.
+        $route = $this->findRoute('elsewhere', 'message', $this->messageUpdate('/click Foo'));
+
+        $this->assertNull($route);
+    }
+
     public function test_find_route_returns_null_when_event_type_has_no_matching_route(): void
     {
         $route = $this->findRoute('start', 'inline_query', [

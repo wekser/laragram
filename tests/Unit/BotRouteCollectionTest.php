@@ -259,8 +259,8 @@ class BotRouteCollectionTest extends TestCase
     {
         $routes = (new RouteCollection())->collectRoutes();
 
-        // Fixture defines 6 routes (see tests/Fixtures/routes/laragram.php)
-        $this->assertCount(6, $routes);
+        // Fixture defines 7 routes (see tests/Fixtures/routes/laragram.php)
+        $this->assertCount(7, $routes);
     }
 
     // -------------------------------------------------------------------------
