@@ -30,7 +30,7 @@ class TelegramApiException extends \RuntimeException
         string $telegramDescription = '',
         array $parameters = [],
         int $code = 0,
-        ?\Exception $previous = null
+        ?\Throwable $previous = null
     ) {
         $this->errorCode = $errorCode;
         $this->telegramDescription = $telegramDescription;

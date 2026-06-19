@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
+use Throwable;
 
 /**
  * AuthenticationException is thrown when user authentication fails.
@@ -31,9 +32,9 @@ class AuthenticationException extends Exception
      *
      * @param string $message The exception message
      * @param int $code The exception code
-     * @param Exception|null $previous The previous exception
+     * @param Throwable|null $previous The previous throwable
      */
-    public function __construct(string $message = '', int $code = 0, ?Exception $previous = null)
+    public function __construct(string $message = '', int $code = 0, ?Throwable $previous = null)
     {
         if (empty($message)) {
             $message = $this->message;
