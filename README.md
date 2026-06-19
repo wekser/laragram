@@ -176,6 +176,8 @@ row();
 button('Row 2', 'action_2');
 ```
 
+The full `InlineKeyboardButton` API is available as helpers: `button()`, `href()`, `web_app()`, `login_url()`, `switch_inline()`, `switch_inline_chosen()`, `switch_inline_chosen_chat()`, `copy_text()`, `pay()`, `callback_game()`. Each one takes optional trailing `style:` (`primary`/`success`/`danger`) and `icon:` (custom emoji) attributes — e.g. `button('Delete', 'rm', style: 'danger')` (Bot API 9.4+).
+
 **`reply_keyboard.php`:**
 
 ```php
@@ -237,6 +239,8 @@ $response->text('Choose:')->keyboard(
 ReplyKeyboard::remove();   // ['remove_keyboard' => true]
 ForceReply::make()->placeholder('Type here…')->toArray();
 ```
+
+`InlineKeyboard` covers the full button API (`switchInline()`, `switchInlineChosen()`, `switchInlineChosenChat()`, `loginUrl()`, `copyText()`, `pay()`, `callbackGame()`, plus a `paginate()` helper). Every button method on **both** builders accepts optional trailing `style:` (`primary`/`success`/`danger`) and `icon:` (custom emoji) attributes — e.g. `->button('Delete', 'rm', style: 'danger')` (Bot API 9.4+).
 
 ---
 

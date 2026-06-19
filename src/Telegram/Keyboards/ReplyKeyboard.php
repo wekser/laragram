@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Telegram\Keyboards;
 
+use Wekser\Laragram\Enums\ButtonStyle;
+
 /**
  * Fluent builder for Telegram ReplyKeyboardMarkup.
  *
@@ -53,29 +55,29 @@ class ReplyKeyboard
 
     /**
      * Add a simple text button.
+     *
+     * @param ButtonStyle|string|null $style Optional color: 'primary', 'success', 'danger' (Bot API 9.4+).
+     * @param string|null             $icon  Optional custom emoji id shown on the button (Bot API 9.4+).
      */
-    public function button(string $text): static
+    public function button(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text];
-        return $this;
+        return $this->push(['text' => $text], $style, $icon);
     }
 
     /**
      * Add a button that requests the user's contact.
      */
-    public function requestContact(string $text): static
+    public function requestContact(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'request_contact' => true];
-        return $this;
+        return $this->push(['text' => $text, 'request_contact' => true], $style, $icon);
     }
 
     /**
      * Add a button that requests the user's location.
      */
-    public function requestLocation(string $text): static
+    public function requestLocation(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'request_location' => true];
-        return $this;
+        return $this->push(['text' => $text, 'request_location' => true], $style, $icon);
     }
 
     /**
@@ -84,17 +86,16 @@ class ReplyKeyboard
      *
      * @param string $type 'regular' or 'quiz'
      */
-    public function requestPoll(string $text, string $type = 'regular'): static
+    public function requestPoll(string $text, string $type = 'regular', ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
-        $this->currentRow[] = ['text' => $text, 'request_poll' => ['type' => $type]];
-        return $this;
+        return $this->push(['text' => $text, 'request_poll' => ['type' => $type]], $style, $icon);
     }
 
     /**
      * Add a button that requests a user to be shared with the bot.
      * Bot API 6.5+: KeyboardButtonRequestUsers
      */
-    public function requestUser(string $text, int $requestId, bool $botRequired = false): static
+    public function requestUser(string $text, int $requestId, bool $botRequired = false, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
         $request = ['request_id' => $requestId];
 
@@ -102,15 +103,14 @@ class ReplyKeyboard
             $request['user_is_bot'] = true;
         }
 
-        $this->currentRow[] = ['text' => $text, 'request_users' => $request];
-        return $this;
+        return $this->push(['text' => $text, 'request_users' => $request], $style, $icon);
     }
 
     /**
      * Add a button that requests a chat to be shared with the bot.
      * Bot API 6.5+: KeyboardButtonRequestChat
      */
-    public function requestChat(string $text, int $requestId, bool $channelOnly = false): static
+    public function requestChat(string $text, int $requestId, bool $channelOnly = false, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
         $request = ['request_id' => $requestId];
 
@@ -118,8 +118,7 @@ class ReplyKeyboard
             $request['chat_is_channel'] = true;
         }
 
-        $this->currentRow[] = ['text' => $text, 'request_chat' => $request];
-        return $this;
+        return $this->push(['text' => $text, 'request_chat' => $request], $style, $icon);
     }
 
     /**
@@ -128,6 +127,15 @@ class ReplyKeyboard
     public function raw(array $button): static
     {
         $this->currentRow[] = $button;
+        return $this;
+    }
+
+    /**
+     * Append a button to the current row, merging optional style / custom-emoji fields.
+     */
+    private function push(array $button, ButtonStyle|string|null $style = null, ?string $icon = null): static
+    {
+        $this->currentRow[] = ButtonStyle::decorate($button, $style, $icon);
         return $this;
     }
 

@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\View;
 
+use Wekser\Laragram\Enums\ButtonStyle;
+
 /**
  * Accumulates buttons during the evaluation of a reply_keyboard.php component.
  */
@@ -22,9 +24,9 @@ final class ReplyKeyboardState
     private bool $resize = false;
     private bool $oneTime = false;
 
-    public function addButton(string $text): void
+    public function addButton(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): void
     {
-        $this->currentRow[] = ['text' => $text];
+        $this->currentRow[] = ButtonStyle::decorate(['text' => $text], $style, $icon);
     }
 
     public function addRow(): void

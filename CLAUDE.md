@@ -149,7 +149,7 @@ src/
 │   ├── InlineKeyboardState.php   # accumulates buttons during inline_keyboard.php eval
 │   ├── ReplyKeyboardState.php    # accumulates buttons during reply_keyboard.php eval
 │   ├── MediaGroupState.php       # accumulates items during media.php eval
-│   └── helpers.php               # global functions: button(), href(), web_app(), reply(), row(), resize(), one_time(), photo(), video()
+│   └── helpers.php               # global functions: button(), href(), web_app(), login_url(), switch_inline(), switch_inline_chosen(), switch_inline_chosen_chat(), copy_text(), pay(), callback_game(), reply(), row(), resize(), one_time(), photo(), video() — every button helper takes optional trailing style:/icon: attributes
 ├── Telegram/
 │   ├── Keyboards/InlineKeyboard.php  # fluent InlineKeyboardMarkup builder
 │   ├── Keyboards/ReplyKeyboard.php   # fluent ReplyKeyboardMarkup builder
@@ -159,7 +159,8 @@ src/
 │   ├── MediaUploader.php         # upload local file/URL to Telegram, return file_id (container alias: laragram.media)
 │   └── TelegramErrorHandler.php  # maps API errors to typed exceptions; validateUserBeforeSend(), getUserStatus()
 ├── Enums/
-│   └── TelegramErrorCode.php     # int-backed enum for Telegram HTTP error codes (400–504)
+│   ├── TelegramErrorCode.php     # int-backed enum for Telegram HTTP error codes (400–504)
+│   └── ButtonStyle.php           # string-backed enum for button colors (primary/success/danger); ButtonStyle::normalize()
 ├── Exceptions/
 │   ├── ExceptionHandler.php   # static handler (NOT an exception class itself)
 │   └── ...                    # typed exceptions hierarchy
@@ -225,10 +226,21 @@ Variables from `$data` are extracted into scope via `extract($data, EXTR_SKIP)`,
 
 ```php
 // inside inline_keyboard.php
-button('Click me', 'action_1');
-href('Open site', 'https://example.com');
-web_app('Open Mini App', 'https://example.com/app');
+button('Click me', 'action_1');                       // callback_data
+href('Open site', 'https://example.com');             // url
+web_app('Open Mini App', 'https://example.com/app');  // web_app
+login_url('Sign in', 'https://example.com/auth');     // login_url (Telegram Login Widget)
+switch_inline('Search here', 'query');                // switch_inline_query_current_chat
+switch_inline_chosen('Share', 'query');               // switch_inline_query (pick a chat)
+switch_inline_chosen_chat('Pick', 'q', allowUserChats: true); // switch_inline_query_chosen_chat
+copy_text('Copy code', 'COUPON10');                   // copy_text (Bot API 7.11+)
+pay('Pay');                                           // pay (invoices; first button)
+callback_game('Play');                                // callback_game (first button)
 row();
+
+// Optional style/icon attributes (Bot API 9.4) — trailing params on EVERY button helper:
+button('Delete', 'rm', style: 'danger');              // style: primary|success|danger
+button('Confirm', 'ok', style: 'success', icon: '5368324170671202286'); // + custom emoji
 
 // inside reply_keyboard.php
 resize();
@@ -248,10 +260,19 @@ video($data['video_id']);
 | Callback button | `button()` | `button()` | — |
 | URL button | `href()` | `href()` | — |
 | Mini App button | `web_app()` | `webApp()` | — |
+| Login Widget button | `login_url()` | `loginUrl()` | — |
+| Switch inline (this chat) | `switch_inline()` | `switchInline()` | — |
+| Switch inline (pick chat) | `switch_inline_chosen()` | `switchInlineChosen()` | — |
+| Switch inline (chosen chat) | `switch_inline_chosen_chat()` | `switchInlineChosenChat()` | — |
+| Copy-text button | `copy_text()` | `copyText()` | — |
+| Pay button | `pay()` | `pay()` | — |
+| Game button | `callback_game()` | `callbackGame()` | — |
 | Reply button | `reply()` | — | `button()` |
 | New row | `row()` | `row()` | `row()` |
 | Resize | `resize()` | — | `resize()` |
 | One-time | `one_time()` | — | `oneTime()` |
+
+**Button `style` / `icon` (Bot API 9.4+):** every button helper and builder method (inline **and** reply) accepts two optional trailing params — `$style` (`Wekser\Laragram\Enums\ButtonStyle` enum or string `primary`/`success`/`danger`) and `$icon` (custom emoji id → `icon_custom_emoji_id`). They are merged into that single button only; both are omitted from the payload when `null`. Invalid `$style` throws `\InvalidArgumentException` (via `ButtonStyle::normalize()`). E.g. `button('Delete', 'rm', style: 'danger')` or `InlineKeyboard::make()->button('Ok', 'ok', ButtonStyle::Success)`.
 
 **Auto-escaping:** In `text.php` (and media captions) **only `{{ }}` interpolated values are escaped** for the active parse mode — static template text and `{!! !!}` output are emitted verbatim. This lets view authors write formatting markup directly while user data stays safe. Do not manually escape `{{ }}` values — it will double-escape. The whole-string `text()` / `edit()` methods escape their entire argument (treated as raw user data); pass `$format = null` there to send already-formatted text.
 
@@ -409,7 +430,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `Router::flushCache()` in `tearDown()` (or `setUp()`) whenever testing route-related code — the route file is cached in a static property and persists across test cases within the same process
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
-- Current suite: **201 tests / 306 assertions**
+- Current suite: **210 tests / 335 assertions**
 
 #### Feature testing with InteractsWithBot
 

@@ -32,10 +32,16 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotAuth::findFromInPayload(array $payload): ?array` — public static helper to extract the `from` field from any update type
 
 **Telegram Helpers**
-- `Telegram\Keyboards\InlineKeyboard` — fluent builder for `InlineKeyboardMarkup`
+- `Telegram\Keyboards\InlineKeyboard` — fluent builder for `InlineKeyboardMarkup` covering the full `InlineKeyboardButton` API: `button()`, `href()`, `webApp()`, `switchInline()`, `switchInlineChosen()`, `switchInlineChosenChat()` (Bot API 6.7+), `loginUrl()`, `copyText()` (Bot API 7.11+), `pay()`, `callbackGame()`, plus `raw()`, `row()`, and a `paginate()` helper
 - `Telegram\Keyboards\ReplyKeyboard` — fluent builder for `ReplyKeyboardMarkup`; static `remove()` for `ReplyKeyboardRemove`
 - `Telegram\Keyboards\ForceReply` — fluent builder for `ForceReply` with `placeholder()` and `selective()` options
 - `Telegram\Media\MediaGroup` — fluent builder for `sendMediaGroup` payloads (up to 10 items)
+- `Enums\ButtonStyle` — string-backed enum (`Primary` / `Success` / `Danger`) for the Bot API 9.4 button color; `normalize()` validates a string/enum and `decorate()` merges the `style` / `icon_custom_emoji_id` fields into a button payload
+- Optional `$style` (a `ButtonStyle` case or `'primary'` / `'success'` / `'danger'`) and `$icon` (custom emoji id) trailing arguments on every button method of **both** `InlineKeyboard` and `ReplyKeyboard` (Bot API 9.4+); an unknown style throws `\InvalidArgumentException`
+
+**View Helpers**
+- Inline keyboard view helpers expanded to the full button API: `login_url()`, `switch_inline()`, `switch_inline_chosen()`, `switch_inline_chosen_chat()`, `copy_text()`, `pay()`, `callback_game()` (alongside the existing `button()`, `href()`, `web_app()`, `row()`)
+- Every inline button helper and the reply `reply()` helper accept the same optional trailing `style:` / `icon:` attributes as the fluent builders (Bot API 9.4+)
 
 **Services**
 - `Services\MediaUploader` — uploads a local file or remote URL to Telegram and returns a reusable `file_id`; bound as `laragram.media` singleton; supports `photo`, `document`, `audio`, `video`, `voice`, `animation`, `video_note`, `sticker`
