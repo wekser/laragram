@@ -12,8 +12,9 @@ Laragram is a Laravel package (namespace `Wekser\Laragram`) for building Telegra
 ## Commands
 
 ```bash
-# Run all tests
+# Run all tests (composer alias for the same command)
 vendor/bin/phpunit
+composer test
 
 # Run a single test file
 vendor/bin/phpunit tests/Unit/BotRouterTest.php
@@ -358,6 +359,8 @@ try {
 `handle()` only logs — it does **not** send an HTTP response. `Laragram::back()` returns `response('OK', 200)` when `$this->output` is empty, which is the natural outcome after an exception. Do not call `render()` or `send()` from inside the handler — it would produce a double-send.
 
 Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`) are silenced; all others are logged via `app('log')->error()`. `TelegramErrorHandler` maps Telegram API error descriptions to these typed exceptions.
+
+**`BotClient` error contract (matters for any direct `BotAPI::*` caller):** `BotClient::processResponse()` returns `$decoded['result']` on success — for many methods this is a scalar (`deleteWebhook`/`setWebhook` → `true`), not an array. On API failure (`ok: false`) it **throws** a typed exception via `TelegramErrorHandler` — it does **not** return an error array. So callers must `try/catch` around the call and check the result shape; inspecting the return value for an `error_code` key is dead code. Console commands (`WebhookSetCommand`, `WebhookRemoveCommand`) follow this pattern: wrap the call in `try/catch`, verify `$response === true`, and return `self::SUCCESS` / `self::FAILURE` for correct exit codes.
 
 ### Models & Database
 
