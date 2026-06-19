@@ -31,7 +31,7 @@ class BotAuthTest extends TestCase
         return new BotAuth(
             Request::create('/', 'POST', $requestData),
             'array',
-            ['en', 'ru'],
+            ['en'],
             User::class,
         );
     }
@@ -43,10 +43,10 @@ class BotAuthTest extends TestCase
             'message' => [
                 'from' => array_merge([
                     'id'            => 123,
-                    'first_name'    => 'Ivan',
-                    'last_name'     => 'Petrov',
-                    'username'      => 'ivan_p',
-                    'language_code' => 'ru',
+                    'first_name'    => 'Mike',
+                    'last_name'     => 'Olumy',
+                    'username'      => 'mike_olumy',
+                    'language_code' => 'en',
                 ], $senderOverrides),
                 'text' => 'hello',
             ],
@@ -84,9 +84,9 @@ class BotAuthTest extends TestCase
         $user = $auth->user();
 
         $this->assertSame(123, $user->uid);
-        $this->assertSame('Ivan', $user->first_name);
-        $this->assertSame('Petrov', $user->last_name);
-        $this->assertSame('ivan_p', $user->username);
+        $this->assertSame('Mike', $user->first_name);
+        $this->assertSame('Olumy', $user->last_name);
+        $this->assertSame('mike_olumy', $user->username);
     }
 
     // -------------------------------------------------------------------------
@@ -135,7 +135,7 @@ class BotAuthTest extends TestCase
 
         $this->assertIsArray($sender);
         $this->assertSame(123, $sender['id']);
-        $this->assertSame('Ivan', $sender['first_name']);
+        $this->assertSame('Mike', $sender['first_name']);
     }
 
     public function test_get_user_id_returns_null_before_authenticate(): void
@@ -161,9 +161,9 @@ class BotAuthTest extends TestCase
 
     public function test_get_user_language_returns_valid_language_from_sender(): void
     {
-        $auth = $this->makeAuth($this->validPayload(['language_code' => 'ru']))->authenticate();
+        $auth = $this->makeAuth($this->validPayload(['language_code' => 'en']))->authenticate();
 
-        $this->assertSame('ru', $auth->getUserLanguage());
+        $this->assertSame('en', $auth->getUserLanguage());
     }
 
     public function test_get_user_language_falls_back_to_locale_for_unsupported_code(): void
@@ -186,7 +186,7 @@ class BotAuthTest extends TestCase
     {
         $auth = $this->makeAuth($this->validPayload())->authenticate();
 
-        $this->assertSame('Ivan Petrov', $auth->getUserFullName());
+        $this->assertSame('Mike Olumy', $auth->getUserFullName());
     }
 
     public function test_get_user_full_name_trims_when_no_last_name(): void
@@ -196,7 +196,7 @@ class BotAuthTest extends TestCase
 
         $auth = $this->makeAuth($payload)->authenticate();
 
-        $this->assertSame('Ivan', $auth->getUserFullName());
+        $this->assertSame('Mike', $auth->getUserFullName());
     }
 
     // -------------------------------------------------------------------------

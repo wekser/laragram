@@ -52,7 +52,7 @@ class CheckAuthTest extends TestCase
     public function test_passes_request_from_human_user(): void
     {
         $request = $this->requestWithSender([
-            'id' => 123, 'first_name' => 'Ivan', 'is_bot' => false,
+            'id' => 123, 'first_name' => 'Mike', 'is_bot' => false,
         ]);
 
         $response = $this->middleware()->handle($request, fn ($r) => response('ok'));
@@ -128,7 +128,7 @@ class CheckAuthTest extends TestCase
         $handler = $this->attachLogHandler();
 
         $request = $this->requestWithSender([
-            'id' => 1, 'first_name' => 'Ivan', 'is_bot' => false,
+            'id' => 1, 'first_name' => 'Mike', 'is_bot' => false,
         ]);
 
         $this->middleware()->handle($request, fn ($r) => response('ok'));
