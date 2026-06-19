@@ -43,12 +43,26 @@ class WebhookRemoveCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return void
+     * @return int
      */
     public function handle()
     {
-        $response = BotAPI::deleteWebhook();
+        try {
+            $response = BotAPI::deleteWebhook();
+        } catch (\Throwable $e) {
+            $this->error('Failed to remove webhook: ' . $e->getMessage());
 
-        $this->info($response['description']);
+            return self::FAILURE;
+        }
+
+        if ($response !== true) {
+            $this->error('Failed to remove webhook: ' . ($response['description'] ?? 'Unknown error'));
+
+            return self::FAILURE;
+        }
+
+        $this->info('Webhook removed successfully.');
+
+        return self::SUCCESS;
     }
 }

@@ -53,27 +53,49 @@ class WebhookSetCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return mixed
+     * @return int
      */
     public function handle()
     {
-        if (parse_url($this->appUrl, PHP_URL_SCHEME) !== 'https') return $this->error('Invalid URL, should be an HTTPS url');
+        if (parse_url($this->appUrl, PHP_URL_SCHEME) !== 'https') {
+            $this->error('Invalid URL, should be an HTTPS url');
+
+            return self::FAILURE;
+        }
 
         if (empty($this->botSecret) || !preg_match('/^[A-Za-z0-9_-]{8,}$/', (string) $this->botSecret)) {
-            return $this->error('Invalid or empty webhook secret. Please set LARAGRAM_WEBHOOK_SECRET in .env');
+            $this->error('Invalid or empty webhook secret. Please set LARAGRAM_WEBHOOK_SECRET in .env');
+
+            return self::FAILURE;
         }
 
         $url = implode('/', [trim($this->appUrl, '/'), $this->botPrefix, $this->botSecret]);
 
-        if (filter_var($url, FILTER_VALIDATE_URL) === false) return $this->error('Invalid URL Provided');
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            $this->error('Invalid URL Provided');
 
-        $response = BotAPI::setWebhook([
-            'url'          => $url,
-            'secret_token' => $this->botSecret,
-        ]);
+            return self::FAILURE;
+        }
 
-        if (isset($response['error_code'])) return $this->error($response['description']);
+        try {
+            $response = BotAPI::setWebhook([
+                'url'          => $url,
+                'secret_token' => $this->botSecret,
+            ]);
+        } catch (\Throwable $e) {
+            $this->error('Failed to set webhook: ' . $e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        if ($response !== true) {
+            $this->error('Failed to set webhook: ' . ($response['description'] ?? 'Unknown error'));
+
+            return self::FAILURE;
+        }
 
         $this->info("Webhook [$url] was successfully set!");
+
+        return self::SUCCESS;
     }
 }
