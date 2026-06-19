@@ -217,7 +217,6 @@ class LaragramServiceProvider extends ServiceProvider
 
             $this->publishes([
                 __DIR__ . '/../Console/stubs/lang/en/laragram.stub' => lang_path('en/laragram.php'),
-                __DIR__ . '/../Console/stubs/lang/ru/laragram.stub' => lang_path('ru/laragram.php'),
             ], 'laragram-lang');
 
             $this->publishes([
