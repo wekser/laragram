@@ -12,7 +12,7 @@
 return [
     'start' => [
         'greeting' => 'Hello, :name!',
-        'body'     => "Thank you for using Laragram!\nTry to write something and I will answer you the same.",
+        'body'     => "Thank you for using <b>Laragram</b>!\nTry to write something and I will answer you the same.",
         'btn_foo'  => 'Foo',
         'btn_bar'  => 'Bar',
     ],

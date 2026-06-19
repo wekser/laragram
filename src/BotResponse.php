@@ -90,7 +90,7 @@ class BotResponse
      * @param string|null $format Parse mode: 'HTML', 'MarkdownV2', 'Markdown', or null (no escaping).
      * @return $this
      */
-    public function text(string $text, ?string $format = 'MarkdownV2'): self
+    public function text(string $text, ?string $format = 'HTML'): self
     {
         $this->contents = [
             'method'     => 'sendMessage',
@@ -177,7 +177,7 @@ class BotResponse
      * @param string|null $format Parse mode: 'HTML', 'MarkdownV2', 'Markdown', or null (no escaping).
      * @return $this
      */
-    public function edit(string $text, ?string $format = 'MarkdownV2'): self
+    public function edit(string $text, ?string $format = 'HTML'): self
     {
         $this->contents = [
             'method'     => 'editMessageText',
@@ -213,10 +213,10 @@ class BotResponse
      *
      * @param string      $fileId   Telegram file_id, public URL, or 'attach://name'.
      * @param string|null $caption  Raw, unescaped caption text.
-     * @param string|null $format   Parse mode for the caption (default: MarkdownV2).
+     * @param string|null $format   Parse mode for the caption (default: HTML).
      * @return $this
      */
-    public function photo(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2'): self
+    public function photo(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
         $this->contents = $this->buildMediaContents('sendPhoto', 'photo', $fileId, $caption, $format);
         return $this;
@@ -230,10 +230,10 @@ class BotResponse
      *
      * @param string      $fileId   Telegram file_id, public URL, or 'attach://name'.
      * @param string|null $caption  Raw, unescaped caption text.
-     * @param string|null $format   Parse mode for the caption (default: MarkdownV2).
+     * @param string|null $format   Parse mode for the caption (default: HTML).
      * @return $this
      */
-    public function document(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2'): self
+    public function document(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
         $this->contents = $this->buildMediaContents('sendDocument', 'document', $fileId, $caption, $format);
         return $this;
@@ -244,10 +244,10 @@ class BotResponse
      *
      * @param string      $fileId   Telegram file_id, public URL, or 'attach://name'.
      * @param string|null $caption  Raw, unescaped caption text.
-     * @param string|null $format   Parse mode for the caption (default: MarkdownV2).
+     * @param string|null $format   Parse mode for the caption (default: HTML).
      * @return $this
      */
-    public function audio(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2'): self
+    public function audio(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
         $this->contents = $this->buildMediaContents('sendAudio', 'audio', $fileId, $caption, $format);
         return $this;
@@ -258,10 +258,10 @@ class BotResponse
      *
      * @param string      $fileId   Telegram file_id, public URL, or 'attach://name'.
      * @param string|null $caption  Raw, unescaped caption text.
-     * @param string|null $format   Parse mode for the caption (default: MarkdownV2).
+     * @param string|null $format   Parse mode for the caption (default: HTML).
      * @return $this
      */
-    public function video(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2'): self
+    public function video(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
         $this->contents = $this->buildMediaContents('sendVideo', 'video', $fileId, $caption, $format);
         return $this;
@@ -272,10 +272,10 @@ class BotResponse
      *
      * @param string      $fileId   Telegram file_id, public URL, or 'attach://name'.
      * @param string|null $caption  Raw, unescaped caption text.
-     * @param string|null $format   Parse mode for the caption (default: MarkdownV2).
+     * @param string|null $format   Parse mode for the caption (default: HTML).
      * @return $this
      */
-    public function voice(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2'): self
+    public function voice(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
         $this->contents = $this->buildMediaContents('sendVoice', 'voice', $fileId, $caption, $format);
         return $this;
@@ -286,10 +286,10 @@ class BotResponse
      *
      * @param string      $fileId   Telegram file_id, public URL, or 'attach://name'.
      * @param string|null $caption  Raw, unescaped caption text.
-     * @param string|null $format   Parse mode for the caption (default: MarkdownV2).
+     * @param string|null $format   Parse mode for the caption (default: HTML).
      * @return $this
      */
-    public function animation(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2'): self
+    public function animation(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
         $this->contents = $this->buildMediaContents('sendAnimation', 'animation', $fileId, $caption, $format);
         return $this;
@@ -418,7 +418,7 @@ class BotResponse
      * @param string|null $format Parse mode: 'HTML', 'MarkdownV2', 'Markdown', or null.
      * @return $this
      */
-    public function view(string $view, array $data = [], ?string $format = 'MarkdownV2'): self
+    public function view(string $view, array $data = [], ?string $format = 'HTML'): self
     {
         $this->contents = $this->render($view, $data, $format);
 
@@ -428,7 +428,7 @@ class BotResponse
     /**
      * Resolve the view directory and assemble a payload from its components.
      */
-    protected function render(string $view, ?array $data, ?string $format = 'MarkdownV2'): array
+    protected function render(string $view, ?array $data, ?string $format = 'HTML'): array
     {
         $this->setData($data);
 
@@ -479,10 +479,13 @@ class BotResponse
         $textFile = $dirPath . '/text.php';
 
         if (file_exists($textFile)) {
-            $raw     = trim($this->renderTemplate($textFile));
+            // Interpolated {{ }} values are escaped during rendering; the static
+            // template text (the author's own *bold* / _italic_ markup) is left
+            // intact. Do NOT re-escape the assembled string here.
+            $raw     = trim($this->renderTemplate($textFile, $format));
             $isMedia = $method !== 'sendMessage' && $method !== 'sendMediaGroup';
 
-            $payload[$isMedia ? 'caption' : 'text'] = $this->escapeText($raw, $format);
+            $payload[$isMedia ? 'caption' : 'text'] = $raw;
 
             if ($format !== null) {
                 $payload['parse_mode'] = $format;
@@ -496,7 +499,8 @@ class BotResponse
             $mediaFile = $dirPath . '/' . $type . '.php';
 
             if (file_exists($mediaFile)) {
-                $payload[$type] = trim($this->renderTemplate($mediaFile));
+                // file_id / URL — never escape (null disables interpolation escaping).
+                $payload[$type] = trim($this->renderTemplate($mediaFile, null));
                 break;
             }
         }
@@ -580,29 +584,45 @@ class BotResponse
     }
 
     /**
-     * Evaluate a template file, replacing {{ expr }} with echoed PHP,
-     * and capture the output via output buffering.
+     * Evaluate a template file and capture the output via output buffering.
+     *
+     * Two interpolation forms are supported:
+     *   {{ expr }}   — value is escaped for the active parse mode (use for user data)
+     *   {!! expr !!} — value is emitted raw, unescaped (use for trusted, already
+     *                  formatted content such as translation strings containing
+     *                  *bold* / _italic_ / <b> markup)
+     *
+     * Static template text (the author's own markup) is always emitted verbatim,
+     * so formatting written directly in the view renders as intended.
+     * Pass $format = null to disable escaping of {{ }} values entirely
+     * (used for file_id / URL components).
      *
      * Variables available in template scope:
      *   - each key from $data as its own variable (via extract)
      *   - $user — the authenticated User instance
      */
-    protected function renderTemplate(string $path): string
+    protected function renderTemplate(string $path, ?string $format = null): string
     {
         $source = file_get_contents($path);
 
-        // Replace {{ expr }} with PHP echo syntax
-        $compiled = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $1; ?>', $source);
+        // Escaper for {{ }} values; static markup and {!! !!} are never passed through it.
+        $escaper = fn (mixed $value): string => $this->escapeText((string) $value, $format);
+
+        // Raw output {!! expr !!} first, so its braces aren't caught by the {{ }} pass.
+        $compiled = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $source);
+
+        // Escaped output {{ expr }}.
+        $compiled = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $__esc($1); ?>', $compiled);
 
         ob_start();
 
         try {
-            (static function (string $__template, array $data, ?User $user): void {
-                // EXTR_SKIP: never overwrite $__template, $data, or $user
+            (static function (string $__template, array $data, ?User $user, callable $__esc): void {
+                // EXTR_SKIP: never overwrite $__template, $data, $user or $__esc
                 // even if $data contains keys with those names.
                 extract($data, EXTR_SKIP);
                 eval('?>' . $__template);
-            })($compiled, $this->data, $this->user);
+            })($compiled, $this->data, $this->user, $escaper);
         } catch (\Throwable $e) {
             ob_end_clean();
             throw new ViewInvalidException($path, 0, $e);
@@ -690,7 +710,7 @@ class BotResponse
             return $contents;
         }
 
-        $mode = $contents['parse_mode'] ?? 'MarkdownV2';
+        $mode = $contents['parse_mode'] ?? 'HTML';
 
         if (isset($contents['text']) && is_string($contents['text'])) {
             $contents['text'] = $this->escapeText($contents['text'], $mode);

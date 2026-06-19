@@ -200,7 +200,7 @@ Views are **directories** under `resources/laragram/` (dot-notation maps to subd
 
 | File | Role |
 |---|---|
-| `text.php` | Message text or media caption — template syntax with `{{ expr }}` |
+| `text.php` | Message text or media caption — template syntax with `{{ expr }}` (escaped) and `{!! expr !!}` (raw) |
 | `photo.php` / `video.php` / `document.php` / `audio.php` / `voice.php` / `animation.php` / `sticker.php` / `video_note.php` | Single-line: file_id or URL — triggers the matching `send*` method |
 | `media.php` | Album (sendMediaGroup) — call `photo()` / `video()` global helpers |
 | `inline_keyboard.php` | InlineKeyboard — call `button()` / `href()` / `web_app()` / `row()` global helpers |
@@ -208,14 +208,20 @@ Views are **directories** under `resources/laragram/` (dot-notation maps to subd
 
 Only one media component may be present per directory. `inline_keyboard.php` and `reply_keyboard.php` cannot coexist.
 
-**Template syntax** in `text.php` — write plain text; use `{{ }}` for dynamic values:
+**Template syntax** in `text.php` — write plain text plus your own formatting markup; use interpolation for dynamic values:
 
 ```
-Hello, {{ $name }}!          ← variable extracted from $data
-Welcome, {{ $user->first_name }}!  ← $user is the authenticated User
+Thank you for using <b>Laragram</b>!  ← static markup renders as-is (bold)
+Hello, {{ $name }}!                   ← {{ }} value is auto-escaped (user data)
+{!! __('start.body') !!}              ← {!! !!} value is emitted raw (trusted/pre-formatted)
+Welcome, {{ $user->first_name }}!     ← $user is the authenticated User
 ```
 
 Variables from `$data` are extracted into scope via `extract($data, EXTR_SKIP)`, so use `$name` directly (not `$data['name']`). `$user` is also available.
+
+- `{{ expr }}` — value is **escaped** for the active parse mode. Use for untrusted/user data so it can't break formatting or inject markup.
+- `{!! expr !!}` — value is emitted **raw, unescaped**. Use for trusted, already-formatted content such as translation strings (`{!! __('...') !!}`) that themselves contain `<b>` / `<i>` markup.
+- **Static template text is never escaped** — write `<b>bold</b>` / `<i>italic</i>` directly in the file and it renders.
 
 **Global view helpers** (registered in `src/View/helpers.php`) delegate to `ComponentContext` — they are only meaningful inside the matching component file:
 
@@ -249,7 +255,9 @@ video($data['video_id']);
 | Resize | `resize()` | — | `resize()` |
 | One-time | `one_time()` | — | `oneTime()` |
 
-**Auto-escaping:** `text.php` content and media captions are auto-escaped for the active parse mode. Do not manually escape — it will double-escape. Pass `$format = null` to `view()` to disable escaping for pre-formatted content.
+**Auto-escaping:** In `text.php` (and media captions) **only `{{ }}` interpolated values are escaped** for the active parse mode — static template text and `{!! !!}` output are emitted verbatim. This lets view authors write formatting markup directly while user data stays safe. Do not manually escape `{{ }}` values — it will double-escape. The whole-string `text()` / `edit()` methods escape their entire argument (treated as raw user data); pass `$format = null` there to send already-formatted text.
+
+**Default parse mode is `HTML`.** `text()`, `edit()`, `view()`, and the media methods default `$format` to `'HTML'`. HTML escaping (`htmlspecialchars`) only touches `< > & "`, so static prose and punctuation (`. ! , - * _`) are emitted verbatim — view authors write `<b>bold</b>` / `<i>italic</i>` directly while `{{ }}` user data is escaped so it can't inject tags. Legacy `'Markdown'` and `'MarkdownV2'` remain available by passing them explicitly; with MarkdownV2 any static markup/punctuation in the view must be hand-escaped.
 
 **Format validation:** `text()`, `edit()`, `view()`, and media methods accept only `'HTML'`, `'MarkdownV2'`, `'Markdown'`, or `null` as `$format`. Any other value throws `\InvalidArgumentException`.
 
@@ -403,7 +411,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `Router::flushCache()` in `tearDown()` (or `setUp()`) whenever testing route-related code — the route file is cached in a static property and persists across test cases within the same process
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
-- Current suite: **193 tests / 293 assertions**
+- Current suite: **201 tests / 306 assertions**
 
 #### Feature testing with InteractsWithBot
 

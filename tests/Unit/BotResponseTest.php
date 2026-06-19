@@ -40,9 +40,19 @@ class BotResponseTest extends TestCase
         $this->assertTrue($this->make()->text('Hello')->contents['_escaped']);
     }
 
-    public function test_text_defaults_to_markdownv2_parse_mode(): void
+    public function test_text_defaults_to_html_parse_mode(): void
     {
-        $this->assertSame('MarkdownV2', $this->make()->text('Hello')->contents['parse_mode']);
+        $this->assertSame('HTML', $this->make()->text('Hello')->contents['parse_mode']);
+    }
+
+    public function test_text_default_escapes_html_special_chars(): void
+    {
+        // HTML is the default parse mode: text() treats its whole argument as raw
+        // user data and escapes it with htmlspecialchars().
+        $this->assertSame(
+            '&lt;b&gt;Bold&lt;/b&gt;',
+            $this->make()->text('<b>Bold</b>')->contents['text'],
+        );
     }
 
     public function test_text_sets_requested_parse_mode(): void
@@ -63,29 +73,29 @@ class BotResponseTest extends TestCase
 
     public function test_markdownv2_escapes_asterisk(): void
     {
-        $this->assertSame('Hello \*World\*', $this->make()->text('Hello *World*')->contents['text']);
+        $this->assertSame('Hello \*World\*', $this->make()->text('Hello *World*', 'MarkdownV2')->contents['text']);
     }
 
     public function test_markdownv2_escapes_underscore(): void
     {
-        $this->assertSame('\_italic\_', $this->make()->text('_italic_')->contents['text']);
+        $this->assertSame('\_italic\_', $this->make()->text('_italic_', 'MarkdownV2')->contents['text']);
     }
 
     public function test_markdownv2_escapes_square_brackets(): void
     {
-        $this->assertSame('\[link\]', $this->make()->text('[link]')->contents['text']);
+        $this->assertSame('\[link\]', $this->make()->text('[link]', 'MarkdownV2')->contents['text']);
     }
 
     public function test_markdownv2_escapes_dot_and_exclamation(): void
     {
-        $this->assertSame('End\. Really\!', $this->make()->text('End. Really!')->contents['text']);
+        $this->assertSame('End\. Really\!', $this->make()->text('End. Really!', 'MarkdownV2')->contents['text']);
     }
 
     public function test_markdownv2_escapes_all_reserved_characters(): void
     {
         $reserved  = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
         $input     = implode('', $reserved);
-        $text      = $this->make()->text($input)->contents['text'];
+        $text      = $this->make()->text($input, 'MarkdownV2')->contents['text'];
 
         foreach ($reserved as $char) {
             $this->assertStringContainsString('\\' . $char, $text, "Expected '{$char}' to be escaped");
@@ -94,7 +104,24 @@ class BotResponseTest extends TestCase
 
     public function test_markdownv2_escapes_backslash_before_other_chars_to_avoid_double_escaping(): void
     {
-        $this->assertSame('path\\\\value', $this->make()->text('path\\value')->contents['text']);
+        $this->assertSame('path\\\\value', $this->make()->text('path\\value', 'MarkdownV2')->contents['text']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Legacy Markdown escaping (opt-in via explicit 'Markdown')
+    // -------------------------------------------------------------------------
+
+    public function test_markdown_escapes_only_legacy_reserved_characters(): void
+    {
+        // Legacy Markdown escapes _ * [ ] ( ) ` — but NOT . ! , - which would
+        // otherwise break MarkdownV2. text() escapes the whole argument because
+        // it is treated as raw user data.
+        $this->assertSame('\*bold\*', $this->make()->text('*bold*', 'Markdown')->contents['text']);
+    }
+
+    public function test_markdown_does_not_escape_prose_punctuation(): void
+    {
+        $this->assertSame('End. Really!', $this->make()->text('End. Really!', 'Markdown')->contents['text']);
     }
 
     // -------------------------------------------------------------------------
@@ -252,7 +279,41 @@ class BotResponseTest extends TestCase
     {
         $response = $this->make()->view('text_view', ['name' => 'Alice']);
 
-        $this->assertSame('MarkdownV2', $response->contents['parse_mode']);
+        $this->assertSame('HTML', $response->contents['parse_mode']);
+    }
+
+    public function test_component_view_preserves_static_markup_in_template(): void
+    {
+        // Static HTML markup the view author wrote must survive — only {{ }} values
+        // are escaped. The formatting_view fixture contains literal <b>Laragram</b>.
+        $response = $this->make()->view('formatting_view', ['name' => 'Alice']);
+
+        $this->assertStringContainsString('<b>Laragram</b>', $response->contents['text']);
+        $this->assertStringContainsString('Alice', $response->contents['text']);
+    }
+
+    public function test_component_view_escapes_interpolated_values(): void
+    {
+        // A dynamic value containing HTML characters is escaped so it cannot
+        // break the author's formatting or inject markup.
+        $response = $this->make()->view('formatting_view', ['name' => '<b>evil</b>']);
+
+        $this->assertStringContainsString('&lt;b&gt;evil&lt;/b&gt;', $response->contents['text']);
+        // The author's own static <b>Laragram</b> stays intact and unescaped.
+        $this->assertStringContainsString('<b>Laragram</b>', $response->contents['text']);
+    }
+
+    public function test_component_view_raw_interpolation_is_not_escaped(): void
+    {
+        // {!! !!} emits trusted content (e.g. a translation string with <b> tags)
+        // verbatim, while {{ }} on the same view still escapes user data.
+        $response = $this->make()->view('raw_view', [
+            'body' => 'Thank you for using <b>Laragram</b>!',
+            'name' => '<b>evil</b>',
+        ]);
+
+        $this->assertStringContainsString('<b>Laragram</b>', $response->contents['text']);
+        $this->assertStringContainsString('&lt;b&gt;evil&lt;/b&gt;', $response->contents['text']);
     }
 
     public function test_component_view_text_omits_parse_mode_when_format_is_null(): void

@@ -1,11 +1,17 @@
 <?php
 /*
- * Write your message text below.
- * Use {{ $variable }} to output values from the $data array passed to view().
+ * Write your message text below. You can write HTML formatting markup
+ * (<b>bold</b>, <i>italic</i>, etc.) directly — static text is sent verbatim.
+ *
+ * Two interpolation forms:
+ *   {{ $variable }}   — output an ESCAPED value (use for user data)
+ *   {!! $variable !!} — output a RAW, unescaped value (use for trusted,
+ *                       already-formatted content like translation strings)
  * Example: view('welcome', ['name' => $user->first_name])
  *
- * For multilingual bots, pull text from lang/{locale}/laragram.php with __():
- *   {{ __('laragram.welcome.greeting', ['name' => $name]) }}
+ * For multilingual bots, pull text from lang/{locale}/laragram.php with __().
+ * If the translation carries its own <b>bold</b>/<i>italic</i> markup, output it raw:
+ *   {!! __('laragram.welcome.greeting', ['name' => $name]) !!}
  * The locale is already set per user, so the right language is returned.
  */
 ?>
