@@ -3,6 +3,10 @@
  * Write your message text below.
  * Use {{ $variable }} to output values from the $data array passed to view().
  * Example: view('welcome', ['name' => $user->first_name])
+ *
+ * For multilingual bots, pull text from lang/{locale}/laragram.php with __():
+ *   {{ __('laragram.welcome.greeting', ['name' => $name]) }}
+ * The locale is already set per user, so the right language is returned.
  */
 ?>
-Hello, {{ $name }}!
+{{ __('laragram.welcome.greeting', ['name' => $name]) }}

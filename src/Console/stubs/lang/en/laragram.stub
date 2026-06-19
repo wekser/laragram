@@ -1,7 +1,23 @@
 <?php
 
+/*
+ * Laragram translations.
+ *
+ * Every human-readable string used by your bot lives here. Laragram sets the
+ * locale per user (from $user->settings->get('language')) before rendering, so
+ * __('laragram.<key>') inside views and controllers returns the right language
+ * automatically. Add a sibling lang/{locale}/laragram.php for each language.
+ */
+
 return [
-'callback' => [
+    'start' => [
+        'greeting' => 'Hello, :name!',
+        'body'     => "Thank you for using Laragram!\nTry to write something and I will answer you the same.",
+        'btn_foo'  => 'Foo',
+        'btn_bar'  => 'Bar',
+    ],
+
+    'callback' => [
         'btn_click' => 'You clicked :name!',
     ],
 ];
