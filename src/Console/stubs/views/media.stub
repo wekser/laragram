@@ -3,7 +3,8 @@
  * Add photos and videos to this media group (sendMediaGroup).
  * Use file_id values from $data passed to view().
  * Minimum 2 items, maximum 10.
+ * Translate captions with __('laragram.<key>') for multilingual bots.
  */
 
-photo($data['photo_id'], caption: 'Caption here');
+photo($data['photo_id'], caption: __('laragram.media.caption'));
 video($data['video_id']);

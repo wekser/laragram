@@ -1,6 +1,12 @@
 <?php
 
+/*
+ * Reply keyboard. Unlike inline buttons, a reply button sends its label back as
+ * the message text — so translating labels also changes what the route must
+ * match. Route on the same translation, e.g. ->contains(__('laragram.menu.option_a')).
+ */
+
 resize();
 
-reply('Option A');
-reply('Option B');
+reply(__('laragram.menu.option_a'));
+reply(__('laragram.menu.option_b'));

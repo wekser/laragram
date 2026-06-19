@@ -1,4 +1,3 @@
-Hello, {{ $first_name }}!
+{{ __('laragram.start.greeting', ['name' => $first_name]) }}
 
-Thank you for using Laragram!
-Try to write something and I will answer you the same.
+{{ __('laragram.start.body') }}

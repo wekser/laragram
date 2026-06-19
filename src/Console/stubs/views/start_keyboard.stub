@@ -1,4 +1,6 @@
 <?php
 
-button('Foo', '/click Foo');
-button('Bar', '/click Bar');
+// Labels are translated; the callback data ('/click Foo') stays stable so the
+// route '/click {name}' keeps matching regardless of the user's language.
+button(__('laragram.start.btn_foo'), '/click Foo');
+button(__('laragram.start.btn_bar'), '/click Bar');
