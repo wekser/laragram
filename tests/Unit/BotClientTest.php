@@ -152,4 +152,65 @@ class BotClientTest extends TestCase
 
         $this->assertSame($client, $client->setCurlOptions([CURLOPT_VERBOSE => false]));
     }
+
+    // -------------------------------------------------------------------------
+    // prepareData — payload normalization for CURLOPT_POSTFIELDS
+    // -------------------------------------------------------------------------
+
+    /**
+     * Regression: a nested array (e.g. reply_markup) passed straight to
+     * CURLOPT_POSTFIELDS triggered "Array to string conversion". prepareData
+     * must JSON-encode array values so cURL receives only strings/CURLFiles.
+     */
+    public function test_prepare_data_json_encodes_nested_arrays(): void
+    {
+        $prepared = $this->prepareData([
+            'chat_id'      => 42,
+            'text'         => 'Hello',
+            'reply_markup' => ['inline_keyboard' => [[['text' => 'Ok', 'callback_data' => 'ok']]]],
+        ]);
+
+        $this->assertSame(42, $prepared['chat_id']);
+        $this->assertSame('Hello', $prepared['text']);
+        $this->assertIsString($prepared['reply_markup']);
+        $this->assertSame(
+            ['inline_keyboard' => [[['text' => 'Ok', 'callback_data' => 'ok']]]],
+            json_decode($prepared['reply_markup'], true)
+        );
+    }
+
+    public function test_prepare_data_keeps_unicode_unescaped(): void
+    {
+        $prepared = $this->prepareData([
+            'reply_markup' => ['inline_keyboard' => [[['text' => 'Привет', 'callback_data' => 'x']]]],
+        ]);
+
+        $this->assertStringContainsString('Привет', $prepared['reply_markup']);
+    }
+
+    public function test_prepare_data_removes_null_values(): void
+    {
+        $prepared = $this->prepareData([
+            'chat_id'      => 7,
+            'parse_mode'   => null,
+            'reply_markup' => null,
+        ]);
+
+        $this->assertSame(['chat_id' => 7], $prepared);
+    }
+
+    public function test_prepare_data_preserves_curlfile_objects(): void
+    {
+        $file     = new \CURLFile(__FILE__);
+        $prepared = $this->prepareData(['chat_id' => 1, 'photo' => $file]);
+
+        $this->assertSame($file, $prepared['photo']);
+    }
+
+    private function prepareData(array $data): array
+    {
+        $method = new \ReflectionMethod(BotClient::class, 'prepareData');
+
+        return $method->invoke(new BotClient(self::VALID_TOKEN), $data);
+    }
 }

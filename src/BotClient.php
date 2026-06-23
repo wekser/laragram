@@ -337,14 +337,32 @@ class BotClient
     }
 
     /**
-     * Prepare data for the request by removing null values.
+     * Prepare data for the request.
+     *
+     * Removes null values and JSON-encodes any nested array values. Telegram
+     * expects structured fields (reply_markup, entities, media, …) as JSON
+     * strings, and passing a multidimensional array to CURLOPT_POSTFIELDS would
+     * otherwise trigger an "Array to string conversion" error. CURLFile objects
+     * (used for multipart file uploads) and scalars are passed through untouched.
      *
      * @param array $data Raw data
      * @return array Cleaned data
      */
     private function prepareData(array $data): array
     {
-        return array_filter($data, fn($value) => $value !== null);
+        $prepared = [];
+
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            $prepared[$key] = is_array($value)
+                ? json_encode($value, JSON_UNESCAPED_UNICODE)
+                : $value;
+        }
+
+        return $prepared;
     }
 
     /**
