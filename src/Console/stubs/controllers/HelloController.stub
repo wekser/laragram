@@ -16,14 +16,22 @@ class HelloController extends Controller
 
     /**
      * Entry point: /start command from any station.
+     *
+     * Returns an array of responses to send several messages in reply to a
+     * single update — each item is delivered as a separate Bot API call, in
+     * order. The next station comes from the last response that calls
+     * redirect() (here, the follow-up tip), so the user ends up at 'home'.
+     *
+     * @return BotResponse[]
      */
-    public function start(BotRequest $request): BotResponse
+    public function start(BotRequest $request): array
     {
         $user = $this->auth->user();
 
-        return $this->response
-            ->redirect('home')
-            ->view('start', ['first_name' => $user->first_name]);
+        return [
+            $this->response->view('start', ['first_name' => $user->first_name]),
+            $this->response->text(__('laragram.start.tip'))->redirect('home'),
+        ];
     }
 
     /**
