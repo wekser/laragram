@@ -274,9 +274,14 @@ BotRoute::get('message')->from('ask_name')->call([Ctrl::class, 'saveName']);
 BotRoute::get('message')->from('ask_email')->call([Ctrl::class, 'saveEmail']);
 
 // controller
-public function start(): BotResponse
+public function start(): array
 {
-    return $this->response->text("What's your name?")->redirect('ask_name');
+    // Send several messages at once; the next station comes from the last
+    // response that calls redirect() (here, the question).
+    return [
+        $this->response->text('Welcome! 👋'),
+        $this->response->text("What's your name?")->redirect('ask_name'),
+    ];
 }
 
 public function saveName(BotRequest $request): BotResponse
