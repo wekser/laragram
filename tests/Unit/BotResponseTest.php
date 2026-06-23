@@ -60,11 +60,41 @@ class BotResponseTest extends TestCase
         $this->assertSame('HTML', $this->make()->text('Hello', 'HTML')->contents['parse_mode']);
     }
 
-    public function test_text_returns_self_for_chaining(): void
+    public function test_text_returns_chainable_response_instance(): void
     {
+        // Content-entry methods return a FRESH BotResponse (clone-on-entry) so
+        // several can be collected into an array for a multi-message reply.
+        // The returned instance is still fully chainable.
         $response = $this->make();
+        $result   = $response->text('Hello');
 
-        $this->assertSame($response, $response->text('Hello'));
+        $this->assertInstanceOf(BotResponse::class, $result);
+        $this->assertNotSame($response, $result);
+        $this->assertSame('sendMessage', $result->contents['method']);
+        $this->assertSame('next', $result->redirect('next')->station);
+    }
+
+    public function test_redirect_before_content_is_preserved(): void
+    {
+        // redirect() set BEFORE the content method must survive the clone-on-entry
+        // (the natural ordering redirect('home')->text('hi')).
+        $result = $this->make()->redirect('home')->text('Welcome back');
+
+        $this->assertSame('home', $result->station);
+        $this->assertSame('sendMessage', $result->contents['method']);
+    }
+
+    public function test_pending_redirect_does_not_leak_to_a_later_response(): void
+    {
+        // A redirect() consumed by one response must not bleed into the next
+        // response built from the same (shared singleton) instance.
+        $source = $this->make();
+
+        $first  = $source->redirect('home')->text('first');
+        $second = $source->text('second');
+
+        $this->assertSame('home', $first->station);
+        $this->assertNull($second->station);
     }
 
     // -------------------------------------------------------------------------

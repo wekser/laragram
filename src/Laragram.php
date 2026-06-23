@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
 use Wekser\Laragram\Facades\BotAuth;
+use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Models\User;
 use Wekser\Laragram\Routing\Router;
 
@@ -73,6 +74,8 @@ class Laragram
 
         $this->fireEvent();
 
+        $this->deliver();
+
         return $this->back();
     }
 
@@ -126,18 +129,34 @@ class Laragram
     }
 
     /**
+     * Deliver the formed responses to Telegram as outbound Bot API calls.
+     *
+     * Runs after the session is persisted (fireEvent), so the user's next station
+     * is recorded even if a message fails to deliver. Sends nothing when no route
+     * matched or the controller returned no response.
+     *
+     * @return void
+     */
+    protected function deliver(): void
+    {
+        if (empty($this->output)) {
+            return;
+        }
+
+        app(ResponseDispatcher::class)->send($this->output['response']['views'] ?? []);
+    }
+
+    /**
      * The Laragram back response.
+     *
+     * Messages are delivered via outbound Bot API calls in deliver(), so the
+     * webhook body itself is always an empty 'OK' 200 — Telegram only needs to
+     * know the update was received.
      *
      * @return mixed
      */
     protected function back(): mixed
     {
-        if (empty($this->output)) {
-            return response('OK', 200);
-        }
-
-        $view = $this->output['response']['view'] ?? [];
-
-        return response()->json($view);
+        return response('OK', 200);
     }
 }

@@ -18,6 +18,7 @@ use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\AuthenticationException;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
+use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Routing\Router;
 
 /**
@@ -150,6 +151,13 @@ class PollCommand extends Command
             // Persist session via event (same as Laragram::fireEvent())
             if (!empty($output) && config('laragram.auth.driver') === 'database') {
                 event(new CallbackFormed($user, $output));
+            }
+
+            // Deliver responses as outbound Bot API calls (same as Laragram::deliver()).
+            // Unlike the webhook, polling has no HTTP response to carry a message,
+            // so this is the only delivery path in poll mode.
+            if (!empty($output)) {
+                app(ResponseDispatcher::class)->send($output['response']['views'] ?? []);
             }
 
             $this->line('  Processed update_id=' . $update['update_id']);
