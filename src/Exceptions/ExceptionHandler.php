@@ -58,6 +58,20 @@ class ExceptionHandler
     }
 
     /**
+     * Whether the exception means the user is unreachable (blocked the bot,
+     * deactivated, chat gone, or unauthenticated). When one of these is thrown
+     * mid-batch, ResponseDispatcher stops sending the remaining messages —
+     * there is no point delivering the rest to a user who cannot receive them.
+     *
+     * These are exactly the $dontReport types: an unreachable user is also a
+     * non-reportable condition.
+     */
+    public static function isTerminal(\Throwable $exception): bool
+    {
+        return !static::shouldReport($exception);
+    }
+
+    /**
      * Log the exception.
      */
     protected static function report(\Throwable $exception): void

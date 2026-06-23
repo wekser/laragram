@@ -27,8 +27,14 @@ class ResponseTransformer
     /**
      * Build the full output array from the controller response.
      *
-     * @param  BotRequest                  $request
-     * @param  BotResponse|string|null     $response
+     * A controller may return a single response (BotResponse|string) or a list
+     * of them (array / iterable) for a multi-message reply. Every item becomes a
+     * Telegram payload under response.views, sent in order by ResponseDispatcher.
+     * The next station (response.redirect) is the last one a response sets
+     * (last-write-wins), falling back to the current route's form.
+     *
+     * @param  BotRequest                                       $request
+     * @param  BotResponse|string|iterable<BotResponse|string>|null $response
      * @return array<string, mixed>|null
      *
      * @throws ResponseInvalidException
@@ -37,34 +43,85 @@ class ResponseTransformer
     {
         $output = $request->getRequest();
 
-        if ($response instanceof BotResponse) {
-            $output['response']['view']     = $response->contents ?? [];
-            $output['response']['redirect'] = $response->station ?? $output['route']['form'];
-        } elseif (is_string($response)) {
-            // Plain string shortcut: literal text with no parse_mode.
-            $output['response']['view']     = ['method' => 'sendMessage', 'text' => $response];
-            $output['response']['redirect'] = $output['route']['form'];
-        } elseif (empty($response)) {
-            return null;
-        } else {
-            throw new ResponseInvalidException($output['route']['uses']);
+        // A controller may return a single response or a LIST of them. Treat the
+        // value as a batch only when it is a non-BotResponse iterable that is not
+        // an associative array — a bare ['method' => ...] payload is a single
+        // (unsupported) response, not a list, and must reach normalizeItem() to be
+        // rejected with ResponseInvalidException rather than be iterated key-by-key.
+        $isBatch = is_iterable($response)
+            && !$response instanceof BotResponse
+            && !(is_array($response) && !array_is_list($response));
+
+        $items = $isBatch ? $response : [$response];
+
+        $views    = [];
+        $redirect = null;
+
+        foreach ($items as $item) {
+            $normalized = $this->normalizeItem($item, $output);
+
+            if ($normalized === null) {
+                continue;
+            }
+
+            [$view, $station] = $normalized;
+
+            $views[] = $this->injectTelegramIds($output, $view);
+
+            if ($station !== null) {
+                $redirect = $station; // last-write-wins across the batch
+            }
         }
 
-        $output['response']['view'] = $this->injectTelegramIds($output);
+        if (empty($views)) {
+            return null;
+        }
+
+        $output['response']['views']    = $views;
+        $output['response']['redirect'] = $redirect ?? $output['route']['form'];
 
         return $output;
     }
 
     /**
+     * Normalize a single controller-response item into [viewPayload, station|null].
+     *
+     * Returns null for empty items (skipped). Throws for unsupported types.
+     *
+     * @param  BotResponse|string|null  $response
+     * @param  array<string, mixed>     $output
+     * @return array{0: array<string, mixed>, 1: string|null}|null
+     *
+     * @throws ResponseInvalidException
+     */
+    private function normalizeItem(mixed $response, array $output): ?array
+    {
+        if ($response instanceof BotResponse) {
+            return [$response->contents ?? [], $response->station];
+        }
+
+        if (is_string($response)) {
+            // Plain string shortcut: literal text with no parse_mode.
+            return [['method' => 'sendMessage', 'text' => $response], null];
+        }
+
+        if (empty($response)) {
+            return null;
+        }
+
+        throw new ResponseInvalidException($output['route']['uses']);
+    }
+
+    /**
      * Inject required Telegram IDs (chat_id, callback_query_id, message_id) into
-     * the view payload based on the update object and the API method being called.
+     * a view payload based on the update object and the API method being called.
      *
      * @param  array<string, mixed> $output
+     * @param  array<string, mixed> $view
      * @return array<string, mixed>
      */
-    private function injectTelegramIds(array $output): array
+    private function injectTelegramIds(array $output, array $view): array
     {
-        $view   = $output['response']['view'] ?? [];
         $object = $output['update']['object'] ?? [];
         $method = $view['method'] ?? null;
 

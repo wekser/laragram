@@ -157,7 +157,10 @@ class Router
             ->build($route, $this->station);
     }
 
-    protected function prepareResponse(BotResponse|string|null $response): ?array
+    /**
+     * @param BotResponse|string|iterable<BotResponse|string>|null $response
+     */
+    protected function prepareResponse(mixed $response): ?array
     {
         return (new ResponseTransformer())->getResponse($this->request, $response);
     }

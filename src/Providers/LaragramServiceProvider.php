@@ -17,6 +17,7 @@ use Illuminate\Support\ServiceProvider;
 use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotResponse;
+use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Services\MediaUploader;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
@@ -78,6 +79,7 @@ class LaragramServiceProvider extends ServiceProvider
         $this->registerAuth();
         $this->registerResponse();
         $this->registerMediaUploader();
+        $this->registerDispatcher();
     }
 
     /**
@@ -101,6 +103,7 @@ class LaragramServiceProvider extends ServiceProvider
         $this->app->alias('laragram.auth', BotAuth::class);
         $this->app->alias('laragram.response', BotResponse::class);
         $this->app->alias('laragram.media', MediaUploader::class);
+        $this->app->alias('laragram.dispatcher', ResponseDispatcher::class);
     }
 
     /**
@@ -176,6 +179,18 @@ class LaragramServiceProvider extends ServiceProvider
     {
         $this->app->singleton(MediaUploader::class, function ($app) {
             return new MediaUploader($app['laragram.api']);
+        });
+    }
+
+    /**
+     * Register the ResponseDispatcher service.
+     *
+     * @return void
+     */
+    protected function registerDispatcher(): void
+    {
+        $this->app->singleton('laragram.dispatcher', function ($app) {
+            return new ResponseDispatcher($app['laragram.api']);
         });
     }
 

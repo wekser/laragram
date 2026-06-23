@@ -21,7 +21,9 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 
 **HTTP Layer**
 - `Http\RequestTransformer` — builds `BotRequest` from the raw update and the matched route (replaces `Support\FormRequest`)
-- `Http\ResponseTransformer` — wraps the controller response into the output array; auto-injects `chat_id`, `callback_query_id`, and `message_id` (replaces `Support\FormResponse`)
+- `Http\ResponseTransformer` — normalizes the controller response — a single `BotResponse`/string **or an array/iterable of them** — into `output['response']['views']` (a list); per-view auto-injects `chat_id`, `callback_query_id`, and `message_id`; resolves one `redirect` per batch (last-write-wins) (replaces `Support\FormResponse`)
+- `Http\ResponseDispatcher` — delivers each formed view as a separate outbound `BotAPI::{method}()` call, in order; stops the batch on a terminal (user-unreachable) error; bound as the `laragram.dispatcher` singleton; shared by both the webhook entry point and `laragram:poll`
+- **Multiple messages per update** — a controller or route closure may return an array of `BotResponse` (or strings) to send several messages in reply to one update
 - Log warning in `ResponseTransformer` when `chat_id` cannot be determined for an outgoing API call
 
 **Auth Drivers**
@@ -49,7 +51,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Enums\TelegramErrorCode` — int-backed enum for Telegram HTTP error codes (400–504) with `getDescription()`, `getDetailedDescription()`, `getRecommendedAction()`, `requiresUserDeactivation()`, and `requiresSpecialHandling()`
 
 **Exceptions**
-- `Exceptions\ExceptionHandler` — static utility (replaces `BotException`); `handle(\Throwable)` logs reportable exceptions and silences `AuthenticationException`, `BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`
+- `Exceptions\ExceptionHandler` — static utility (replaces `BotException`); `handle(\Throwable)` logs reportable exceptions and silences `AuthenticationException`, `BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`; `isTerminal(\Throwable)` reports whether an exception means the user is unreachable (used by `ResponseDispatcher` to stop a multi-message batch)
 - `Exceptions\BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`, `TelegramApiException` — typed exceptions for Telegram API error conditions
 - `Exceptions\AuthenticationException` — thrown when the sender cannot be authenticated
 
@@ -63,6 +65,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotResponse::edit(string $text, ?string $format)` — sends `editMessageText`
 - `BotResponse::delete()` — sends `deleteMessage`
 - `BotResponse::setUser(User $user)` — overrides the authenticated user in the response context
+- Content-entry methods (`text()`, `view()`, `photo()`, `answer()`, `edit()`, `delete()`, media methods, `action()`) return a **fresh** `BotResponse` instance (clone-on-entry), so several can be collected into an array for a multi-message reply even when built via the `BotResponse` facade (a shared singleton); modifier methods (`keyboard()`, `redirect()`, `setUser()`) still mutate and return the same instance
 - `keyboard()` guard — throws `\LogicException` when called before a content method (`text()`, `view()`, etc.)
 - Automatic escaping of `text` and `caption` fields for the active parse mode (HTML, MarkdownV2, Markdown); mark already-escaped content with `'_escaped' => true`
 
@@ -90,9 +93,12 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `laragram:add-role-field` — publishes a migration adding a `role VARCHAR DEFAULT 'user'` column to the users table
 
 **Testing**
-- `Testing\InteractsWithBot` — PHPUnit trait for feature-testing bot flows without HTTP; runs the full auth → router → session pipeline
+- `Testing\InteractsWithBot` — PHPUnit trait for feature-testing bot flows without HTTP; runs the full auth → router → session → **delivery** pipeline and captures the messages the bot actually sends
 - `Testing\BotUpdateFactory` — factory for realistic Telegram update arrays; supports `message()`, `callbackQuery()`, `inlineQuery()`, `editedMessage()`, `channelPost()`
-- Assertions: `assertBotRepliedWith()`, `assertBotRepliedText()`, `assertUserRedirectedTo()`, `assertNoResponse()`, `assertResponseContains()`, `getBotResponse()`
+- `Testing\RecordingBotAPI` — a `BotAPI` test double that records outbound calls instead of hitting Telegram; used by `InteractsWithBot` to capture sent messages
+- Single-message assertions (inspect the first sent message): `assertBotRepliedWith()`, `assertBotRepliedText()`, `assertResponseContains()`, `getBotResponse()`
+- Multi-message assertions: `assertBotRepliedTimes()`, `assertNthReplyWith()`, `assertNthReplyText()`, `getBotResponses()`
+- Shared assertions: `assertUserRedirectedTo()`, `assertNoResponse()`
 
 **Config**
 - `laragram.php` — new config file name (was `config.php`)
@@ -120,6 +126,9 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotResponse::escapeText()`: passing `null` as the parse mode now returns text unmodified; previously fell through to legacy Markdown escaping
 - `RequestTransformer::extractNamedParams()`: argument splitting uses `preg_split('/\s+/', trim(...))` instead of `explode(' ', ...)` — handles extra whitespace in commands correctly
 - `ExceptionHandler::handle()` no longer calls `response()->send()` directly; `Laragram::back()` is solely responsible for the HTTP response, eliminating the double-send
+- Responses are now delivered as outbound `BotAPI` calls via `Http\ResponseDispatcher`; the webhook body is always `response('OK', 200)` and no longer carries a message inline (the previous `response()->json($view)` webhook-reply path was removed) — each message is one outbound round-trip in exchange for a single uniform delivery path that also supports multiple messages
+- `laragram:poll` now delivers controller responses through `ResponseDispatcher`; previously long-polling dispatched the route but never sent the reply
+- `Routing\Router::prepareResponse()` accepts `mixed` (was `BotResponse|string|null`) so controllers and route closures can return an array of responses; response-type validation lives in `ResponseTransformer`
 - `Laragram::bootstrap()` uses null-safe `$this->user?->settings?->get(...)` — guards against an unauthenticated user reaching the bootstrap phase
 - `BotClient` retry loop removed — single attempt, immediate throw on failure
 - `BotClient` business logic removed: `sendMessage()` with user validation, `getUserStatus()`, `isUserActive()` — use `TelegramErrorHandler` instead

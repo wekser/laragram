@@ -37,7 +37,7 @@ php artisan laragram:webhook:set
 
 ## How It Works
 
-Telegram sends a POST request to `/{prefix}/{secret}`. Laragram authenticates the sender, resolves the user's current **station** (state), matches a route, calls your controller, and returns a JSON response back to Telegram.
+Telegram sends a POST request to `/{prefix}/{secret}`. Laragram authenticates the sender, resolves the user's current **station** (state), matches a route, and calls your controller. The controller returns one **or several** `BotResponse` objects; Laragram delivers each as an outbound Telegram Bot API call and answers the webhook with `200 OK`.
 
 ---
 
@@ -142,6 +142,25 @@ $response->redirect('next_station')                // move user to a new station
 ```
 
 Text is **auto-escaped** for the active parse mode — do not manually escape, it will double-escape. Pass `null` as the format to send pre-formatted text.
+
+### Multiple messages
+
+Return an **array** of responses to send several messages in reply to one update. Each is delivered as a separate Bot API call, in order:
+
+```php
+public function welcome(): array
+{
+    return [
+        $this->response->view('greeting'),
+        $this->response->text('Here is a quick tip 👇'),
+        $this->response->photo($fileId, caption: 'And a picture')->redirect('home'),
+    ];
+}
+```
+
+- The next **station** is taken from the last response that calls `->redirect()` (last-write-wins); if none do, the user stays at the current station.
+- Delivery is resilient: a failed message is logged and the batch continues — unless the user is unreachable (blocked the bot, deactivated, chat gone), in which case the remaining messages are skipped.
+- Each `BotResponse::text()`, `view()`, `photo()`, etc. returns a **fresh** instance, so collecting several of them into an array always produces distinct messages — even when built through the `BotResponse` facade.
 
 ---
 

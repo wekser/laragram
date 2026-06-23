@@ -59,7 +59,25 @@ Telegram sends a POST webhook to `/{prefix}/{secret}`. The middleware stack runs
 2. Resolves the user's current station (state) from `laragram_sessions`
 3. Calls `Routing\Router->dispatch()` → matches route → invokes controller or closure
 4. Fires `CallbackFormed` event → `LogSession` persists the session via `updateOrCreate`
-5. Returns `response()->json($view)` or `response('OK', 200)`
+5. `Http\ResponseDispatcher` delivers every formed message as a separate **outbound** `BotAPI` call
+6. Always returns `response('OK', 200)` — the webhook body never carries a message
+
+**Message delivery (multiple messages per update).** A controller/closure may return a **single** response (`BotResponse|string`) **or an array/iterable of them** for a multi-message reply:
+
+```php
+return [
+    BotResponse::view('greeting'),
+    BotResponse::text('A follow-up tip'),
+    BotResponse::photo($fileId, 'And a picture')->redirect('home'),
+];
+```
+
+- `Http\ResponseTransformer` collects every item into `output['response']['views']` (a **list** of payloads — replaces the old single `output['response']['view']`).
+- `Http\ResponseDispatcher::send()` calls each `BotAPI::{method}()` in order. The webhook HTTP response is always `OK 200`; nothing rides in its body. **One consequence: a message is always one extra outbound round-trip** (the old webhook-reply fast path is gone) in exchange for a single uniform delivery path.
+- **Station/redirect is one per batch**, last-write-wins: the last response that calls `redirect()` sets the next station; if none do, it falls back to the route's current station.
+- **Batch error handling:** a failed send is logged via `ExceptionHandler::handle()` and the batch continues — **unless** the error means the user is unreachable (`BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`, `AuthenticationException` — i.e. `ExceptionHandler::isTerminal()`), in which case the remaining messages are skipped.
+- **`PollCommand` uses the same `ResponseDispatcher`**, so long-polling now delivers controller responses (previously poll mode dispatched but never sent).
+- **`BotResponse` content-entry methods return a fresh instance (clone-on-entry).** `text()`, `view()`, `photo()`, `answer()`, `edit()`, `delete()`, media methods and `action()` each return a NEW `BotResponse`, so `[BotResponse::text('a'), BotResponse::text('b')]` yields two distinct payloads even though the `BotResponse` facade resolves a shared singleton. Modifier methods (`keyboard()`, `redirect()`, `setUser()`) still mutate and return the same instance, so chaining works unchanged.
 
 ### Supported Telegram Update Types
 
@@ -139,7 +157,8 @@ src/
 │   └── Router.php            # dispatch(), findRoute(), matching helpers
 ├── Http/
 │   ├── RequestTransformer.php  # update array + route → BotRequest
-│   └── ResponseTransformer.php # controller response → output array + chat_id injection
+│   ├── ResponseTransformer.php # controller response (single OR array) → output['response']['views'] list + chat_id injection
+│   └── ResponseDispatcher.php  # sends each view payload as an outbound BotAPI call (container alias: laragram.dispatcher)
 ├── Auth/
 │   ├── AuthDriverInterface.php   # resolveUser() + isActive()
 │   ├── DatabaseAuthDriver.php    # persists User to DB on every request
@@ -180,7 +199,8 @@ src/
 | `Routing\RouteCollection` | Fluent route builder; `require`d fresh per request |
 | `Routing\Route` | Immutable value object representing one route |
 | `Http\RequestTransformer` | Builds `BotRequest` from raw update + matched route via `build()` |
-| `Http\ResponseTransformer` | Wraps controller response; auto-injects `chat_id`, `callback_query_id` (for `answerCallbackQuery`), and `message_id` (for `deleteMessage` / `editMessageText`) |
+| `Http\ResponseTransformer` | Normalizes the controller response (single `BotResponse`/string OR array of them) into `output['response']['views']`; per-view auto-injects `chat_id`, `callback_query_id` (for `answerCallbackQuery`), and `message_id` (for `deleteMessage` / `editMessageText`); resolves one `redirect` per batch (last-write-wins) |
+| `Http\ResponseDispatcher` | `send(array $views)` — delivers each view as an outbound `BotAPI::{method}()` call, in order; stops the batch on a terminal (user-unreachable) error. Used by both `Laragram` (webhook) and `PollCommand` (polling) |
 | `BotClient` | cURL transport (token + method validation, SSL, logging) |
 | `BotAPI` | `__call()` proxy to `BotClient`; use any Telegram method directly |
 | `BotAuth` | Authenticates sender via `AuthDriverInterface` |
@@ -430,7 +450,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `Router::flushCache()` in `tearDown()` (or `setUp()`) whenever testing route-related code — the route file is cached in a static property and persists across test cases within the same process
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
-- Current suite: **210 tests / 335 assertions**
+- Current suite: **231 tests / 382 assertions**
 
 #### Feature testing with InteractsWithBot
 
@@ -457,9 +477,11 @@ class StartCommandTest extends TestCase
 
 Available factory methods: `BotUpdateFactory::message()`, `callbackQuery()`, `inlineQuery()`, `editedMessage()`, `channelPost()`.
 
-Available assertions: `assertBotRepliedWith(string $method)`, `assertBotRepliedText(string $expected)`, `assertUserRedirectedTo(string $station)`, `assertNoResponse()`, `assertResponseContains(string $key, mixed $value)`, `getBotResponse(): array`.
+Available assertions: `assertBotRepliedWith(string $method)`, `assertBotRepliedText(string $expected)`, `assertResponseContains(string $key, mixed $value)` (all three inspect the **first** sent message), `assertUserRedirectedTo(string $station)`, `assertNoResponse()`, `getBotResponse(): array` (first message).
 
-`botReceives()` runs the full auth → router → session pipeline. It does **not** run HTTP middleware (`VerifyTelegramSecret`, `FrameHook`, `RateLimit`). The `database` driver fires the `CallbackFormed` event; the `array` driver does not.
+For multi-message replies: `assertBotRepliedTimes(int $count)`, `assertNthReplyWith(int $index, string $method)`, `assertNthReplyText(int $index, string $expected)`, `getBotResponses(): array` (all sent messages, 0-based).
+
+`botReceives()` runs the full auth → router → session → **delivery** pipeline. Delivery runs the real `Http\ResponseDispatcher` against a `Testing\RecordingBotAPI` double, so assertions read the messages the bot actually sends (each `['method' => ..., ...params]`), not the raw output array. It does **not** run HTTP middleware (`VerifyTelegramSecret`, `FrameHook`, `RateLimit`). The `database` driver fires the `CallbackFormed` event; the `array` driver does not.
 
 #### Testing BotAPI-dependent classes
 

@@ -80,6 +80,34 @@ class BotResponse
     }
 
     /**
+     * Begin a new response payload on a fresh instance.
+     *
+     * Content-entry methods (text(), view(), photo(), answer(), …) each return a
+     * NEW BotResponse rather than mutating $this. This lets several responses be
+     * collected into an array for a multi-message reply —
+     *
+     *   return [BotResponse::text('a'), BotResponse::text('b')->redirect('next')];
+     *
+     * — even though the BotResponse facade resolves a shared singleton instance.
+     * Modifier methods (keyboard(), redirect(), setUser()) still mutate and return
+     * the same instance, so fluent chaining after an entry method works as before.
+     *
+     * A redirect() set BEFORE the content method (e.g. redirect('next')->text('hi'))
+     * is preserved: the clone adopts the source's pending station, and the source
+     * is then cleared so the redirect cannot leak into a later, independent
+     * response built from the shared singleton.
+     */
+    private function begin(array $contents): self
+    {
+        $response = clone $this; // adopts $this->station (any pending redirect())
+        $response->contents = $contents;
+
+        $this->station = null; // consume it on the source so it can't leak forward
+
+        return $response;
+    }
+
+    /**
      * Send a text message (sendMessage).
      *
      * Pass raw, unescaped text — Laragram escapes it automatically for the active parse mode.
@@ -92,14 +120,12 @@ class BotResponse
      */
     public function text(string $text, ?string $format = 'HTML'): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'     => 'sendMessage',
             'text'       => $this->escapeText($text, $format),
             'parse_mode' => $format,
             '_escaped'   => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -157,14 +183,12 @@ class BotResponse
      */
     public function answer(string $text = '', bool $showAlert = false): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'     => 'answerCallbackQuery',
             'text'       => $text,
             'show_alert' => $showAlert,
             '_escaped'   => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -179,14 +203,12 @@ class BotResponse
      */
     public function edit(string $text, ?string $format = 'HTML'): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'     => 'editMessageText',
             'text'       => $this->escapeText($text, $format),
             'parse_mode' => $format,
             '_escaped'   => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -196,12 +218,10 @@ class BotResponse
      */
     public function delete(): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'   => 'deleteMessage',
             '_escaped' => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -218,8 +238,7 @@ class BotResponse
      */
     public function photo(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
-        $this->contents = $this->buildMediaContents('sendPhoto', 'photo', $fileId, $caption, $format);
-        return $this;
+        return $this->begin($this->buildMediaContents('sendPhoto', 'photo', $fileId, $caption, $format));
     }
 
     /**
@@ -235,8 +254,7 @@ class BotResponse
      */
     public function document(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
-        $this->contents = $this->buildMediaContents('sendDocument', 'document', $fileId, $caption, $format);
-        return $this;
+        return $this->begin($this->buildMediaContents('sendDocument', 'document', $fileId, $caption, $format));
     }
 
     /**
@@ -249,8 +267,7 @@ class BotResponse
      */
     public function audio(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
-        $this->contents = $this->buildMediaContents('sendAudio', 'audio', $fileId, $caption, $format);
-        return $this;
+        return $this->begin($this->buildMediaContents('sendAudio', 'audio', $fileId, $caption, $format));
     }
 
     /**
@@ -263,8 +280,7 @@ class BotResponse
      */
     public function video(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
-        $this->contents = $this->buildMediaContents('sendVideo', 'video', $fileId, $caption, $format);
-        return $this;
+        return $this->begin($this->buildMediaContents('sendVideo', 'video', $fileId, $caption, $format));
     }
 
     /**
@@ -277,8 +293,7 @@ class BotResponse
      */
     public function voice(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
-        $this->contents = $this->buildMediaContents('sendVoice', 'voice', $fileId, $caption, $format);
-        return $this;
+        return $this->begin($this->buildMediaContents('sendVoice', 'voice', $fileId, $caption, $format));
     }
 
     /**
@@ -291,8 +306,7 @@ class BotResponse
      */
     public function animation(string $fileId, ?string $caption = null, ?string $format = 'HTML'): self
     {
-        $this->contents = $this->buildMediaContents('sendAnimation', 'animation', $fileId, $caption, $format);
-        return $this;
+        return $this->begin($this->buildMediaContents('sendAnimation', 'animation', $fileId, $caption, $format));
     }
 
     /**
@@ -325,13 +339,11 @@ class BotResponse
      */
     public function videoNote(string $fileId): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'     => 'sendVideoNote',
             'video_note' => $fileId,
             '_escaped'   => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -341,13 +353,11 @@ class BotResponse
      */
     public function sticker(string $fileId): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'   => 'sendSticker',
             'sticker'  => $fileId,
             '_escaped' => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -381,13 +391,11 @@ class BotResponse
      */
     public function action(string $action = 'typing'): self
     {
-        $this->contents = [
+        return $this->begin([
             'method'   => 'sendChatAction',
             'action'   => $action,
             '_escaped' => true,
-        ];
-
-        return $this;
+        ]);
     }
 
     /**
@@ -420,9 +428,7 @@ class BotResponse
      */
     public function view(string $view, array $data = [], ?string $format = 'HTML'): self
     {
-        $this->contents = $this->render($view, $data, $format);
-
-        return $this;
+        return $this->begin($this->render($view, $data, $format));
     }
 
     /**
