@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Exceptions;
 
+use Wekser\Laragram\Events\BotExceptionHandled;
+
 /**
  * Static exception handler: decides whether to log and renders an empty response.
  *
@@ -39,8 +41,30 @@ class ExceptionHandler
      */
     public static function handle(\Throwable $exception): void
     {
-        if (static::shouldReport($exception)) {
+        $reportable = static::shouldReport($exception);
+
+        if ($reportable) {
             static::report($exception);
+        }
+
+        static::notify($exception, $reportable);
+    }
+
+    /**
+     * Emit the observability event for a handled throwable.
+     *
+     * This is the single seam where every swallowed failure — routing, delivery
+     * and the queued job — becomes observable, including the user-unreachable
+     * conditions that are otherwise silenced. It must never break the swallow
+     * contract: a faulty listener cannot be allowed to re-throw out of handle(),
+     * so dispatch is best-effort and guarded.
+     */
+    protected static function notify(\Throwable $exception, bool $reportable): void
+    {
+        try {
+            event(new BotExceptionHandled($exception, $reportable, !$reportable));
+        } catch (\Throwable) {
+            // An observability hook must never turn a handled error into a fatal one.
         }
     }
 

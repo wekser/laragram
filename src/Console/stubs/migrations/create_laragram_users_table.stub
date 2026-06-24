@@ -24,6 +24,11 @@ class CreateLaragramUsersTable extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamp('deactivated_at')->nullable();
             $table->timestamps();
+
+            // scopeByRole() / set-role admin queries.
+            $table->index('role');
+            // scopeActive() / scopeInactive() — e.g. filtering recipients for a broadcast.
+            $table->index('is_active');
         });
     }
 

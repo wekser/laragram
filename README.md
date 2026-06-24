@@ -2,7 +2,7 @@
 
 A Laravel package for building Telegram bots in MVC style — routing, controllers, views, and a station-based state machine, all wired into the Laravel ecosystem.
 
-**Requirements:** PHP ^8.2 · Laravel ^11|^12
+**Requirements:** PHP ^8.3 · Laravel ^11|^12|^13
 
 ---
 
@@ -297,6 +297,55 @@ Debug routing in your terminal:
 php artisan laragram:route:match message "/start"
 php artisan laragram:route:match message "hello" --station=ask_name
 ```
+
+---
+
+## Queue (optional, for scale)
+
+By default Laragram processes each update **inside** the webhook request. Under bursts of concurrent users you can offload processing to a queue: the webhook validates the update, dispatches a job, and answers `200 OK` immediately, while routing and the outbound Bot API calls run on a worker.
+
+Enable it in `.env`:
+
+```env
+LARAGRAM_QUEUE_ENABLED=true
+LARAGRAM_QUEUE_CONNECTION=redis   # leave unset to use your default connection
+LARAGRAM_QUEUE_NAME=default
+LARAGRAM_QUEUE_RATE_LIMIT=25      # max update jobs/sec across all workers
+```
+
+Run a worker:
+
+```bash
+php artisan queue:work --queue=default
+```
+
+- The four webhook middleware (verify → auth → dedup → throttle) still run synchronously, so only **verified, non-bot, non-duplicate, rate-limited** updates are ever queued.
+- **Per-user ordering:** jobs are serialized per sender (`WithoutOverlapping`), avoiding session races. This is mutual exclusion, not strict FIFO — run a **single worker per queue** if a step-by-step station flow must never reorder.
+- **Throughput:** a named `laragram` rate limiter caps global execution to stay under Telegram's ~30 msg/sec outbound limit.
+- **Privacy:** the job implements `ShouldBeEncrypted`, so the payload (which carries user PII) is encrypted at rest in the queue store.
+
+> Use Redis in production — the rate limiter and the per-user lock need a shared cache store to be accurate across multiple workers. When disabled (the default), behaviour is fully synchronous and unchanged.
+
+---
+
+## Observability
+
+Laragram never lets an exception escape update processing — routing, delivery, and the queued job all funnel their errors through `ExceptionHandler`, which logs reportable ones and silences user-unreachable ones. That makes silently-handled failures invisible (they never reach `failed_jobs`). The `BotExceptionHandled` event is the seam for surfacing them:
+
+```php
+use Illuminate\Support\Facades\Event;
+use Wekser\Laragram\Events\BotExceptionHandled;
+
+Event::listen(function (BotExceptionHandled $e) {
+    // $e->exception, $e->reportable (was it logged?), $e->terminal (user unreachable?)
+    if ($e->terminal) {
+        // e.g. count how many users blocked the bot
+    }
+    // push to Sentry / StatsD / Horizon tags…
+});
+```
+
+Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded, so a faulty listener can never break exception handling.
 
 ---
 

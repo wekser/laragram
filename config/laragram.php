@@ -82,6 +82,41 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, an incoming webhook update is pushed onto a queue and the
+    | webhook answers "OK" 200 immediately, instead of running the router and
+    | the outbound Telegram calls inside the web request. This keeps the webhook
+    | fast and frees the web worker — strongly recommended once you expect bursts
+    | of concurrent users (the outbound Bot API call is a network round-trip that
+    | would otherwise block a PHP-FPM worker for its whole duration).
+    |
+    | "connection" is the queue connection (null = your default connection); use
+    | a Redis-backed connection in production. "queue" is the queue name workers
+    | should consume. Run workers with: php artisan queue:work --queue=<name>.
+    |
+    | Verification, bot rejection, deduplication and rate limiting still run
+    | synchronously in the webhook (they are cheap and must gate what is queued);
+    | only the routing + delivery are deferred to the worker.
+    |
+    | "rate_limit" caps how many update jobs may run per second across all
+    | workers, keeping outbound traffic under Telegram's global ~30 msg/sec limit
+    | (leave some headroom). Enforced by the RateLimited job middleware via a
+    | named limiter; requires a shared cache store (Redis) to be accurate across
+    | multiple worker processes.
+    |
+    */
+
+    'queue' => [
+        'enabled'    => env('LARAGRAM_QUEUE_ENABLED', false),
+        'connection' => env('LARAGRAM_QUEUE_CONNECTION'),
+        'queue'      => env('LARAGRAM_QUEUE_NAME', 'default'),
+        'rate_limit' => env('LARAGRAM_QUEUE_RATE_LIMIT', 25),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rate limiting
     |--------------------------------------------------------------------------
     |

@@ -5,7 +5,7 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [v2.0.0] (2026-06-18)
+## [v2.0.0] (2026-06-24)
 
 This is a major release. It introduces a redesigned namespace structure, an auth driver system, a full test suite, and several breaking changes. Deprecated aliases are provided where possible to ease migration.
 
@@ -59,6 +59,20 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Middleware\VerifyTelegramSecret` — validates the `X-Telegram-Bot-Api-Secret-Token` header using `hash_equals()`; empty configured secret → HTTP 500 (misconfiguration); wrong token → HTTP 401
 - `Middleware\RateLimit` — per-user rate limiting via Laravel `RateLimiter` (falls back to IP)
 - Log warning at boot when `security.verify_secret` is `true` but `LARAGRAM_WEBHOOK_SECRET` is not configured
+
+**Queue & Scaling**
+- Optional queue offload — when `laragram.queue.enabled` is `true`, `Laragram::index()` dispatches a `Jobs\ProcessTelegramUpdate` job carrying the raw update and answers the webhook with `OK 200` immediately; the routing and outbound Bot API calls then run on a queue worker instead of inside the web request. Disabled by default — behaviour is unchanged (fully synchronous)
+- `Jobs\ProcessTelegramUpdate` — the queued update processor; rebuilds an `Illuminate\Http\Request` from the stored payload, rebinds it, forgets the request-scoped `laragram.auth` / `laragram.response` singletons so they re-resolve against this update (correct under long-running workers), then runs the same `Laragram::handle()` pipeline used synchronously. Implements `ShouldBeEncrypted`; sets `tries = 0` (retry forever, safe because `handle()` swallows every `Throwable` and back-pressure is self-clearing) and `timeout = 60`
+- Job middleware — `WithoutOverlapping` keyed by the sender id (falling back to the unique `update_id` for senderless updates) serializes processing per user to avoid session races, and `RateLimited('laragram')` caps global throughput. Per-user ordering is mutual exclusion, not strict FIFO: run a single worker per queue when a station flow must never reorder
+- `Laragram::handle()` — the synchronous processing pipeline, extracted from `index()` and shared by the webhook entry point and the queued job
+- Named `laragram` rate limiter, registered in `LaragramServiceProvider::registerRateLimiter()` as `Limit::perSecond(config('laragram.queue.rate_limit'))` (default 25), keeping outbound traffic under Telegram's ~30 msg/sec limit; requires a shared cache store (Redis) to be accurate across workers
+- `queue.enabled` / `queue.connection` / `queue.queue` / `queue.rate_limit` config keys (env: `LARAGRAM_QUEUE_ENABLED`, `LARAGRAM_QUEUE_CONNECTION`, `LARAGRAM_QUEUE_NAME`, `LARAGRAM_QUEUE_RATE_LIMIT`)
+
+**Events**
+- `Events\BotExceptionHandled($exception, $reportable, $terminal)` — fired by `ExceptionHandler::handle()` for **every** handled throwable, including the silenced user-unreachable ones (`$terminal = true`) that otherwise leave no trace. The observability seam for silently-handled failures (which never reach the `failed_jobs` table): bind a listener to push to metrics/alerting or to count product signals (e.g. how many users blocked the bot). Dispatch is guarded so a faulty listener can never re-throw out of `handle()`
+
+**Database**
+- Migration-stub indexes for fresh installs: `laragram_sessions (user_id, last_activity)` (backs `User::session()`), and `laragram_users.role` / `laragram_users.is_active` (back `scopeByRole()` / `scopeActive()` and admin/broadcast queries). Existing host apps must add these via their own `Schema::table()` migration
 
 **BotResponse**
 - `BotResponse::answer(string $text, bool $showAlert)` — sends `answerCallbackQuery`
@@ -117,7 +131,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 
 ### Changed
 
-- PHP requirement raised to `^8.2`; Laravel requirement raised to `^11.0|^12.0`
+- PHP requirement raised to `^8.3` (minimum required by Laravel 13); Laravel requirement raised to `^11.0|^12.0|^13.0`
 - `BotAPI` replaced ~40 explicit wrapper methods with a single `__call()` magic proxy — all Telegram API methods work automatically
 - `DatabaseAuthDriver` uses `updateOrCreate` atomically instead of `firstOrCreate` + `save()`; settings are merged (not replaced) on every request
 - `LogSession` listener now uses `updateOrCreate` — station is correctly updated on every request, not only on first visit; database failures are logged via `try/catch` instead of crashing the event listener
@@ -126,6 +140,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotResponse::escapeText()`: passing `null` as the parse mode now returns text unmodified; previously fell through to legacy Markdown escaping
 - `RequestTransformer::extractNamedParams()`: argument splitting uses `preg_split('/\s+/', trim(...))` instead of `explode(' ', ...)` — handles extra whitespace in commands correctly
 - `ExceptionHandler::handle()` no longer calls `response()->send()` directly; `Laragram::back()` is solely responsible for the HTTP response, eliminating the double-send
+- `ExceptionHandler::handle()` now also emits the `Events\BotExceptionHandled` event for every handled throwable (logging behaviour is unchanged; the event is additive and a no-op without a listener)
 - Responses are now delivered as outbound `BotAPI` calls via `Http\ResponseDispatcher`; the webhook body is always `response('OK', 200)` and no longer carries a message inline (the previous `response()->json($view)` webhook-reply path was removed) — each message is one outbound round-trip in exchange for a single uniform delivery path that also supports multiple messages
 - `laragram:poll` now delivers controller responses through `ResponseDispatcher`; previously long-polling dispatched the route but never sent the reply
 - `Routing\Router::prepareResponse()` accepts `mixed` (was `BotResponse|string|null`) so controllers and route closures can return an array of responses; response-type validation lives in `ResponseTransformer`
@@ -167,6 +182,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotResponse::setPath()` rejects view names containing `..`, `/`, or `\` to prevent path traversal
 - `config('laragram.paths.route')` validated against path traversal characters before building the route file path
 - SSL certificate verification enabled in `BotClient`
+- `Jobs\ProcessTelegramUpdate` implements `ShouldBeEncrypted` — the queued payload carries user PII (names, username, message text), so Laravel encrypts it at rest in the queue store with the app key and decrypts it on the worker
 
 ## [v1.6] (2025-05-16)
 

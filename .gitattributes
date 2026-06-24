@@ -1,0 +1,16 @@
+# Normalize line endings on checkin.
+* text=auto
+
+# Exclude development-only files from the Composer dist archive.
+# These stay in git (CI keeps working) but never ship to consumers'
+# vendor/ directories via `composer require`.
+/.github            export-ignore
+/tests              export-ignore
+/wiki               export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/.editorconfig      export-ignore
+/phpunit.xml        export-ignore
+/.phpunit.result.cache export-ignore
+/CLAUDE.md          export-ignore
+/CONTRIBUTING.md    export-ignore
