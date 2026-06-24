@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Laragram is a Laravel package (namespace `Wekser\Laragram`) for building Telegram bots in a REST/MVC style. It is a **Composer library** — not a standalone Laravel app — so there is no `artisan` in the repo root.
 
-- PHP ^8.2, Laravel ^11|^12
+- PHP ^8.3, Laravel ^11|^12|^13
 - Package is auto-discovered via `extra.laravel` in `composer.json`
 
 ## Commands
@@ -24,6 +24,8 @@ vendor/bin/phpunit --filter test_find_route_matches_command_without_station_requ
 ```
 
 There is no build or lint step. Tests live under `tests/` (PSR-4: `Wekser\Laragram\Tests\`). PHPUnit is configured via `phpunit.xml` at the repo root. Coverage source includes `src/` but excludes `src/Console` and `src/Examples`.
+
+CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` across a matrix of PHP `8.3–8.5` × Laravel `11/12/13` (PHP 8.5 excluded on Laravel 11), each against both `lowest` and `highest` Composer dependency versions — so a change must work at the advertised version floor, not just the latest patch. Testbench/PHPUnit are pinned per Laravel major (L11→testbench ^9 + phpunit ^11, L12→^10 + ^11, L13→^11 + ^12).
 
 ## Artisan Commands (registered by the package in host apps)
 
@@ -54,7 +56,11 @@ Telegram sends a POST webhook to `/{prefix}/{secret}`. The middleware stack runs
 3. **`laragram.hook`** (`FrameHook`) — deduplicates updates via `update_id` uniqueness check (database driver only)
 4. **`laragram.throttle`** (`RateLimit`) — per-user rate limiting via Laravel `RateLimiter` (falls back to IP); returns **429** with `retry_after` on excess
 
-`Laragram::index()` then:
+**Optional queue offload.** When `laragram.queue.enabled` is true, `Laragram::index()` does **not** process the update inline — it dispatches a `Jobs\ProcessTelegramUpdate` job carrying `$request->all()`, returns `OK 200` immediately, and the routing + outbound delivery run on a queue worker. The 4 middleware above still run synchronously in the webhook (they gate what gets queued — verified, non-bot, non-duplicate, rate-limited). The worker has no live HTTP request, so the job rebuilds an `Illuminate\Http\Request` from the stored payload, rebinds it (`app()->instance('request', …)`), and **forgets the request-scoped singletons** (`laragram.auth`, `laragram.response`) so they re-resolve against this update — important under long-running workers where those singletons would otherwise cache the first request's user. The job then calls `Laragram::handle()`, the same pipeline used synchronously. Config: `queue.enabled` / `queue.connection` (null = default; use Redis in prod) / `queue.queue` / `queue.rate_limit`. When disabled (default), behavior is unchanged — fully synchronous. **The job implements `ShouldBeEncrypted`** — the stored payload carries user PII (names, username, message text), so Laravel encrypts it at rest in the queue store with the app key and decrypts on the worker.
+
+**Job middleware** (`ProcessTelegramUpdate::middleware()`): `WithoutOverlapping` keyed by the sender id (falling back to the unique `update_id` for senderless updates, so they don't all collide on one global lock) serializes processing per user — mutual exclusion that avoids session races; blocked updates are released back and retried. Note this is *not* strict FIFO: with multiple workers per queue, two updates from one user can still run out of order, so run a single worker per queue when strict station ordering matters. `RateLimited('laragram')` caps global throughput under Telegram's ~30 msg/sec outbound limit. The job also sets `public int $timeout = 60` as a safety net bounding a whole multi-message batch (each outbound call is already capped at 30s by `BotClient`). The named `laragram` limiter is registered in `LaragramServiceProvider::registerRateLimiter()` as `Limit::perSecond(config('laragram.queue.rate_limit'))` (default 25) — needs a shared cache store (Redis) to be accurate across multiple workers. **The job sets `public int $tries = 0` (retry forever):** both middleware apply back-pressure by *releasing* the job, so under the default `queue:work --tries=1` a throttled/overlapping update would otherwise be marked failed and dropped on its next reservation. Unlimited retries are safe here because `handle()` swallows every `Throwable` (no poison loop) and the back-pressure is self-clearing (overlap lock expires after 30s, the limiter drains).
+
+`Laragram::index()` (synchronous path — also reused by the queue worker via `Laragram::handle()`) then:
 1. Bootstraps locale from `$user->settings->get('language')`
 2. Resolves the user's current station (state) from `laragram_sessions`
 3. Calls `Routing\Router->dispatch()` → matches route → invokes controller or closure
@@ -155,6 +161,8 @@ src/
 │   ├── Route.php             # Immutable Value Object (readonly props)
 │   ├── RouteCollection.php   # Fluent route DSL + file loader
 │   └── Router.php            # dispatch(), findRoute(), matching helpers
+├── Jobs/
+│   └── ProcessTelegramUpdate.php # queued update processor (when queue.enabled); rebuilds Request from payload, re-resolves auth, calls Laragram::handle()
 ├── Http/
 │   ├── RequestTransformer.php  # update array + route → BotRequest
 │   ├── ResponseTransformer.php # controller response (single OR array) → output['response']['views'] list + chat_id injection
@@ -407,12 +415,14 @@ try {
 
 Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`) are silenced; all others are logged via `app('log')->error()`. `TelegramErrorHandler` maps Telegram API error descriptions to these typed exceptions.
 
+**Observability seam.** Because `handle()` swallows everything, silently-handled failures never reach the `failed_jobs` table. So `handle()` fires an `Events\BotExceptionHandled($exception, $reportable, $terminal)` event for **every** handled throwable — including the silenced user-unreachable ones (`$terminal = true`), which are otherwise invisible. Bind a listener to push to metrics/alerting (Sentry, StatsD, Horizon tags) or to count product signals like how many users blocked the bot. Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded, so a faulty listener can never re-throw out of `handle()` and break the swallow contract.
+
 **`BotClient` error contract (matters for any direct `BotAPI::*` caller):** `BotClient::processResponse()` returns `$decoded['result']` on success — for many methods this is a scalar (`deleteWebhook`/`setWebhook` → `true`), not an array. On API failure (`ok: false`) it **throws** a typed exception via `TelegramErrorHandler` — it does **not** return an error array. So callers must `try/catch` around the call and check the result shape; inspecting the return value for an `error_code` key is dead code. Console commands (`WebhookSetCommand`, `WebhookRemoveCommand`) follow this pattern: wrap the call in `try/catch`, verify `$response === true`, and return `self::SUCCESS` / `self::FAILURE` for correct exit codes.
 
 ### Models & Database
 
-- `laragram_users` — `uid`, `first_name`, `last_name`, `username`, `settings` (JSON cast to `AsCollection`), `role` (string, default `'user'`), `is_active`, `deactivated_at`
-- `laragram_sessions` — `user_id`, `station`, `update_id`, `payload`, `last_activity` (no timestamps)
+- `laragram_users` — `uid` (unique), `first_name`, `last_name`, `username`, `settings` (JSON cast to `AsCollection`), `role` (string, default `'user'`, indexed), `is_active` (indexed), `deactivated_at`
+- `laragram_sessions` — `user_id`, `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); composite index `(user_id, last_activity)` backs `User::session()`. **Migration-stub indexes only apply to fresh installs — existing host apps need their own `Schema::table(...)->index(...)` migration to add them.**
 - `User::session()` returns the most recent session within the configured lifetime
 - `User::activate()` / `deactivate()` toggle `is_active` + `deactivated_at`
 - `User::hasRole(string|array $role)` — checks the `role` column; `isAdmin()` is a shorthand for `hasRole('admin')`
@@ -427,6 +437,9 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 | `telegram.token` | Bot token (`LARAGRAM_BOT_TOKEN`) |
 | `telegram.prefix` / `telegram.secret` | Webhook URL segments |
 | `auth.driver` | `database` or `array` |
+| `queue.enabled` | Defer update processing to a queue worker (`LARAGRAM_QUEUE_ENABLED`, default `false`) |
+| `queue.connection` / `queue.queue` | Queue connection (null = default) and queue name for `ProcessTelegramUpdate` |
+| `queue.rate_limit` | Max update jobs/sec across workers (`LARAGRAM_QUEUE_RATE_LIMIT`, default 25); enforced by the `laragram` named limiter |
 | `auth.session.lifetime` | Minutes before session expires (default 10080 = 7 days) |
 | `paths.route` | Routes filename under `routes/` |
 | `paths.views` | Views directory under `resources/` |
@@ -450,7 +463,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `Router::flushCache()` in `tearDown()` (or `setUp()`) whenever testing route-related code — the route file is cached in a static property and persists across test cases within the same process
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
-- Current suite: **231 tests / 382 assertions**
+- Current suite: **245 tests / 410 assertions**
 
 #### Feature testing with InteractsWithBot
 

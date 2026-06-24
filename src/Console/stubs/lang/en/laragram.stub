@@ -13,7 +13,7 @@ return [
     'start' => [
         'greeting' => 'Hello, :name!',
         'body'     => 'Thank you for using <b>Laragram</b>!',
-        'tip'      => 'Try writing something and I will echo it back — or tap a button above 👇',
+        'tip'      => 'Try writing something and I will echo it back — or tap a button above ⬆️',
         'btn_foo'  => 'Foo',
         'btn_bar'  => 'Bar',
     ],

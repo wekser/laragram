@@ -17,6 +17,7 @@ use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
 use Wekser\Laragram\Facades\BotAuth;
 use Wekser\Laragram\Http\ResponseDispatcher;
+use Wekser\Laragram\Jobs\ProcessTelegramUpdate;
 use Wekser\Laragram\Models\User;
 use Wekser\Laragram\Routing\Router;
 
@@ -48,25 +49,50 @@ class Laragram
      *
      * @var User|null
      */
-    protected ?User $user;
+    protected ?User $user = null;
 
     /**
-     * Laragram Constructor
-     */
-    public function __construct()
-    {
-        $this->user = BotAuth::user();
-    }
-
-    /**
-     * The entry point into the Laragram.
+     * The webhook entry point.
+     *
+     * When queueing is enabled the raw update is pushed onto a queue and the
+     * webhook returns 'OK' 200 immediately — the router and the outbound Bot API
+     * calls then run inside a queue worker (see ProcessTelegramUpdate). When it
+     * is disabled the update is processed synchronously, exactly as before.
+     *
+     * The verify/auth/hook/throttle middleware have already run on the HTTP
+     * request before this method, so what gets queued is always a verified,
+     * non-bot, non-duplicate, rate-limited update.
      *
      * @param \Illuminate\Http\Request $request
      * @return mixed
      */
     public function index(Request $request): mixed
     {
+        if ($this->shouldQueue()) {
+            ProcessTelegramUpdate::dispatch($request->all())
+                ->onConnection(config('laragram.queue.connection'))
+                ->onQueue(config('laragram.queue.queue') ?? 'default');
+
+            return $this->back();
+        }
+
+        return $this->handle($request);
+    }
+
+    /**
+     * Run the full processing pipeline synchronously.
+     *
+     * Shared by the webhook entry point (queueing disabled) and the queued
+     * ProcessTelegramUpdate job, so message handling behaves identically in
+     * either mode. Returns the 'OK' 200 webhook response; the job ignores it.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return mixed
+     */
+    public function handle(Request $request): mixed
+    {
         $this->request = $request;
+        $this->user    = BotAuth::user();
 
         $this->bootstrap();
 
@@ -77,6 +103,16 @@ class Laragram
         $this->deliver();
 
         return $this->back();
+    }
+
+    /**
+     * Whether incoming updates should be deferred to a queue worker.
+     *
+     * @return bool
+     */
+    protected function shouldQueue(): bool
+    {
+        return (bool) config('laragram.queue.enabled', false);
     }
 
     /**

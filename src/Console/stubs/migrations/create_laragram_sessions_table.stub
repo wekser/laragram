@@ -20,6 +20,10 @@ class CreateLaragramSessionsTable extends Migration
             $table->string('station');
             $table->json('payload');
             $table->timestamp('last_activity');
+
+            // Matches User::session(): WHERE user_id = ? AND last_activity >= ?
+            // ORDER BY last_activity DESC. Resolved on every database-driver request.
+            $table->index(['user_id', 'last_activity']);
         });
     }
 

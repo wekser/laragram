@@ -12,8 +12,10 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Tests\Unit\Exceptions;
 
+use Illuminate\Support\Facades\Event;
 use PHPUnit\Framework\Attributes\CoversClass;
 use RuntimeException;
+use Wekser\Laragram\Events\BotExceptionHandled;
 use Wekser\Laragram\Exceptions\AuthenticationException;
 use Wekser\Laragram\Exceptions\BotBlockedException;
 use Wekser\Laragram\Exceptions\ChatNotFoundException;
@@ -148,5 +150,47 @@ class ExceptionHandlerTest extends TestCase
         $response = $method->invoke(null);
 
         $this->assertInstanceOf(\Illuminate\Http\Response::class, $response);
+    }
+
+    // -------------------------------------------------------------------------
+    // observability (BotExceptionHandled event)
+    // -------------------------------------------------------------------------
+
+    public function test_handle_emits_event_for_reportable_exception(): void
+    {
+        Event::fake();
+
+        ExceptionHandler::handle(new RuntimeException('boom'));
+
+        Event::assertDispatched(
+            BotExceptionHandled::class,
+            static fn (BotExceptionHandled $e): bool => $e->reportable === true && $e->terminal === false
+        );
+    }
+
+    public function test_handle_emits_terminal_event_for_unreachable_user(): void
+    {
+        // Terminal (user-unreachable) exceptions are silenced from the log, so the
+        // event is the only signal an operator can alert on / count.
+        Event::fake();
+
+        ExceptionHandler::handle(new BotBlockedException(12345));
+
+        Event::assertDispatched(
+            BotExceptionHandled::class,
+            static fn (BotExceptionHandled $e): bool => $e->reportable === false && $e->terminal === true
+        );
+    }
+
+    public function test_handle_does_not_rethrow_when_a_listener_throws(): void
+    {
+        // The observability seam must never escalate a handled error into a fatal one.
+        Event::listen(BotExceptionHandled::class, static function (): void {
+            throw new RuntimeException('listener blew up');
+        });
+
+        ExceptionHandler::handle(new RuntimeException('boom'));
+
+        $this->assertTrue(true, 'handle() swallowed the listener failure');
     }
 }

@@ -12,7 +12,9 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\BotAuth;
@@ -211,6 +213,8 @@ class LaragramServiceProvider extends ServiceProvider
 
         $this->registerEvents();
 
+        $this->registerRateLimiter();
+
         if ($this->app->runningInConsole()) {
             $this->registerCommands();
 
@@ -276,6 +280,22 @@ class LaragramServiceProvider extends ServiceProvider
                 $this->app['events']->listen($event, $listener);
             }
         }
+    }
+
+    /**
+     * Register the named rate limiter used to throttle queued update jobs.
+     *
+     * Caps the global rate at which ProcessTelegramUpdate jobs run, keeping
+     * outbound Bot API traffic under Telegram's ~30 msg/sec limit. Referenced by
+     * the RateLimited job middleware as 'laragram'.
+     *
+     * @return void
+     */
+    protected function registerRateLimiter(): void
+    {
+        RateLimiter::for('laragram', function () {
+            return Limit::perSecond((int) config('laragram.queue.rate_limit', 25));
+        });
     }
 
     /**
