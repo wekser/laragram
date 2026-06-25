@@ -1,6 +1,6 @@
 {
     "name": "wekser/laragram",
-    "description": "Laravel package for easy develop Telegram Bot.",
+    "description": "Laravel package for building Telegram bots in MVC style. .",
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/wekser/laragram",
@@ -22,12 +22,12 @@
     ],
     "require": {
         "php": "^8.3",
-        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0",
         "ext-curl": "*"
     },
     "require-dev": {
-        "laravel/framework": "^11.0|^12.0|^13.0",
-        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "laravel/framework": "^12.60|^13.10",
+        "orchestra/testbench": "^10.0|^11.0",
         "phpunit/phpunit": "^11.0|^12.0"
     },
     "config": {

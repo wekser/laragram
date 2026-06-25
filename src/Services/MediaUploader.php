@@ -115,20 +115,32 @@ class MediaUploader
      * - Local path  → \CURLFile  (cURL sends multipart/form-data automatically)
      * - Public URL  → string     (Telegram downloads the file server-side)
      *
-     * @throws \InvalidArgumentException When source is neither a file nor a valid URL.
+     * Security: $source is trusted server-side input (an absolute path you
+     * control or a known URL). Do NOT pass unvalidated user input here — a
+     * local path is read straight off the filesystem, and only http(s) URLs
+     * are accepted (other schemes are rejected so e.g. file:// / ftp:// can
+     * never slip through).
+     *
+     * @throws \InvalidArgumentException When source is neither a file nor a public http(s) URL.
      */
     private function resolveSource(string $source): string|\CURLFile
     {
-        if (is_file($source)) {
+        $scheme = strtolower((string) parse_url($source, PHP_URL_SCHEME));
+
+        // Local path (no URL scheme) → multipart upload. is_file() is only called
+        // on schemeless input so a remote scheme can never trigger a network stat.
+        if ($scheme === '' && is_file($source)) {
             return new \CURLFile($source);
         }
 
-        if (filter_var($source, FILTER_VALIDATE_URL) !== false) {
+        // Public URL → handed to Telegram as a string (it downloads server-side).
+        if (in_array($scheme, ['http', 'https'], true)
+            && filter_var($source, FILTER_VALIDATE_URL) !== false) {
             return $source;
         }
 
         throw new \InvalidArgumentException(
-            "Source must be a valid local file path or a public URL. Got: '{$source}'."
+            "Source must be an existing local file path or a public http(s) URL. Got: '{$source}'."
         );
     }
 

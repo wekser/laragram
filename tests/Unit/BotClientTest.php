@@ -112,9 +112,17 @@ class BotClientTest extends TestCase
     public function test_set_timeout_throws_when_zero(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/positive/i');
+        $this->expectExceptionMessageMatches('/between 1 and 300/i');
 
         (new BotClient(self::VALID_TOKEN))->setTimeout(0);
+    }
+
+    public function test_set_timeout_throws_when_above_max(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/between 1 and 300/i');
+
+        (new BotClient(self::VALID_TOKEN))->setTimeout(301);
     }
 
     public function test_set_timeout_throws_when_negative(): void
@@ -134,7 +142,7 @@ class BotClientTest extends TestCase
     public function test_set_connect_timeout_throws_when_zero(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/positive/i');
+        $this->expectExceptionMessageMatches('/between 1 and 300/i');
 
         (new BotClient(self::VALID_TOKEN))->setConnectTimeout(0);
     }
@@ -212,5 +220,36 @@ class BotClientTest extends TestCase
         $method = new \ReflectionMethod(BotClient::class, 'prepareData');
 
         return $method->invoke(new BotClient(self::VALID_TOKEN), $data);
+    }
+
+    // -------------------------------------------------------------------------
+    // buildCurlOptions — TLS hardening
+    // -------------------------------------------------------------------------
+
+    /**
+     * Security: user-supplied curlOptions must never be able to weaken TLS
+     * verification or open unbounded redirects, even though setCurlOptions()
+     * takes precedence in the union merge.
+     */
+    public function test_build_curl_options_forces_tls_verification_over_user_overrides(): void
+    {
+        $client = (new BotClient(self::VALID_TOKEN))->setCurlOptions([
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_MAXREDIRS      => 99,
+        ]);
+
+        $options = $this->buildCurlOptions($client, 'https://api.telegram.org/botX/getMe', ['a' => 1]);
+
+        $this->assertTrue($options[CURLOPT_SSL_VERIFYPEER]);
+        $this->assertSame(2, $options[CURLOPT_SSL_VERIFYHOST]);
+        $this->assertSame(3, $options[CURLOPT_MAXREDIRS]);
+    }
+
+    private function buildCurlOptions(BotClient $client, string $url, array $data): array
+    {
+        $method = new \ReflectionMethod(BotClient::class, 'buildCurlOptions');
+
+        return $method->invoke($client, $url, $data);
     }
 }

@@ -1,18 +1,20 @@
 <?php
+declare(strict_types=1);
 
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
+use Throwable;
 
 class FileInvalidException extends Exception
 {
-    public function __construct($path)
+    public function __construct(string $path, int $code = 0, ?Throwable $previous = null)
     {
-        $this->message = $this->setMessage($path);
+        parent::__construct($this->buildMessage($path), $code, $previous);
     }
 
-    protected function setMessage($path)
+    protected function buildMessage(string $path): string
     {
-        return 'Failed to create file entity. Unable to read resource: '.$path.'.';
+        return "Failed to create file entity. Unable to read resource: {$path}.";
     }
 }

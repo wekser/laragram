@@ -2,7 +2,7 @@
 
 A Laravel package for building Telegram bots in MVC style — routing, controllers, views, and a station-based state machine, all wired into the Laravel ecosystem.
 
-**Requirements:** PHP ^8.3 · Laravel ^11|^12|^13
+**Requirements:** PHP ^8.3 · Laravel ^12|^13
 
 ---
 

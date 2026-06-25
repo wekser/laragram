@@ -31,6 +31,12 @@ class BotClient
     private const API_BASE_URL = 'https://api.telegram.org/bot';
 
     /**
+     * Upper bound (seconds) for request/connection timeouts — guards against a
+     * caller accidentally setting a value that hangs the worker indefinitely.
+     */
+    private const MAX_TIMEOUT = 300;
+
+    /**
      * Default cURL options.
      * Note: CURLOPT_TIMEOUT and CURLOPT_CONNECTTIMEOUT are intentionally absent —
      * they are always set from $this->timeout / $this->connectTimeout properties.
@@ -151,8 +157,10 @@ class BotClient
      */
     public function setTimeout(int $timeout): self
     {
-        if ($timeout <= 0) {
-            throw new \InvalidArgumentException('Request timeout must be a positive integer.');
+        if ($timeout <= 0 || $timeout > self::MAX_TIMEOUT) {
+            throw new \InvalidArgumentException(
+                sprintf('Request timeout must be between 1 and %d seconds.', self::MAX_TIMEOUT)
+            );
         }
 
         $this->timeout = $timeout;
@@ -167,8 +175,10 @@ class BotClient
      */
     public function setConnectTimeout(int $timeout): self
     {
-        if ($timeout <= 0) {
-            throw new \InvalidArgumentException('Connection timeout must be a positive integer.');
+        if ($timeout <= 0 || $timeout > self::MAX_TIMEOUT) {
+            throw new \InvalidArgumentException(
+                sprintf('Connection timeout must be between 1 and %d seconds.', self::MAX_TIMEOUT)
+            );
         }
 
         $this->connectTimeout = $timeout;
@@ -316,11 +326,18 @@ class BotClient
     private function buildCurlOptions(string $url, array $data): array
     {
         $options = $this->curlOptions + self::DEFAULT_CURL_OPTIONS;
-        
+
         $options[CURLOPT_URL] = $url;
         $options[CURLOPT_POSTFIELDS] = $data;
         $options[CURLOPT_TIMEOUT] = $this->timeout;
         $options[CURLOPT_CONNECTTIMEOUT] = $this->connectTimeout;
+
+        // Security-critical: user-supplied curlOptions must never be able to
+        // weaken TLS verification or open unbounded redirects (SSRF). Re-apply
+        // these AFTER the union merge so they always win.
+        $options[CURLOPT_SSL_VERIFYPEER] = true;
+        $options[CURLOPT_SSL_VERIFYHOST] = 2;
+        $options[CURLOPT_MAXREDIRS]      = 3;
 
         return $options;
     }

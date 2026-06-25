@@ -1,18 +1,20 @@
 <?php
+declare(strict_types=1);
 
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
+use Throwable;
 
 class NotFoundRouteFileException extends Exception
 {
-    public function __construct($file)
+    public function __construct(string $file, int $code = 0, ?Throwable $previous = null)
     {
-        $this->message = $this->setMessage($file);
+        parent::__construct($this->buildMessage($file), $code, $previous);
     }
 
-    protected function setMessage($file)
+    protected function buildMessage(string $file): string
     {
-        return 'Route file [' . $file . '] not exists.';
+        return "Route file [{$file}] not exists.";
     }
 }

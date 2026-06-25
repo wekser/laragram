@@ -219,10 +219,18 @@ class MediaUploaderTest extends TestCase
     public function test_throws_when_source_is_nonexistent_path_and_not_url(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/local file path or a public URL/');
+        $this->expectExceptionMessageMatches('/local file path or a public http\(s\) URL/');
 
         $this->makeUploader(new FakeBotAPI())
             ->upload('photo', '/nonexistent/file.jpg', self::CHAT_ID);
+    }
+
+    public function test_throws_when_url_scheme_is_not_http(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->makeUploader(new FakeBotAPI())
+            ->upload('document', 'ftp://example.com/file.pdf', self::CHAT_ID);
     }
 
     public function test_throws_when_source_is_arbitrary_string(): void
