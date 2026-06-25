@@ -30,6 +30,13 @@ class DatabaseAuthDriver implements AuthDriverInterface
      * updateOrCreate wraps the INSERT-or-UPDATE in a single statement, eliminating
      * the create/save gap of firstOrCreate. Settings are merged after the upsert
      * so existing keys (e.g. theme, notifications) are preserved on every request.
+     *
+     * The settings merge is a read-modify-write: two updates from the SAME user
+     * arriving concurrently could each read settings before the other's write and
+     * the later save() wins (last-write-wins on the JSON column). In practice this
+     * is harmless — the only field written here is `language`, and the queued path
+     * already serialises per-user via WithoutOverlapping (see ProcessTelegramUpdate).
+     * A fully atomic update would need DB-level JSON operations and is out of scope.
      */
     public function resolveUser(array $sender, string $language): User
     {

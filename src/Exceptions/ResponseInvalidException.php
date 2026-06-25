@@ -1,18 +1,20 @@
 <?php
+declare(strict_types=1);
 
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
+use Throwable;
 
 class ResponseInvalidException extends Exception
 {
-    public function __construct($uses)
+    public function __construct(string $uses, int $code = 0, ?Throwable $previous = null)
     {
-        $this->message = $this->setMessage($uses);
+        parent::__construct($this->buildMessage($uses), $code, $previous);
     }
 
-    protected function setMessage($uses)
+    protected function buildMessage(string $uses): string
     {
-        return 'Invalid response from [' . $uses . '].';
+        return "Invalid response from [{$uses}].";
     }
 }

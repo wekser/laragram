@@ -1,18 +1,20 @@
 <?php
+declare(strict_types=1);
 
 namespace Wekser\Laragram\Exceptions;
 
 use Exception;
+use Throwable;
 
 class NotExistsViewException extends Exception
 {
-    public function __construct($view)
+    public function __construct(string $view, int $code = 0, ?Throwable $previous = null)
     {
-        $this->message = $this->setMessage($view);
+        parent::__construct($this->buildMessage($view), $code, $previous);
     }
 
-    protected function setMessage($view)
+    protected function buildMessage(string $view): string
     {
-        return 'The [' . $view . '] view not exists.';
+        return "The [{$view}] view not exists.";
     }
 }

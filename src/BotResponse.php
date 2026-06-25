@@ -166,12 +166,12 @@ class BotResponse
         if ($mode === 'MARKDOWNV2') {
             // Escape backslash first to avoid double-escaping.
             $text = str_replace('\\', '\\\\', $text);
-            return str_replace(self::MARKDOWNV2_CHARS, self::MARKDOWNV2_REPLACEMENTS, $text);
+            return str_replace(array_keys(self::MARKDOWNV2_ESCAPES), array_values(self::MARKDOWNV2_ESCAPES), $text);
         }
 
         // Legacy Markdown: _ * [ ] ( ) `
         $text = str_replace('\\', '\\\\', $text);
-        return str_replace(self::MARKDOWN_CHARS, self::MARKDOWN_REPLACEMENTS, $text);
+        return str_replace(array_keys(self::MARKDOWN_ESCAPES), array_values(self::MARKDOWN_ESCAPES), $text);
     }
 
     /**
@@ -451,11 +451,25 @@ class BotResponse
         return $this->renderDirectory($dirPath, $format);
     }
 
-    private const MARKDOWNV2_CHARS = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-    private const MARKDOWNV2_REPLACEMENTS = ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\~', '\\`', '\\>', '\\#', '\\+', '\\-', '\\=', '\\|', '\\{', '\\}', '\\.', '\\!'];
+    /**
+     * MarkdownV2 special characters mapped to their escaped form. Using a single
+     * char => replacement map (instead of two positional arrays) makes it
+     * impossible to add a character without its matching replacement.
+     * Note: the backslash itself is escaped separately, BEFORE this map is
+     * applied, to avoid double-escaping the backslashes this map introduces.
+     */
+    private const MARKDOWNV2_ESCAPES = [
+        '_' => '\\_', '*' => '\\*', '[' => '\\[', ']' => '\\]', '(' => '\\(',
+        ')' => '\\)', '~' => '\\~', '`' => '\\`', '>' => '\\>', '#' => '\\#',
+        '+' => '\\+', '-' => '\\-', '=' => '\\=', '|' => '\\|', '{' => '\\{',
+        '}' => '\\}', '.' => '\\.', '!' => '\\!',
+    ];
 
-    private const MARKDOWN_CHARS = ['_', '*', '[', ']', '(', ')', '`'];
-    private const MARKDOWN_REPLACEMENTS = ['\\_', '\\*', '\\[', '\\]', '\\(', '\\)', '\\`'];
+    /** Legacy Markdown special characters mapped to their escaped form. */
+    private const MARKDOWN_ESCAPES = [
+        '_' => '\\_', '*' => '\\*', '[' => '\\[', ']' => '\\]',
+        '(' => '\\(', ')' => '\\)', '`' => '\\`',
+    ];
 
     /**
      * Maps component filename (without .php) to the Telegram API method it triggers.
@@ -609,16 +623,13 @@ class BotResponse
      */
     protected function renderTemplate(string $path, ?string $format = null): string
     {
-        $source = file_get_contents($path);
+        // The compiled PHP depends only on the file contents, so it is cached
+        // per path (invalidated on mtime change so dev edits are picked up).
+        // Runtime values flow in via $data / $__esc, never through the cache.
+        $compiled = $this->compileTemplate($path);
 
         // Escaper for {{ }} values; static markup and {!! !!} are never passed through it.
         $escaper = fn (mixed $value): string => $this->escapeText((string) $value, $format);
-
-        // Raw output {!! expr !!} first, so its braces aren't caught by the {{ }} pass.
-        $compiled = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $source);
-
-        // Escaped output {{ expr }}.
-        $compiled = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $__esc($1); ?>', $compiled);
 
         ob_start();
 
@@ -635,6 +646,49 @@ class BotResponse
         }
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * Compiled-template cache, keyed by file path. Each entry stores the file's
+     * mtime so an edited template is recompiled rather than served stale.
+     *
+     * @var array<string, array{mtime: int, compiled: string}>
+     */
+    private static array $templateCache = [];
+
+    /**
+     * Read a template file and compile its {{ }} / {!! !!} interpolations into
+     * executable PHP, caching the result per path until the file's mtime changes.
+     */
+    private function compileTemplate(string $path): string
+    {
+        $mtime  = (int) @filemtime($path);
+        $cached = self::$templateCache[$path] ?? null;
+
+        if ($cached !== null && $cached['mtime'] === $mtime) {
+            return $cached['compiled'];
+        }
+
+        $source = (string) file_get_contents($path);
+
+        // Raw output {!! expr !!} first, so its braces aren't caught by the {{ }} pass.
+        $compiled = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $source);
+
+        // Escaped output {{ expr }}.
+        $compiled = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $__esc($1); ?>', $compiled);
+
+        self::$templateCache[$path] = ['mtime' => $mtime, 'compiled' => $compiled];
+
+        return $compiled;
+    }
+
+    /**
+     * Clear the compiled-template cache. Intended for tests that render the same
+     * view path across cases with differing on-disk contents.
+     */
+    public static function flushTemplateCache(): void
+    {
+        self::$templateCache = [];
     }
 
     /**

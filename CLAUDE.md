@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Laragram is a Laravel package (namespace `Wekser\Laragram`) for building Telegram bots in a REST/MVC style. It is a **Composer library** — not a standalone Laravel app — so there is no `artisan` in the repo root.
 
-- PHP ^8.3, Laravel ^11|^12|^13
+- PHP ^8.3, Laravel ^12|^13
 - Package is auto-discovered via `extra.laravel` in `composer.json`
 
 ## Commands
@@ -25,7 +25,7 @@ vendor/bin/phpunit --filter test_find_route_matches_command_without_station_requ
 
 There is no build or lint step. Tests live under `tests/` (PSR-4: `Wekser\Laragram\Tests\`). PHPUnit is configured via `phpunit.xml` at the repo root. Coverage source includes `src/` but excludes `src/Console` and `src/Examples`.
 
-CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` across a matrix of PHP `8.3–8.5` × Laravel `11/12/13` (PHP 8.5 excluded on Laravel 11), each against both `lowest` and `highest` Composer dependency versions — so a change must work at the advertised version floor, not just the latest patch. Testbench/PHPUnit are pinned per Laravel major (L11→testbench ^9 + phpunit ^11, L12→^10 + ^11, L13→^11 + ^12).
+CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` across a matrix of PHP `8.3–8.5` × Laravel `12/13`, each against both `lowest` and `highest` Composer dependency versions — so a change must work at the advertised version floor, not just the latest patch. Framework/Testbench/PHPUnit are pinned per Laravel major (L12→framework ^12.60 + testbench ^10 + phpunit ^11, L13→framework ^13.10 + testbench ^11 + phpunit ^12). The framework floors are the security-patched releases (GHSA-5vg9-5847-vvmq) so CI never installs an affected version; `laravel/framework` is `require-dev` only.
 
 ## Artisan Commands (registered by the package in host apps)
 
@@ -397,6 +397,8 @@ return (new BotResponse(config('laragram.paths.views')))->photo($fileId);
 
 Supported types: `photo`, `document`, `audio`, `video`, `voice`, `animation`, `video_note`, `sticker`.
 
+**`$source` is trusted server-side input — never pass unvalidated user input.** `resolveSource()` inspects the URL scheme: a schemeless value is treated as a local path (`is_file()` is only called on schemeless input, so a remote scheme can never trigger a network stat), and a URL is accepted **only** when its scheme is `http`/`https`. Other schemes (`file://`, `ftp://`, …) are rejected with `\InvalidArgumentException`.
+
 **Architecture note:** `BotResponse` returns JSON to Telegram via the webhook response — it cannot upload files (multipart/form-data is incompatible with JSON). `MediaUploader` uses `BotAPI` to make a direct outbound HTTP call, then the returned `file_id` is passed to `BotResponse`. This two-step pattern is mandatory for local file uploads.
 
 ### Exception Handling
@@ -418,6 +420,8 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 **Observability seam.** Because `handle()` swallows everything, silently-handled failures never reach the `failed_jobs` table. So `handle()` fires an `Events\BotExceptionHandled($exception, $reportable, $terminal)` event for **every** handled throwable — including the silenced user-unreachable ones (`$terminal = true`), which are otherwise invisible. Bind a listener to push to metrics/alerting (Sentry, StatsD, Horizon tags) or to count product signals like how many users blocked the bot. Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded, so a faulty listener can never re-throw out of `handle()` and break the swallow contract.
 
 **`BotClient` error contract (matters for any direct `BotAPI::*` caller):** `BotClient::processResponse()` returns `$decoded['result']` on success — for many methods this is a scalar (`deleteWebhook`/`setWebhook` → `true`), not an array. On API failure (`ok: false`) it **throws** a typed exception via `TelegramErrorHandler` — it does **not** return an error array. So callers must `try/catch` around the call and check the result shape; inspecting the return value for an `error_code` key is dead code. Console commands (`WebhookSetCommand`, `WebhookRemoveCommand`) follow this pattern: wrap the call in `try/catch`, verify `$response === true`, and return `self::SUCCESS` / `self::FAILURE` for correct exit codes.
+
+**`BotClient` transport hardening.** `setTimeout()` / `setConnectTimeout()` reject anything outside `1..MAX_TIMEOUT` (300s) — a value that hangs a worker indefinitely is a config error, not a tunable. `buildCurlOptions()` re-applies `CURLOPT_SSL_VERIFYPEER = true`, `CURLOPT_SSL_VERIFYHOST = 2`, and `CURLOPT_MAXREDIRS = 3` **after** the union merge with caller-supplied `curlOptions`, so user options can never weaken TLS verification or open unbounded redirects (SSRF). Don't try to override these via `curlOptions` — they always win.
 
 ### Models & Database
 
@@ -463,7 +467,8 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `Router::flushCache()` in `tearDown()` (or `setUp()`) whenever testing route-related code — the route file is cached in a static property and persists across test cases within the same process
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
-- Current suite: **245 tests / 410 assertions**
+- Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
+- Current suite: **250 tests / 419 assertions**
 
 #### Feature testing with InteractsWithBot
 
