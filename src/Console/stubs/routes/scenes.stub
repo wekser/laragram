@@ -1,0 +1,44 @@
+<?php
+
+/*
+ * Laragram scenes (multi-step wizards)
+ *
+ * A scene owns the user across several messages: each step asks a question,
+ * validates the answer, and stores it. When the last step is answered the
+ * onComplete handler receives a SceneContext with every collected answer.
+ *
+ * DSL reference:
+ *   BotScene::define('name')
+ *       ->step('key')                    Add a step (answer stored under 'key')
+ *           ->ask('view.name')           Question: a view name…
+ *           ->ask(fn ($ctx) => ...)      …or a closure returning BotResponse|string|array
+ *           ->rules(['required', '...']) Laravel validation; on failure the step re-asks
+ *           ->transform(fn ($v) => ...)  Map the raw answer before storing it
+ *       ->cancelOn('/cancel')            Commands that abort the scene
+ *       ->onCancel([Ctrl::class, 'm'])   Optional: handle cancellation
+ *       ->onComplete([Ctrl::class, 'm']) Required: handle the finished wizard
+ *
+ * Enter a scene from a normal route handler:
+ *
+ *   public function order(BotRequest $r) { return BotScene::enter('order'); }
+ *
+ * Scenes require the "database" auth driver.
+ *
+ * See: https://github.com/wekser/laragram
+ */
+
+use App\Http\Controllers\Laragram\OrderController;
+use Wekser\Laragram\Facades\BotResponse;
+use Wekser\Laragram\Facades\BotScene;
+
+BotScene::define('order')
+    ->step('size')
+        ->ask(fn ($ctx) => BotResponse::text('What size? Reply with S, M or L.'))
+        ->rules(['required', 'in:S,M,L'])
+    ->step('address')
+        ->ask(fn ($ctx) => BotResponse::text('Where should we deliver?'))
+        ->rules(['required', 'string', 'min:5'])
+        ->transform(fn ($value) => trim($value))
+    ->cancelOn('/cancel')
+    ->onCancel(fn ($ctx) => BotResponse::text('Order cancelled.')->redirect('start'))
+    ->onComplete([OrderController::class, 'place']);

@@ -49,7 +49,12 @@ class LogSession
                 [
                     'update_id'     => $event->output['update']['id'],
                     'station'       => $event->output['response']['redirect'],
-                    'payload'       => ['route' => $event->output['route']],
+                    'payload'       => [
+                        'route' => $event->output['route'],
+                        // Scene (wizard) state: current step + collected answers.
+                        // Null on the normal routing path, which clears any prior scene.
+                        'scene' => $event->output['scene'] ?? null,
+                    ],
                     'last_activity' => now(),
                 ]
             );

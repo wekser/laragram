@@ -123,19 +123,46 @@ class LaragramInstallCommand extends Command
     }
 
     /**
-     * Create the bot routes.
+     * Create the bot route and scene files (default: routes/laragram/).
      *
      * @return void
      */
     protected function createRoutes()
     {
-        if (file_exists($file = base_path('routes/laragram.php')) && !$this->option('force')) {
-            if (!$this->confirm("The [{$file}] route already exists. Do you want to replace it?")) {
+        $this->createRouteFile(
+            (string) config('laragram.paths.route', 'laragram/routes'),
+            __DIR__ . '/stubs/routes/routes.stub',
+            'route'
+        );
+
+        $this->createRouteFile(
+            (string) config('laragram.paths.scenes', 'laragram/scenes'),
+            __DIR__ . '/stubs/routes/scenes_blank.stub',
+            'scenes'
+        );
+    }
+
+    /**
+     * Copy a route/scenes stub to its configured location under routes/,
+     * creating the (sub)directory and honouring --force / confirmation.
+     *
+     * @return void
+     */
+    protected function createRouteFile(string $name, string $stub, string $label)
+    {
+        $file = base_path("routes/{$name}.php");
+
+        if (file_exists($file) && !$this->option('force')) {
+            if (!$this->confirm("The [{$file}] {$label} file already exists. Do you want to replace it?")) {
                 return;
             }
         }
 
-        copy(__DIR__ . '/stubs/routes/routes.stub', $file);
+        if (!is_dir($directory = dirname($file))) {
+            mkdir($directory, 0755, true);
+        }
+
+        copy($stub, $file);
     }
 
     /**

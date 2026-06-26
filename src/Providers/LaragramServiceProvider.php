@@ -19,14 +19,21 @@ use Illuminate\Support\ServiceProvider;
 use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotResponse;
+use Wekser\Laragram\Broadcasting\Broadcaster;
+use Wekser\Laragram\Broadcasting\BroadcastRenderer;
 use Wekser\Laragram\Http\ResponseDispatcher;
+use Wekser\Laragram\Scene\SceneManager;
+use Wekser\Laragram\Scene\SceneRegistry;
 use Wekser\Laragram\Services\MediaUploader;
+use Wekser\Laragram\Console\BroadcastCommand;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
 use Wekser\Laragram\Console\LaragramPublishCommand;
 use Wekser\Laragram\Console\MakeControllerCommand;
+use Wekser\Laragram\Console\MakeSceneCommand;
 use Wekser\Laragram\Console\MakeViewCommand;
 use Wekser\Laragram\Console\PollCommand;
+use Wekser\Laragram\Console\SceneListCommand;
 use Wekser\Laragram\Console\WebhookRemoveCommand;
 use Wekser\Laragram\Console\RouteListCommand;
 use Wekser\Laragram\Console\RouteMatchCommand;
@@ -62,6 +69,9 @@ class LaragramServiceProvider extends ServiceProvider
         'Wekser\Laragram\Events\CallbackFormed' => [
             'Wekser\Laragram\Listeners\LogSession',
         ],
+        'Wekser\Laragram\Events\BotExceptionHandled' => [
+            'Wekser\Laragram\Listeners\DeactivateUnreachableUser',
+        ],
     ];
 
     /**
@@ -82,6 +92,8 @@ class LaragramServiceProvider extends ServiceProvider
         $this->registerResponse();
         $this->registerMediaUploader();
         $this->registerDispatcher();
+        $this->registerScenes();
+        $this->registerBroadcaster();
     }
 
     /**
@@ -106,6 +118,8 @@ class LaragramServiceProvider extends ServiceProvider
         $this->app->alias('laragram.response', BotResponse::class);
         $this->app->alias('laragram.media', MediaUploader::class);
         $this->app->alias('laragram.dispatcher', ResponseDispatcher::class);
+        $this->app->alias('laragram.scene', SceneManager::class);
+        $this->app->alias('laragram.broadcast', Broadcaster::class);
     }
 
     /**
@@ -197,6 +211,30 @@ class LaragramServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register the scene (wizard) runtime.
+     *
+     * @return void
+     */
+    protected function registerScenes(): void
+    {
+        $this->app->singleton('laragram.scene', function () {
+            return new SceneManager(new SceneRegistry());
+        });
+    }
+
+    /**
+     * Register the broadcast (mass messaging) service.
+     *
+     * @return void
+     */
+    protected function registerBroadcaster(): void
+    {
+        $this->app->singleton('laragram.broadcast', function () {
+            return new Broadcaster(new BroadcastRenderer());
+        });
+    }
+
+    /**
      * Bootstrap any application services.
      *
      * @return void
@@ -238,6 +276,7 @@ class LaragramServiceProvider extends ServiceProvider
 
             $this->publishes([
                 __DIR__ . '/../Console/stubs/routes/laragram.stub' => base_path('routes/' . config('laragram.paths.route') . '.php'),
+                __DIR__ . '/../Console/stubs/routes/scenes.stub'    => base_path('routes/' . config('laragram.paths.scenes', 'laragram/scenes') . '.php'),
             ], 'laragram-routes');
         }
     }
@@ -319,6 +358,7 @@ class LaragramServiceProvider extends ServiceProvider
     protected function registerCommands()
     {
         $this->commands([
+            BroadcastCommand::class,
             GetInfoCommand::class,
             WebhookSetCommand::class,
             WebhookRemoveCommand::class,
@@ -326,6 +366,8 @@ class LaragramServiceProvider extends ServiceProvider
             LaragramPublishCommand::class,
             MakeControllerCommand::class,
             MakeViewCommand::class,
+            MakeSceneCommand::class,
+            SceneListCommand::class,
             RouteListCommand::class,
             RouteMatchCommand::class,
             SessionPruneCommand::class,

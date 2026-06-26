@@ -48,8 +48,9 @@ abstract class TestCase extends OrchestraTestCase
         $app['config']->set('laragram.auth.user.model', User::class);
         $app['config']->set('laragram.auth.user.table', 'laragram_users');
         $app['config']->set('laragram.bot.languages', ['en']);
-        $app['config']->set('laragram.paths.route', 'laragram');
+        $app['config']->set('laragram.paths.route', 'laragram/routes');
         $app['config']->set('laragram.paths.views', 'laragram');
+        $app['config']->set('laragram.paths.scenes', 'laragram/scenes');
         $app['config']->set('laragram.rate.max_attempts', 60);
         $app['config']->set('laragram.rate.decay_seconds', 60);
         $app['config']->set('laragram.security.verify_secret', false);

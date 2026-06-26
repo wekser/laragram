@@ -14,6 +14,7 @@ namespace Wekser\Laragram\Http;
 
 use Wekser\Laragram\BotAPI;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
+use Wekser\Laragram\Support\OutboundPayload;
 
 /**
  * Sends the view payloads produced by ResponseTransformer to Telegram.
@@ -46,16 +47,13 @@ class ResponseDispatcher
     public function send(array $views): void
     {
         foreach ($views as $view) {
-            if (empty($view['method'])) {
+            $method = OutboundPayload::method($view);
+
+            if ($method === null) {
                 continue;
             }
 
-            $method = $view['method'];
-            $params = array_filter(
-                $view,
-                static fn (string $key): bool => $key !== 'method' && !str_starts_with($key, '_'),
-                ARRAY_FILTER_USE_KEY
-            );
+            $params = OutboundPayload::params($view);
 
             try {
                 $this->api->{$method}($params);

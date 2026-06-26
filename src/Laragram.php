@@ -20,6 +20,7 @@ use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Jobs\ProcessTelegramUpdate;
 use Wekser\Laragram\Models\User;
 use Wekser\Laragram\Routing\Router;
+use Wekser\Laragram\Scene\SceneManager;
 
 class Laragram
 {
@@ -50,6 +51,13 @@ class Laragram
      * @var User|null
      */
     protected ?User $user = null;
+
+    /**
+     * Scene state restored from the current session payload (null when not in a scene).
+     *
+     * @var array|null
+     */
+    protected ?array $sceneState = null;
 
     /**
      * The webhook entry point.
@@ -129,13 +137,21 @@ class Laragram
     }
 
     /**
-     * Get or set user station.
+     * Get the user's current station and restore any active scene state.
      *
      * @return string
      */
     protected function defineStation(): string
     {
-        return empty($session = $this->user?->session()) ? 'start' : $session->station;
+        $session = $this->user?->session();
+
+        if (empty($session)) {
+            return 'start';
+        }
+
+        $this->sceneState = $session->payload['scene'] ?? null;
+
+        return $session->station;
     }
 
     /**
@@ -146,7 +162,9 @@ class Laragram
     protected function run()
     {
         try {
-            $this->output = (new Router($this->station))->dispatch($this->request->all());
+            $this->output = SceneManager::isSceneStation($this->station)
+                ? app(SceneManager::class)->continue($this->request->all(), $this->station, $this->sceneState)
+                : (new Router($this->station))->dispatch($this->request->all());
         } catch (\Throwable $exception) {
             ExceptionHandler::handle($exception);
         }

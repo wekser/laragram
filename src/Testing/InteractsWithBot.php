@@ -18,6 +18,7 @@ use Wekser\Laragram\Events\CallbackFormed;
 use Wekser\Laragram\Exceptions\AuthenticationException;
 use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Routing\Router;
+use Wekser\Laragram\Scene\SceneManager;
 
 /**
  * PHPUnit trait for feature-testing Laragram bots without a real HTTP request.
@@ -85,12 +86,20 @@ trait InteractsWithBot
         // Rebind so facades (BotAuth::user(), BotResponse) resolve the right instance
         app()->instance('laragram.auth', $auth);
 
-        $user    = $auth->user();
-        $station = (config('laragram.auth.driver') !== 'database')
-            ? 'start'
-            : (empty($session = $user->session()) ? 'start' : $session->station);
+        $user       = $auth->user();
+        $station    = 'start';
+        $sceneState = null;
 
-        $output = (new Router($station))->dispatch($update);
+        if (config('laragram.auth.driver') === 'database' && !empty($session = $user->session())) {
+            $station    = $session->station;
+            $sceneState = $session->payload['scene'] ?? null;
+        }
+
+        // Mirror Laragram::run(): a user inside a scene is handled by the scene
+        // runtime; everyone else goes through the normal router.
+        $output = str_starts_with($station, SceneManager::PREFIX)
+            ? app(SceneManager::class)->continue($update, $station, $sceneState)
+            : (new Router($station))->dispatch($update);
 
         $this->sentMessages = [];
 
@@ -236,6 +245,73 @@ trait InteractsWithBot
         );
 
         return $this->sentMessages[$index];
+    }
+
+    /**
+     * Assert the user is inside the given scene after the last update.
+     */
+    protected function assertInScene(string $name): void
+    {
+        $this->assertNotNull($this->lastOutput, 'Bot did not produce a response.');
+
+        $actual = $this->lastOutput['scene']['name'] ?? null;
+
+        $this->assertSame(
+            $name,
+            $actual,
+            "Expected user to be in scene [{$name}], got [" . ($actual ?? 'none') . '].'
+        );
+
+        $this->assertSame(
+            SceneManager::PREFIX . $name,
+            $this->lastOutput['response']['redirect'] ?? null,
+            "Expected station [@scene:{$name}] while in the scene."
+        );
+    }
+
+    /**
+     * Assert the user is at the given step of the current scene.
+     */
+    protected function assertSceneStep(string $step): void
+    {
+        $this->assertNotNull($this->lastOutput, 'Bot did not produce a response.');
+
+        $actual = $this->lastOutput['scene']['step'] ?? null;
+
+        $this->assertSame(
+            $step,
+            $actual,
+            "Expected scene step [{$step}], got [" . ($actual ?? 'none') . '].'
+        );
+    }
+
+    /**
+     * Assert an answer collected so far in the current scene equals $value.
+     */
+    protected function assertSceneData(string $key, mixed $value): void
+    {
+        $this->assertNotNull($this->lastOutput, 'Bot did not produce a response.');
+
+        $actual = $this->lastOutput['scene']['data'][$key] ?? null;
+
+        $this->assertSame(
+            $value,
+            $actual,
+            "Expected scene data [{$key}] to equal the given value."
+        );
+    }
+
+    /**
+     * Assert the user is not inside any scene after the last update.
+     */
+    protected function assertNotInScene(): void
+    {
+        $scene = $this->lastOutput['scene'] ?? null;
+
+        $this->assertNull(
+            $scene,
+            'Expected user not to be in a scene, but is in [' . ($scene['name'] ?? 'unknown') . '].'
+        );
     }
 
     /**

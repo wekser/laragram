@@ -1,0 +1,19 @@
+<?php
+
+/*
+ * Laragram scenes (multi-step wizards).
+ *
+ * Define a scene, then enter it from a route handler with BotScene::enter('name').
+ * Scaffold one with: php artisan laragram:make:scene order --steps=size,address
+ *
+ * See: https://github.com/wekser/laragram/wiki/Scenes
+ */
+
+use Wekser\Laragram\Facades\BotResponse;
+use Wekser\Laragram\Facades\BotScene;
+
+// BotScene::define('order')
+//     ->step('size')
+//         ->ask(fn ($ctx) => BotResponse::text('Size? (S/M/L)'))
+//         ->rules(['required', 'in:S,M,L'])
+//     ->onComplete(fn ($ctx) => BotResponse::text('Done')->redirect('start'));
