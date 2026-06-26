@@ -43,7 +43,7 @@ Telegram sends a POST request to `/{prefix}/{secret}`. Laragram authenticates th
 
 ## Routes
 
-Bot routes live in `routes/laragram.php`. Use the injected `$collection` variable or the `BotRoute` facade — both are equivalent.
+Bot routes live in `routes/laragram/routes.php`. Use the injected `$collection` variable or the `BotRoute` facade — both are equivalent.
 
 ```php
 use Wekser\Laragram\Facades\BotRoute;
@@ -268,7 +268,7 @@ ForceReply::make()->placeholder('Type here…')->toArray();
 Each user has a **station** — a string stored in `laragram_sessions.station`. Routes match only when the user is at the declared station. Use `->redirect()` to move users between steps:
 
 ```php
-// routes/laragram.php
+// routes/laragram/routes.php
 BotRoute::get('message')->contains('/start')->call([Ctrl::class, 'start']);
 BotRoute::get('message')->from('ask_name')->call([Ctrl::class, 'saveName']);
 BotRoute::get('message')->from('ask_email')->call([Ctrl::class, 'saveEmail']);
@@ -300,6 +300,51 @@ php artisan laragram:route:match message "hello" --station=ask_name
 
 ---
 
+## Scenes (Wizards)
+
+For multi-step forms — registration, an order, a survey — a **scene** manages the whole flow for you: it asks each step's question, validates the answer, stores it, and hands all answers to a completion handler. It's built on top of stations, but you don't wire them by hand.
+
+Define scenes in `routes/laragram/scenes.php`:
+
+```php
+use Wekser\Laragram\Facades\BotResponse;
+use Wekser\Laragram\Facades\BotScene;
+
+BotScene::define('order')
+    ->step('size')
+        ->ask(fn ($ctx) => BotResponse::text('Size? (S/M/L)'))
+        ->rules(['required', 'in:S,M,L'])
+    ->step('address')
+        ->ask(fn ($ctx) => BotResponse::text("Address for {$ctx->get('size')}?"))
+        ->rules(['required', 'min:5'])
+        ->transform(fn ($v) => trim($v))
+    ->cancelOn('/cancel')
+    ->onComplete([OrderController::class, 'place']);
+```
+
+Enter the scene from any route handler, and handle the result when it finishes:
+
+```php
+public function order(BotRequest $request)
+{
+    return BotScene::enter('order');        // sends the first question
+}
+
+public function place(SceneContext $ctx)    // onComplete handler — gets every answer
+{
+    Order::create($ctx->all());
+    return BotResponse::view('order.done')->redirect('home');
+}
+```
+
+More step/scene options: `->when(fn ($ctx) => …)` (conditional steps), `->allowBack('/back')`, `->timeout($minutes)` + `->onTimeout()`, `->onInvalid($view|$closure)` (custom error message), and typed extractors `->expectContact()/expectLocation()/expectPhoto()/expectCallback()`. A `SceneContext` exposes `get()/all()/has()/request()/user()`. Back navigation drops any answers a changed earlier answer makes irrelevant (so `onComplete` never sees inconsistent data), and an invalid reply re-asks the step without resetting the `timeout()` clock.
+
+> Scenes require the `database` auth driver (step state is persisted between updates in `laragram_sessions.payload`). Scaffold one with `php artisan laragram:make:scene order --steps=size,address`.
+
+See the [Scenes wiki page](https://github.com/wekser/laragram/wiki/Scenes) for the full reference.
+
+---
+
 ## Queue (optional, for scale)
 
 By default Laragram processes each update **inside** the webhook request. Under bursts of concurrent users you can offload processing to a queue: the webhook validates the update, dispatches a job, and answers `200 OK` immediately, while routing and the outbound Bot API calls run on a worker.
@@ -325,6 +370,42 @@ php artisan queue:work --queue=default
 - **Privacy:** the job implements `ShouldBeEncrypted`, so the payload (which carries user PII) is encrypted at rest in the queue store.
 
 > Use Redis in production — the rate limiter and the per-user lock need a shared cache store to be accurate across multiple workers. When disabled (the default), behaviour is fully synchronous and unchanged.
+
+---
+
+## Broadcasting (mass messaging)
+
+Send one message to your whole user base — announcements, promos, downtime notices — with the `BotBroadcast` facade or the `laragram:broadcast` command. Requires the `database` auth driver (there are no persisted users under `array`).
+
+```php
+use Wekser\Laragram\Facades\BotBroadcast;
+
+// Raw text to every active user
+BotBroadcast::text('We are back online!')->send();
+
+// A view, rendered per recipient (in their own language, with $user in scope)
+BotBroadcast::view('news.release', ['version' => '2.0'])
+    ->role(['admin', 'moderator'])     // optional: restrict to roles
+    ->includeInactive()                // optional: also reach deactivated users
+    ->send();
+```
+
+From the CLI:
+
+```bash
+php artisan laragram:broadcast "We are back online!"             # text to all active users
+php artisan laragram:broadcast --view=news.release              # render a view per recipient
+php artisan laragram:broadcast "Admins only" --role=admin --dry-run   # just print the recipient count
+```
+
+- **Delivery scales with your setup.** With the queue enabled, a broadcast dispatches one job per recipient, throttled by the same `laragram` rate limiter as incoming updates; otherwise it sends synchronously, paced just under Telegram's ~30 msg/sec limit. Each message is rendered per recipient, so views localize to each user.
+- **Unreachable users self-prune.** The first time a send fails because a user blocked the bot, deactivated, or the chat is gone, that user is marked inactive (`User::deactivate()`) so future broadcasts skip them. This runs for *every* send, not just broadcasts, via the `BotExceptionHandled` event — toggle with `LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE`.
+
+```env
+LARAGRAM_BROADCAST_CHUNK_SIZE=500             # recipients loaded per batch
+LARAGRAM_BROADCAST_SYNC_DELAY_MS=40           # pause between sends on the synchronous path (≈25/sec)
+LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE=true
+```
 
 ---
 
@@ -365,7 +446,10 @@ Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded,
 | `laragram:session:prune` | Delete expired sessions |
 | `laragram:make:controller` | Scaffold a new bot controller |
 | `laragram:make:view` | Scaffold a new bot view directory |
+| `laragram:make:scene` | Scaffold a new scene (wizard) in the scenes file |
+| `laragram:scene:list` | List all registered scenes |
 | `laragram:set-role {uid} {role}` | Assign a role to a user |
+| `laragram:broadcast {message?}` | Mass-message users (`--view`, `--role=*`, `--include-inactive`, `--dry-run`, `--no-confirm`) |
 
 ---
 

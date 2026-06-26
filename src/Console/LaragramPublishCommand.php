@@ -53,9 +53,13 @@ class LaragramPublishCommand extends Command
      */
     protected function createRoute(): void
     {
-        $routeName = config('laragram.paths.route', 'laragram');
+        $routeName = config('laragram.paths.route', 'laragram/routes');
         $file      = base_path("routes/{$routeName}.php");
         $stub      = file_get_contents(__DIR__ . '/stubs/routes/laragram.stub');
+
+        if (!is_dir($directory = dirname($file))) {
+            mkdir($directory, 0755, true);
+        }
 
         if (!file_exists($file)) {
             file_put_contents($file, $stub);

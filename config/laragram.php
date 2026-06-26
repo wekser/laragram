@@ -56,14 +56,37 @@ return [
     | Paths
     |--------------------------------------------------------------------------
     |
-    | Filenames (without extension) resolved relative to routes/ and
-    | resources/ respectively. Do not include path separators.
+    | Filenames (without extension) resolved relative to routes/ and resources/.
+    | "route" and "scenes" may include a subdirectory (the default keeps both bot
+    | files together in routes/laragram/); ".." and absolute paths are rejected.
     |
     */
 
     'paths' => [
-        'route' => 'laragram',
-        'views' => 'laragram',
+        'route'  => 'laragram/routes',   // routes/laragram/routes.php
+        'views'  => 'laragram',          // resources/laragram/
+        'scenes' => 'laragram/scenes',   // routes/laragram/scenes.php
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scenes (wizards)
+    |--------------------------------------------------------------------------
+    |
+    | Scenes are multi-step conversation flows defined in routes/laragram/scenes.php
+    | (see paths.scenes). "cancel_commands" lists the commands that abort any scene
+    | at any step unless a scene overrides them with ->cancelOn(). Scenes require
+    | the "database" auth driver to persist step state across updates.
+    |
+    | "global_commands" lists commands that escape ANY scene at any step and are
+    | then handled by the normal router (e.g. ['/start']) — empty means scenes are
+    | only left via their own steps or a cancel command.
+    |
+    */
+
+    'scenes' => [
+        'cancel_commands' => ['/cancel'],
+        'global_commands' => [],
     ],
 
     /*
@@ -113,6 +136,36 @@ return [
         'connection' => env('LARAGRAM_QUEUE_CONNECTION'),
         'queue'      => env('LARAGRAM_QUEUE_NAME', 'default'),
         'rate_limit' => env('LARAGRAM_QUEUE_RATE_LIMIT', 25),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Broadcast (mass messaging)
+    |--------------------------------------------------------------------------
+    |
+    | Settings for laragram:broadcast / the BotBroadcast facade, which push a
+    | single message (a rendered view or raw text) to many users at once.
+    |
+    | "chunk_size" controls how many recipients are loaded into memory at a time
+    | while iterating the user base (chunkById).
+    |
+    | When queue.enabled is true the broadcast dispatches one queued job per
+    | recipient, throttled by the same "laragram" limiter as incoming updates
+    | (see queue.rate_limit). When it is false the command sends synchronously
+    | and "sync_delay_ms" is the pause inserted between each send to stay under
+    | Telegram's ~30 msg/sec outbound limit (40ms ≈ 25/sec).
+    |
+    | "deactivate_unreachable" marks a user inactive (User::deactivate()) the
+    | first time a send to them fails with an unreachable condition (blocked,
+    | deactivated, chat gone), so future broadcasts skip them. This applies to
+    | every send, not just broadcasts, and requires the "database" auth driver.
+    |
+    */
+
+    'broadcast' => [
+        'chunk_size'             => env('LARAGRAM_BROADCAST_CHUNK_SIZE', 500),
+        'sync_delay_ms'          => env('LARAGRAM_BROADCAST_SYNC_DELAY_MS', 40),
+        'deactivate_unreachable' => env('LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE', true),
     ],
 
     /*

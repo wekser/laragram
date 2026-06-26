@@ -59,7 +59,8 @@
                 "BotAPI": "Wekser\\Laragram\\Facades\\BotAPI",
                 "BotAuth": "Wekser\\Laragram\\Facades\\BotAuth",
                 "BotResponse": "Wekser\\Laragram\\Facades\\BotResponse",
-                "BotRoute": "Wekser\\Laragram\\Facades\\BotRoute"
+                "BotRoute": "Wekser\\Laragram\\Facades\\BotRoute",
+                "BotScene": "Wekser\\Laragram\\Facades\\BotScene"
             }
         }
     },

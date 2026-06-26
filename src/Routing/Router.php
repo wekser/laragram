@@ -20,6 +20,9 @@ use Wekser\Laragram\Exceptions\NotExistMethodException;
 use Wekser\Laragram\Exceptions\NotExistsControllerException;
 use Wekser\Laragram\Http\RequestTransformer;
 use Wekser\Laragram\Http\ResponseTransformer;
+use Wekser\Laragram\Scene\SceneManager;
+use Wekser\Laragram\Scene\SceneTransition;
+use Wekser\Laragram\Support\UpdateType;
 
 /**
  * Finds and executes the bot route that matches the incoming Telegram update.
@@ -94,31 +97,12 @@ class Router
     // -------------------------------------------------------------------------
 
     /**
-     * Detect the update type from the payload.
-     *
-     * Telegram updates always contain exactly one type-specific key besides 'update_id'.
-     * We prefer keys with 'from' (most types), then fall back to any array key that
-     * isn't 'update_id' — this covers poll, poll_answer, and future types.
+     * Detect the update type from the payload (see Support\UpdateType) and cache
+     * it on the instance for the matching helpers.
      */
     protected function getType(array $update): void
     {
-        // First pass: prefer types with 'from' (most common)
-        foreach ($update as $key => $value) {
-            if ($key !== 'update_id' && is_array($value) && isset($value['from'])) {
-                $this->type = (string) $key;
-                return;
-            }
-        }
-
-        // Second pass: any non-scalar key besides 'update_id' (poll, poll_answer, etc.)
-        foreach ($update as $key => $value) {
-            if ($key !== 'update_id' && is_array($value)) {
-                $this->type = (string) $key;
-                return;
-            }
-        }
-
-        $this->type = '';
+        $this->type = UpdateType::detect($update);
     }
 
     /**
@@ -158,10 +142,16 @@ class Router
     }
 
     /**
-     * @param BotResponse|string|iterable<BotResponse|string>|null $response
+     * @param BotResponse|string|iterable<BotResponse|string>|SceneTransition|null $response
      */
     protected function prepareResponse(mixed $response): ?array
     {
+        // A handler may begin a scene by returning BotScene::enter(); hand off to
+        // the scene runtime, which renders the first step and records its state.
+        if ($response instanceof SceneTransition) {
+            return app(SceneManager::class)->start($this->request, $response);
+        }
+
         return (new ResponseTransformer())->getResponse($this->request, $response);
     }
 

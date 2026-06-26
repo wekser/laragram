@@ -19,6 +19,28 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `->group(callable $callback, from: '...', roles: '...')` — applies shared station and role constraints to a group of routes
 - `Router::flushCache()` — clears the static route file cache (useful in tests)
 
+**Scenes (Wizards)**
+- `Scene\SceneManager` — runtime for multi-step conversation flows, layered above the station router; produces the same output shape as `Routing\Router`. Bound as the `laragram.scene` singleton. While a user is in a scene their station is the sentinel `@scene:<name>`, and the current step + collected answers are persisted in `laragram_sessions.payload` (no new table). Requires the `database` auth driver
+- `Scene\Scene` / `Scene\Step` — fluent definition DSL: `->step()`, `->ask(view|closure)`, `->rules()`, `->messages()`, `->transform()`, `->when()` (conditional steps), `->onInvalid()` (custom error prompt), `->using()` + `->expectText()/expectCallback()/expectContact()/expectLocation()/expectPhoto()` (typed extractors), `->cancelOn()` / `->onCancel()`, `->allowBack()` (back navigation), `->timeout()` / `->onTimeout()`, and `->onComplete()`
+- `Scene\SceneContext` — passed to prompts and handlers: `get()`, `all()`, `has()`, `request()`, `user()`
+- `Scene\SceneTransition` — marker returned by `BotScene::enter()`, triggering `SceneManager::start()` from a route handler
+- `Scene\SceneRegistry` — lazily loads and caches scene definitions from `routes/laragram/scenes.php`; `flushCache()` for tests
+- `Facades\BotScene` — `define()` scenes in the scenes file, `enter()` from a route handler
+- Global escape commands (`scenes.global_commands`) leave any scene and are re-dispatched through the normal router
+- Scenes run through the shared `Laragram::handle()` pipeline, so they work synchronously and under queue offload (the job's per-user `WithoutOverlapping` lock serializes steps)
+- Scene runtime guarantees: an invalid answer re-asks the step **without** resetting the inactivity timer (so a stream of invalid replies can't keep a scene alive past `timeout()`); back navigation prunes answers belonging to steps a changed earlier answer made ineligible (so `onComplete` never sees data inconsistent with the new answers); and a global escape command whose handler returns `BotScene::enter()` starts that new scene instead of being dropped
+
+**Broadcasting (mass messaging)**
+- `Broadcasting\Broadcaster` — entry point for sending one message to the whole user base; `view()` / `text()` return a fresh `Broadcasting\PendingBroadcast`. Bound as the `laragram.broadcast` singleton
+- `Facades\BotBroadcast` — facade for the broadcaster: `BotBroadcast::text(...)->send()` / `BotBroadcast::view(...)->role(...)->send()`
+- `Broadcasting\PendingBroadcast` — fluent audience (`role()`, `includeInactive()`, `query()`), `count()`, and `send()`; iterates recipients with `chunkById` (clearing any caller-supplied ordering first so the primary-key cursor stays stable) and renders each message inside a per-recipient guard, so one failed render is counted and skipped rather than aborting the whole run; dispatches per-recipient jobs when the queue is enabled and sends synchronously (throttled) otherwise
+- `Broadcasting\BroadcastRenderer` — renders a content spec to a Telegram payload **per recipient**, setting (and afterwards restoring) the translator locale from the user's language, honoring an explicit `null` format as already-formatted text, and injecting `chat_id = uid`
+- `Broadcasting\BroadcastResult` — value object reporting `total` / `sent` / `failed` / `queued`
+- `Jobs\SendBroadcastMessage` — queued per-recipient delivery (when `queue.enabled`); `ShouldBeEncrypted`, throttled by the `laragram` rate limiter
+- `Listeners\DeactivateUnreachableUser` — bound to `BotExceptionHandled`, marks a user inactive on a terminal/unreachable send error so future broadcasts skip them (every send, not just broadcasts); keyed on the recipient id carried in the Bot API error context and ignores a non-positive id, so a failed group/channel send can't deactivate a coincidental user; gated by `broadcast.deactivate_unreachable`
+- `laragram:broadcast {message?}` command — `--view`, `--role=*`, `--include-inactive`, `--dry-run`, `--no-confirm`; requires the `database` auth driver
+- `broadcast.chunk_size` / `broadcast.sync_delay_ms` / `broadcast.deactivate_unreachable` config keys
+
 **HTTP Layer**
 - `Http\RequestTransformer` — builds `BotRequest` from the raw update and the matched route (replaces `Support\FormRequest`)
 - `Http\ResponseTransformer` — normalizes the controller response — a single `BotResponse`/string **or an array/iterable of them** — into `output['response']['views']` (a list); per-view auto-injects `chat_id`, `callback_query_id`, and `message_id`; resolves one `redirect` per batch (last-write-wins) (replaces `Support\FormResponse`)
@@ -81,6 +103,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotResponse::setUser(User $user)` — overrides the authenticated user in the response context
 - Content-entry methods (`text()`, `view()`, `photo()`, `answer()`, `edit()`, `delete()`, media methods, `action()`) return a **fresh** `BotResponse` instance (clone-on-entry), so several can be collected into an array for a multi-message reply even when built via the `BotResponse` facade (a shared singleton); modifier methods (`keyboard()`, `redirect()`, `setUser()`) still mutate and return the same instance
 - `keyboard()` guard — throws `\LogicException` when called before a content method (`text()`, `view()`, etc.)
+- Tolerates the absence of an authenticated Telegram sender — the constructor resolves the user best-effort (`null` when there is no incoming update), so broadcasts, the `laragram:broadcast` command and queue workers can build a response and name the recipient explicitly via `setUser()`
 - Automatic escaping of `text` and `caption` fields for the active parse mode (HTML, MarkdownV2, Markdown); mark already-escaped content with `'_escaped' => true`
 
 **BotRequest**
@@ -103,6 +126,8 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `laragram:set-role {uid} {role}` — assigns a role to a user by their Telegram ID
 - `laragram:make:controller` — scaffolds a new bot controller
 - `laragram:make:view` — scaffolds a new bot view
+- `laragram:make:scene {name} [--steps=a,b]` — appends a scene (wizard) skeleton to the scenes file, creating it with the required imports if absent
+- `laragram:scene:list` — lists all registered scenes with their steps and options
 - `laragram:add-user-activity-fields` — publishes a migration adding `is_active` and `deactivated_at` columns to the users table
 - `laragram:add-role-field` — publishes a migration adding a `role VARCHAR DEFAULT 'user'` column to the users table
 
@@ -112,6 +137,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Testing\RecordingBotAPI` — a `BotAPI` test double that records outbound calls instead of hitting Telegram; used by `InteractsWithBot` to capture sent messages
 - Single-message assertions (inspect the first sent message): `assertBotRepliedWith()`, `assertBotRepliedText()`, `assertResponseContains()`, `getBotResponse()`
 - Multi-message assertions: `assertBotRepliedTimes()`, `assertNthReplyWith()`, `assertNthReplyText()`, `getBotResponses()`
+- Scene assertions: `assertInScene()`, `assertSceneStep()`, `assertSceneData()`, `assertNotInScene()`
 - Shared assertions: `assertUserRedirectedTo()`, `assertNoResponse()`
 
 **Config**
@@ -119,18 +145,23 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `auth.session.model` / `auth.session.table` — session model class and table
 - `auth.user.model` / `auth.user.table` — user model class and table
 - `bot.languages` — array of supported language codes
+- `paths.route` / `paths.scenes` — bot route and scenes file names under `routes/`; may include a subdirectory, and the default layout keeps both together in `routes/laragram/` (`laragram/routes` and `laragram/scenes`). `Support\RouteFile` resolves and validates them (rejecting `..`, backslashes, and absolute paths)
+- `scenes.cancel_commands` / `scenes.global_commands` — default cancel commands and commands that escape any scene
 - `rate.max_attempts` / `rate.decay_seconds` — rate limiting parameters
 - `security.verify_secret` — toggle for `X-Telegram-Bot-Api-Secret-Token` validation
 
 **Other**
+- `Support\UpdateType` — shared detection of the Telegram update type from a raw payload, used by both `Routing\Router` and `Scene\SceneManager`
+- `Support\OutboundPayload` — shared extraction of the Bot API method name and parameters from a formed payload (stripping the `method` key and internal `_`-prefixed bookkeeping keys), used by both `Http\ResponseDispatcher` and `Broadcasting\PendingBroadcast`
 - Laravel 13.x support (`illuminate/support: ^13.0`)
 - Support for 7 additional Telegram update types: `channel_post`, `edited_channel_post`, `poll`, `poll_answer`, `my_chat_member`, `chat_member`, `chat_join_request`
 - `BotAPI` PHPDoc `@method` annotations expanded from ~35 to ~70 Telegram API methods
-- `Facades\BotAPI`, `Facades\BotAuth`, `Facades\BotRoute`, `Facades\BotResponse` — registered facades
+- `Facades\BotAPI`, `Facades\BotAuth`, `Facades\BotRoute`, `Facades\BotResponse`, `Facades\BotScene` — registered facades
 - `src/Examples/` removed (was incorrectly autoloaded as package code)
 
 ### Changed
 
+- Bot route and scenes files now live together in `routes/laragram/` by default (`routes/laragram/routes.php` and `routes/laragram/scenes.php`); `paths.route` / `paths.scenes` accept a subdirectory and `laragram:install` scaffolds the folder. The publish targets follow the configured paths automatically
 - PHP requirement raised to `^8.3` (minimum required by Laravel 13); Laravel requirement raised to `^11.0|^12.0|^13.0`
 - `BotAPI` replaced ~40 explicit wrapper methods with a single `__call()` magic proxy — all Telegram API methods work automatically
 - `DatabaseAuthDriver` uses `updateOrCreate` atomically instead of `firstOrCreate` + `save()`; settings are merged (not replaced) on every request
@@ -174,6 +205,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Middleware/CheckAuth`: `$user['is_bot']` changed to `$user['is_bot'] ?? false` — prevents an undefined-key warning on malformed payloads that omit the field
 - `BotClient::setTimeout()` and `setConnectTimeout()` now throw `\InvalidArgumentException` when a value ≤ 0 is passed, instead of silently producing a broken cURL request
 - `BotResponse` methods that accept a `$format` argument now throw `\InvalidArgumentException` for unrecognised parse modes (e.g. `'XML'`) instead of silently falling through to legacy Markdown escaping
+- `BotClient` now forwards the outgoing `chat_id` / `user_id` to `TelegramErrorHandler` when an API call fails, so the typed exception (and the `BotExceptionHandled` listener that auto-deactivates unreachable users) carries the real recipient id instead of a placeholder `0`
 
 ### Security
 

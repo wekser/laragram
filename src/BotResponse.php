@@ -46,7 +46,17 @@ class BotResponse
     public function __construct(string $path)
     {
         $this->viewsPath = $path;
-        $this->user = BotAuth::user();
+
+        // Resolving the authenticated user is best-effort: outside a webhook
+        // request (broadcasts, the laragram:broadcast command, queue workers)
+        // there is no Telegram sender, and the laragram.auth factory throws an
+        // AuthenticationException on resolution. Such callers set the recipient
+        // explicitly via setUser(), so a missing sender must not be fatal here.
+        try {
+            $this->user = BotAuth::user();
+        } catch (\Throwable) {
+            $this->user = null;
+        }
     }
 
     /**

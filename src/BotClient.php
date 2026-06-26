@@ -118,7 +118,7 @@ class BotClient
 
         try {
             $response = $this->makeCurlRequest($url, $preparedData);
-            $result   = $this->processResponse($response, $method);
+            $result   = $this->processResponse($response, $method, $data);
 
             $this->logger->info('Received response from Telegram API', [
                 'method'  => $method,
@@ -237,7 +237,7 @@ class BotClient
      * @return mixed Processed response
      * @throws ClientResponseInvalidException
      */
-    private function processResponse(string $response, string $method): mixed
+    private function processResponse(string $response, string $method, array $requestData = []): mixed
     {
         if (empty($response)) {
             throw new ClientResponseInvalidException('Empty response from Telegram API');
@@ -256,11 +256,20 @@ class BotClient
         }
 
         if (!$decoded['ok']) {
+            // Carry the outbound recipient into the error context so typed
+            // unreachable-user exceptions (BotBlocked / UserDeactivated /
+            // ChatNotFound) expose a real id. For private chats chat_id is the
+            // user's uid, so it doubles as user_id when none was supplied.
+            $chatId = $requestData['chat_id'] ?? null;
+
             throw $this->errorHandler->handleError([
                 'error_code'  => $decoded['error_code']  ?? 0,
                 'description' => $decoded['description'] ?? 'Unknown error',
                 'parameters'  => $decoded['parameters']  ?? [],
-            ], []);
+            ], [
+                'chat_id' => $chatId,
+                'user_id' => $requestData['user_id'] ?? $chatId,
+            ]);
         }
 
         return $decoded['result'] ?? $decoded;

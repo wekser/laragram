@@ -42,7 +42,10 @@ CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` a
 | `laragram:session:prune` | Deletes expired sessions |
 | `laragram:make:controller` | Scaffolds a new bot controller |
 | `laragram:make:view` | Scaffolds a new bot view |
+| `laragram:make:scene` | Appends a scene (wizard) skeleton to the scenes file (`--steps=a,b`) |
+| `laragram:scene:list` | Lists all registered scenes with steps and options |
 | `laragram:set-role {uid} {role}` | Assigns a role to a user by their Telegram ID (requires `database` driver) |
+| `laragram:broadcast {message?}` | Mass-message the user base — view via `--view`, filter via `--role=*` / `--include-inactive`, `--dry-run`, `--no-confirm`; requires `database` driver |
 | `laragram:route:match {event} {text}` | Debug: shows which route would match a given event + text (`--station=` optional) |
 
 ## Architecture
@@ -100,7 +103,7 @@ return [
 
 ### Routing System
 
-Bot routes live in `routes/laragram.php`. The injected `$collection` variable and the `BotRoute` facade are interchangeable:
+Bot routes live in `routes/laragram/routes.php`. The injected `$collection` variable and the `BotRoute` facade are interchangeable:
 
 ```php
 // Using the injected $collection variable
@@ -147,11 +150,95 @@ $collection->group(function ($c) {
 
 **Controllers are resolved via `app($class)`**, so constructor injection through Laravel's IoC container is fully supported.
 
-**Route file name validation:** `config('laragram.paths.route')` is validated to reject `..`, `/`, and `\` before building the path — do not put path separators in this config value.
+**Route file name validation:** `config('laragram.paths.route')` (and `paths.scenes`) is resolved via `Support\RouteFile`, which **allows a subdirectory** (the default layout is `routes/laragram/routes.php` + `routes/laragram/scenes.php`) but rejects `..`, backslashes, and absolute paths so the file always resolves under `routes/`.
 
 ### Station (State Machine)
 
 Each user has a "station" string in `laragram_sessions.station`. `BotResponse::redirect('next_station')` sets the next station written by `LogSession`. With `auth.driver = array`, station is always `'start'`.
+
+### Scenes (Wizards)
+
+Scenes are a high-level multi-step dialog layer **above** the station router — for forms, surveys, onboarding. While a user is in a scene their station is the sentinel `@scene:<name>`; `Laragram::run()` (and `InteractsWithBot::botReceives()`) route those updates to `Scene\SceneManager` instead of `Routing\Router`. The current step + collected answers live in `laragram_sessions.payload['scene']`, persisted by `LogSession` from `output['scene']` — **no new table**. Scenes **require the `database` auth driver** (station/payload must survive across updates); `BotScene::enter()` throws `\RuntimeException` under the `array` driver.
+
+Define scenes in `routes/laragram/scenes.php` (`config('laragram.paths.scenes')`, default `laragram/scenes`); the file is loaded once and statically cached by `SceneRegistry` (`flushCache()` in tests):
+
+```php
+use Wekser\Laragram\Facades\BotScene;
+
+BotScene::define('order')
+    ->step('size')
+        ->ask('order.size')                                 // view name OR closure(SceneContext)
+        ->rules(['required', 'in:S,M,L'])                   // Laravel rules; on failure the SAME ask repeats
+    ->step('address')
+        ->ask(fn ($ctx) => BotResponse::text("Address for {$ctx->get('size')}?"))
+        ->rules(['min:5'])
+        ->transform(fn ($v) => trim($v))                    // map raw answer before storing
+    ->cancelOn('/cancel')                                   // default: config laragram.scenes.cancel_commands
+    ->onCancel(fn ($ctx) => BotResponse::text('Cancelled')->redirect('start'))
+    ->onComplete([OrderController::class, 'place']);         // [Controller, method] or closure; gets SceneContext
+```
+
+Enter a scene from a normal route handler — the handler returns the transition, `Router::prepareResponse()` hands off to `SceneManager::start()`:
+
+```php
+public function order(BotRequest $r) { return BotScene::enter('order'); }
+
+public function place(SceneContext $ctx) {                  // onComplete handler
+    Order::create($ctx->all());
+    return BotResponse::view('order.done')->redirect('home');
+}
+```
+
+Runtime (`SceneManager::continue()`): the step answer is read via `BotRequest::query()` (type-appropriate field — message text, callback data; override with `->using(closure)`), validated; **invalid → re-ask the same step**, valid → store (after `transform`) and advance, last step → run `onComplete`. A `cancelOn` command runs `onCancel` and exits. Redirect/scene-state is one-per-batch: mid-scene the station stays `@scene:<name>`; on completion/cancel the handler's `redirect()` wins, else falls back to `'start'`. A `ValidationException` is handled internally (re-ask, not an error); other throwables bubble to `ExceptionHandler` leaving scene state intact for a retry. Under `queue.enabled`, scenes run on the worker via the shared `Laragram::handle()`, and the job's `WithoutOverlapping` per-user lock serializes steps. `SceneContext`: `get()/all()/has()/request()/user()`. Testing: `assertInScene()`, `assertSceneStep()`, `assertSceneData()`, `assertNotInScene()`.
+
+**Step/scene options (phase 2):**
+- **Conditional steps** — `->when(fn (SceneContext $ctx) => bool)` skips a step (when entering, advancing, and going back) if the condition fails; `firstEligibleStep`/`nextEligibleStep`/`prevEligibleStep` honour it. If no step is eligible at entry, the scene completes immediately.
+- **Back navigation** — `->allowBack('/back')` (opt-in; default disabled) returns the user to the previous **eligible** step and re-asks it; on the first step it re-asks the first.
+- **Timeout** — `->timeout($minutes)` + optional `->onTimeout(handler)`; each persisted scene state carries an `at` timestamp, and a stale scene is reset (running `onTimeout` if set) before the answer is processed.
+- **Global escape commands** — `config('laragram.scenes.global_commands')` (default `[]`, opt-in) lists commands that leave any scene and are re-dispatched through `Routing\Router` (`escape()`); scene state is always cleared.
+- **Typed extractors** — `->expectText()/expectCallback()/expectContact()/expectLocation()/expectPhoto()` set the step's extractor (photo → largest size's `file_id`); equivalent to a `->using(closure)` reading `update.object.<field>`.
+- **Custom error prompt** — `->onInvalid(view|closure)` shows a dedicated message on validation failure instead of re-asking the question (still stays on the step).
+
+Scaffolding: `laragram:make:scene {name} --steps=a,b` appends a `BotScene::define()` block to the scenes file (creating it with imports if absent); `laragram:scene:list` tabulates registered scenes.
+
+### Broadcasting (Mass Messaging)
+
+Push one message to many users at once (announcements, promos, downtime notices) via the
+`Facades\BotBroadcast` facade (container alias `laragram.broadcast`, `Broadcasting\Broadcaster`)
+or the `laragram:broadcast` command. **Requires the `database` auth driver** (there are no
+persisted users under `array`) — the command guards for this.
+
+```php
+use Wekser\Laragram\Facades\BotBroadcast;
+
+BotBroadcast::text('We are back online!')->send();                 // raw text to all active users
+BotBroadcast::view('news.release', ['version' => '2.0'])           // a view, rendered PER recipient
+    ->role(['admin', 'moderator'])                                 // optional role filter (whereIn)
+    ->includeInactive()                                            // optional: also deactivated users
+    ->query(fn ($q) => $q->where('created_at', '>', now()->subMonth()))  // arbitrary extra constraint
+    ->send();
+```
+
+- `Broadcaster::view()` / `text()` each return a fresh `Broadcasting\PendingBroadcast` (clone-on-entry
+  pattern, like `BotResponse`), so the shared singleton never leaks recipient filters between broadcasts.
+- Content is a **serializable spec** (`['type' => 'view'|'text', ...]`), rendered **per recipient** by
+  `Broadcasting\BroadcastRenderer`: it sets the translator locale from the user's `settings['language']`
+  (mirroring `Laragram::bootstrap()`), builds a `BotResponse` with `setUser($recipient)`, and injects
+  `chat_id = $user->uid` (a broadcast has no incoming update, so nothing else sets it).
+- **Delivery:** `PendingBroadcast::send()` iterates recipients with `chunkById(config('laragram.broadcast.chunk_size'))`.
+  When `queue.enabled`, it dispatches one `Jobs\SendBroadcastMessage` per recipient onto the configured
+  connection/queue (throttled by the same `laragram` rate limiter as incoming updates). Otherwise it sends
+  synchronously, pausing `config('laragram.broadcast.sync_delay_ms')` between sends (default 40ms ≈ 25/sec).
+  Returns a `Broadcasting\BroadcastResult` (`total` / `sent` / `failed`, or `queued` for the queue path).
+- **Auto-deactivation of unreachable users.** `Listeners\DeactivateUnreachableUser` is bound to the
+  existing `Events\BotExceptionHandled` event, so the **first time any send** (broadcast *or* a normal
+  reply) fails with a terminal/unreachable error (`BotBlockedException` / `UserDeactivatedException` →
+  `getUserId()`, `ChatNotFoundException` → `getChatId()`), the matching `User::deactivate()` runs and
+  future broadcasts skip them. Gated by `config('laragram.broadcast.deactivate_unreachable')` (default
+  `true`), no-op under the `array` driver, and exception-safe (never breaks the swallow contract).
+- `laragram:broadcast {message?} {--view=} {--role=*} {--include-inactive} {--dry-run} {--no-confirm}`:
+  requires exactly one of `message` / `--view`, prints a recipient count on `--dry-run`, confirms before
+  sending unless `--no-confirm`.
 
 ### Namespace Structure
 
@@ -161,8 +248,21 @@ src/
 │   ├── Route.php             # Immutable Value Object (readonly props)
 │   ├── RouteCollection.php   # Fluent route DSL + file loader
 │   └── Router.php            # dispatch(), findRoute(), matching helpers
+├── Scene/
+│   ├── Scene.php             # Scene definition (steps, onComplete/onCancel, cancel commands)
+│   ├── Step.php              # One step: ask/rules/messages/transform/using (fluent, delegates scene-level calls back to Scene)
+│   ├── SceneContext.php      # Passed to prompts/handlers: get()/all()/request()/user()
+│   ├── SceneTransition.php   # Marker returned by BotScene::enter()
+│   ├── SceneRegistry.php     # Lazy loader + static cache of scenes file (flushCache() for tests)
+│   └── SceneManager.php      # Runtime: start()/continue(); produces Router-shaped output (container alias: laragram.scene)
+├── Broadcasting/
+│   ├── Broadcaster.php       # mass-messaging entry point (alias laragram.broadcast); view()/text() → PendingBroadcast
+│   ├── PendingBroadcast.php  # fluent audience (role/includeInactive/query) + send(): queue-or-sync; count()
+│   ├── BroadcastRenderer.php # content spec + recipient User → payload (per-recipient locale, chat_id = uid)
+│   └── BroadcastResult.php   # value object: total/sent/failed/queued
 ├── Jobs/
-│   └── ProcessTelegramUpdate.php # queued update processor (when queue.enabled); rebuilds Request from payload, re-resolves auth, calls Laragram::handle()
+│   ├── ProcessTelegramUpdate.php # queued update processor (when queue.enabled); rebuilds Request from payload, re-resolves auth, calls Laragram::handle()
+│   └── SendBroadcastMessage.php  # queued per-recipient broadcast delivery (when queue.enabled); RateLimited('laragram'), ShouldBeEncrypted, renders + sends via ResponseDispatcher
 ├── Http/
 │   ├── RequestTransformer.php  # update array + route → BotRequest
 │   ├── ResponseTransformer.php # controller response (single OR array) → output['response']['views'] list + chat_id injection
@@ -214,7 +314,12 @@ src/
 | `BotAuth` | Authenticates sender via `AuthDriverInterface` |
 | `BotRequest` | `get('field')`, `input('param')`, `query()`, `message()`, `callbackQuery()`, `validate()` |
 | `BotResponse` | `text()`, `view()`, `redirect()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()` |
-| `Facades\BotRoute` | Static proxy for `RouteCollection`; use inside `routes/laragram.php` instead of `$collection` |
+| `Facades\BotRoute` | Static proxy for `RouteCollection`; use inside `routes/laragram/routes.php` instead of `$collection` |
+| `Facades\BotScene` | Facade for `Scene\SceneManager`; `define()` scenes in `routes/laragram/scenes.php`, `enter()` from a route handler |
+| `Scene\SceneManager` | Scene runtime; `start()` / `continue()` produce Router-shaped output (alias `laragram.scene`) |
+| `Facades\BotBroadcast` | Facade for `Broadcasting\Broadcaster` (alias `laragram.broadcast`); `view()` / `text()` → `PendingBroadcast`, then `->send()` |
+| `Broadcasting\Broadcaster` | Mass-messaging entry point; `view()` / `text()` return a fresh `PendingBroadcast` |
+| `Listeners\DeactivateUnreachableUser` | Bound to `BotExceptionHandled`; deactivates a user on a terminal/unreachable send error |
 | `View\ComponentContext` | Stack-based context shared between `BotResponse` renderer and global helper functions |
 | `ExceptionHandler` | `handle(\Throwable)` — logs reportable exceptions, silences others |
 | `Services\MediaUploader` | `upload(string $type, string $source, int $chatId): string` — uploads local file or URL, returns `file_id` |
@@ -443,9 +548,15 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 | `auth.driver` | `database` or `array` |
 | `queue.enabled` | Defer update processing to a queue worker (`LARAGRAM_QUEUE_ENABLED`, default `false`) |
 | `queue.connection` / `queue.queue` | Queue connection (null = default) and queue name for `ProcessTelegramUpdate` |
-| `queue.rate_limit` | Max update jobs/sec across workers (`LARAGRAM_QUEUE_RATE_LIMIT`, default 25); enforced by the `laragram` named limiter |
+| `queue.rate_limit` | Max update jobs/sec across workers (`LARAGRAM_QUEUE_RATE_LIMIT`, default 25); enforced by the `laragram` named limiter (also throttles queued broadcasts) |
+| `broadcast.chunk_size` | Recipients loaded per `chunkById` batch when broadcasting (`LARAGRAM_BROADCAST_CHUNK_SIZE`, default 500) |
+| `broadcast.sync_delay_ms` | Pause between sends on the synchronous broadcast path (`LARAGRAM_BROADCAST_SYNC_DELAY_MS`, default 40 ≈ 25/sec) |
+| `broadcast.deactivate_unreachable` | Mark a user inactive on a terminal send error (`LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE`, default `true`) |
 | `auth.session.lifetime` | Minutes before session expires (default 10080 = 7 days) |
 | `paths.route` | Routes filename under `routes/` |
+| `paths.scenes` | Scenes (wizards) filename under `routes/` (default `laragram/scenes`) |
+| `scenes.cancel_commands` | Default commands that abort any scene (default `['/cancel']`) |
+| `scenes.global_commands` | Commands that escape any scene and route normally (default `[]`) |
 | `paths.views` | Views directory under `resources/` |
 | `auth.session.model` / `auth.session.table` | Session model class and table name |
 | `auth.user.model` / `auth.user.table` | User model class and table name |
@@ -468,7 +579,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **250 tests / 419 assertions**
+- Current suite: **313 tests / 574 assertions**
 
 #### Feature testing with InteractsWithBot
 
@@ -498,6 +609,8 @@ Available factory methods: `BotUpdateFactory::message()`, `callbackQuery()`, `in
 Available assertions: `assertBotRepliedWith(string $method)`, `assertBotRepliedText(string $expected)`, `assertResponseContains(string $key, mixed $value)` (all three inspect the **first** sent message), `assertUserRedirectedTo(string $station)`, `assertNoResponse()`, `getBotResponse(): array` (first message).
 
 For multi-message replies: `assertBotRepliedTimes(int $count)`, `assertNthReplyWith(int $index, string $method)`, `assertNthReplyText(int $index, string $expected)`, `getBotResponses(): array` (all sent messages, 0-based).
+
+For scenes: `assertInScene(string $name)`, `assertSceneStep(string $step)`, `assertSceneData(string $key, mixed $value)`, `assertNotInScene()`.
 
 `botReceives()` runs the full auth → router → session → **delivery** pipeline. Delivery runs the real `Http\ResponseDispatcher` against a `Testing\RecordingBotAPI` double, so assertions read the messages the bot actually sends (each `['method' => ..., ...params]`), not the raw output array. It does **not** run HTTP middleware (`VerifyTelegramSecret`, `FrameHook`, `RateLimit`). The `database` driver fires the `CallbackFormed` event; the `array` driver does not.
 

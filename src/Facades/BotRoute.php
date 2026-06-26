@@ -17,7 +17,7 @@ use Wekser\Laragram\Routing\Route;
 use Wekser\Laragram\Routing\RouteCollection;
 
 /**
- * Static façade for registering bot routes inside routes/laragram.php.
+ * Static façade for registering bot routes inside routes/laragram/routes.php.
  *
  * Equivalent to using the injected $collection variable:
  *
@@ -64,7 +64,7 @@ class BotRoute
     {
         if (self::$instance === null) {
             throw new \RuntimeException(
-                'BotRoute facade can only be used inside the bot routes file (routes/laragram.php).'
+                'BotRoute facade can only be used inside the bot routes file (routes/laragram/routes.php).'
             );
         }
 

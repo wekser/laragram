@@ -17,11 +17,12 @@ use Wekser\Laragram\Exceptions\NotFoundRouteFileException;
 use Wekser\Laragram\Exceptions\RouteActionInvalidException;
 use Wekser\Laragram\Exceptions\RouteEventInvalidException;
 use Wekser\Laragram\Facades\BotRoute;
+use Wekser\Laragram\Support\RouteFile;
 
 /**
  * Fluent route builder used inside the bot's routes file.
  *
- * Usage (in routes/laragram.php):
+ * Usage (in routes/laragram/routes.php):
  *
  *   $collection->get('message')
  *              ->from('start')
@@ -252,11 +253,11 @@ class RouteCollection
     {
         $routeName = (string) config('laragram.paths.route');
 
-        if (str_contains($routeName, '..') || str_contains($routeName, '/') || str_contains($routeName, '\\')) {
+        if (!RouteFile::isValidName($routeName)) {
             throw new NotFoundRouteFileException("Invalid route name: {$routeName}");
         }
 
-        $path = base_path("routes/{$routeName}.php");
+        $path = RouteFile::path($routeName);
 
         if (!is_file($path)) {
             throw new NotFoundRouteFileException($path);
