@@ -13,12 +13,20 @@ return [
     'start' => [
         'greeting' => 'Hello, :name!',
         'body'     => 'Thank you for using <b>Laragram</b>!',
-        'tip'      => 'Try writing something and I will echo it back — or tap a button above ⬆️',
+        'tip'      => 'Try writing something and I will echo it back, tap a button above ⬆️, or send /order to try a multi-step scene.',
         'btn_foo'  => 'Foo',
         'btn_bar'  => 'Bar',
     ],
 
     'callback' => [
         'btn_click' => 'You clicked :name!',
+    ],
+
+    // The /order demo scene (routes/laragram/scenes.php + OrderController).
+    'order' => [
+        'size'      => 'What size would you like? Reply with <b>S</b>, <b>M</b> or <b>L</b>.',
+        'address'   => 'Where should we deliver your order?',
+        'placed'    => "✅ Order confirmed!\nSize: :size\nAddress: :address",
+        'cancelled' => 'Order cancelled.',
     ],
 ];

@@ -41,8 +41,9 @@ class LaragramPublishCommand extends Command
             $this->call('vendor:publish', ['--tag' => 'laragram-views', '--force' => $this->option('force')]);
             $this->call('vendor:publish', ['--tag' => 'laragram-lang', '--force' => $this->option('force')]);
             $this->createRoute();
-            $this->createController();
-            $this->info('Laragram views, translations, routes and HelloController were published.');
+            $this->createScenes();
+            $this->createControllers();
+            $this->info('Laragram views, translations, routes, scenes and demo controllers were published.');
         }
     }
 
@@ -107,29 +108,62 @@ class LaragramPublishCommand extends Command
     }
 
     /**
-     * Publish the example HelloController to the application.
+     * Publish (or create) the demo scenes file.
+     *
+     * The bundled scene defines the multi-step "order" wizard that the demo
+     * routes enter via the /order command.
      *
      * @return void
      */
-    protected function createController()
+    protected function createScenes(): void
     {
-        $directory = app_path('Http/Controllers/Laragram');
-        $file      = $directory . '/HelloController.php';
+        $scenesName = config('laragram.paths.scenes', 'laragram/scenes');
+        $file       = base_path("routes/{$scenesName}.php");
+        $stub       = file_get_contents(__DIR__ . '/stubs/routes/scenes.stub');
+
+        if (!is_dir($directory = dirname($file))) {
+            mkdir($directory, 0755, true);
+        }
 
         if (file_exists($file) && !$this->option('force')) {
-            if (!$this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
-                return;
-            }
+            $this->warn("Scenes file [{$file}] already exists; skipped (use --force to overwrite).");
+            return;
         }
+
+        file_put_contents($file, $stub);
+        $this->info("Scenes file [{$file}] published.");
+    }
+
+    /**
+     * Publish the example bot controllers to the application.
+     *
+     * HelloController powers the /start echo demo; OrderController drives the
+     * /order scene demo.
+     *
+     * @return void
+     */
+    protected function createControllers()
+    {
+        $directory = app_path('Http/Controllers/Laragram');
 
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 
-        $stub = file_get_contents(__DIR__ . '/stubs/controllers/HelloController.stub');
-        $stub = str_replace('{{namespace}}', $this->getAppNamespace(), $stub);
+        foreach (['HelloController', 'OrderController'] as $controller) {
+            $file = $directory . "/{$controller}.php";
 
-        file_put_contents($file, $stub);
+            if (file_exists($file) && !$this->option('force')) {
+                if (!$this->confirm("The [{$file}] controller already exists. Do you want to replace it?")) {
+                    continue;
+                }
+            }
+
+            $stub = file_get_contents(__DIR__ . "/stubs/controllers/{$controller}.stub");
+            $stub = str_replace('{{namespace}}', $this->getAppNamespace(), $stub);
+
+            file_put_contents($file, $stub);
+        }
     }
 
     /**

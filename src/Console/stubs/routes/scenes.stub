@@ -18,7 +18,8 @@
  *       ->onCancel([Ctrl::class, 'm'])   Optional: handle cancellation
  *       ->onComplete([Ctrl::class, 'm']) Required: handle the finished wizard
  *
- * Enter a scene from a normal route handler:
+ * Enter a scene from a normal route handler — the published demo wires this to
+ * the /order command (see routes/laragram/routes.php → OrderController::order):
  *
  *   public function order(BotRequest $r) { return BotScene::enter('order'); }
  *
@@ -33,12 +34,12 @@ use Wekser\Laragram\Facades\BotScene;
 
 BotScene::define('order')
     ->step('size')
-        ->ask(fn ($ctx) => BotResponse::text('What size? Reply with S, M or L.'))
+        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.size')))
         ->rules(['required', 'in:S,M,L'])
     ->step('address')
-        ->ask(fn ($ctx) => BotResponse::text('Where should we deliver?'))
+        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.address')))
         ->rules(['required', 'string', 'min:5'])
         ->transform(fn ($value) => trim($value))
     ->cancelOn('/cancel')
-    ->onCancel(fn ($ctx) => BotResponse::text('Order cancelled.')->redirect('start'))
+    ->onCancel(fn ($ctx) => BotResponse::text(__('laragram.order.cancelled'))->redirect('home'))
     ->onComplete([OrderController::class, 'place']);
