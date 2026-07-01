@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Laragram is a Laravel package (namespace `Wekser\Laragram`) for building Telegram bots in a REST/MVC style. It is a **Composer library** — not a standalone Laravel app — so there is no `artisan` in the repo root.
 
 - PHP ^8.3, Laravel ^12|^13
-- Package is auto-discovered via `extra.laravel` in `composer.json`
+- Package is auto-discovered via `extra.laravel` in `composer.json`, which also registers short class aliases — `BotAPI`, `BotAuth`, `BotResponse`, `BotRoute`, `BotScene` — so `\BotRoute::get(...)` works in a host app equivalently to the fully-qualified `Wekser\Laragram\Facades\BotRoute` used throughout this doc. (`BotBroadcast` is deliberately **not** aliased — reach it only via the full `Wekser\Laragram\Facades\BotBroadcast` class.)
 
 ## Commands
 
@@ -31,8 +31,8 @@ CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` a
 
 | Command | Description |
 |---|---|
-| `laragram:install` | Publishes all package assets |
-| `laragram:publish` | Selective publish (config / migrations / views / lang / routes) |
+| `laragram:install` | Bootstraps a host app: config, migrations, **blank** route + scene files, and `.env` variables |
+| `laragram:publish` | Publishes the runnable demo: views, lang, demo controllers, and **appends** demo routes + the demo `order` scene |
 | `laragram:webhook:set` | Registers webhook with Telegram |
 | `laragram:webhook:remove` | Removes the webhook |
 | `laragram:getMe` | Calls `getMe`, displays bot info |
@@ -47,6 +47,8 @@ CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` a
 | `laragram:set-role {uid} {role}` | Assigns a role to a user by their Telegram ID (requires `database` driver) |
 | `laragram:broadcast {message?}` | Mass-message the user base — view via `--view`, filter via `--role=*` / `--include-inactive`, `--dry-run`, `--no-confirm`; requires `database` driver |
 | `laragram:route:match {event} {text}` | Debug: shows which route would match a given event + text (`--station=` optional) |
+
+**`install` vs `publish` — how the demo is wired.** `install` lays down *blank* `routes/laragram/routes.php` and `scenes.php` (bare header comments). `publish` then layers the demo on top: it **appends** the demo routes to `routes.php` and the demo `order` scene to `scenes.php` (rather than skipping either) so the appended `/order` route — which enters `BotScene::enter('order')` — actually has its scene defined. Both appends are **idempotent** via marker sentinels (`// --- Demo routes (added by laragram:publish) ---` / `// --- Demo scene ... ---`): a second `publish` detects the marker and skips, so it never duplicates the demo block. `--force` on either overwrites the whole file with the demo stub instead of appending. When touching `LaragramPublishCommand::publishDemoStub()`, keep routes and scenes symmetric — an appended demo route with no matching demo scene is the exact bug this wiring exists to prevent (see `tests/Unit/Console/LaragramPublishCommandTest.php`).
 
 ## Architecture
 
@@ -579,7 +581,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **313 tests / 574 assertions**
+- Current suite: **320 tests / 593 assertions**
 
 #### Feature testing with InteractsWithBot
 
