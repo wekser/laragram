@@ -54,9 +54,45 @@ class LaragramPublishCommand extends Command
      */
     protected function createRoute(): void
     {
-        $routeName = config('laragram.paths.route', 'laragram/routes');
-        $file      = base_path("routes/{$routeName}.php");
-        $stub      = file_get_contents(__DIR__ . '/stubs/routes/laragram.stub');
+        $this->publishDemoStub(
+            (string) config('laragram.paths.route', 'laragram/routes'),
+            __DIR__ . '/stubs/routes/laragram.stub',
+            'Demo routes',
+            '// --- Demo routes (added by laragram:publish) ---'
+        );
+    }
+
+    /**
+     * Publish (or append) the demo "order" scene to the scenes file.
+     *
+     * The bundled scene defines the multi-step "order" wizard that the demo
+     * routes enter via the /order command; it must land alongside those routes
+     * or the appended /order route would reference an undefined scene.
+     *
+     * @return void
+     */
+    protected function createScenes(): void
+    {
+        $this->publishDemoStub(
+            (string) config('laragram.paths.scenes', 'laragram/scenes'),
+            __DIR__ . '/stubs/routes/scenes.stub',
+            'Demo scene',
+            '// --- Demo scene (added by laragram:publish) ---'
+        );
+    }
+
+    /**
+     * Publish a demo stub under routes/: create the file when absent, overwrite
+     * on --force, otherwise append the stub body (deduplicating use-imports) to
+     * the existing file. The $marker sentinel makes the append idempotent so a
+     * second publish does not duplicate the demo block.
+     *
+     * @return void
+     */
+    protected function publishDemoStub(string $name, string $stubPath, string $label, string $marker): void
+    {
+        $file = base_path("routes/{$name}.php");
+        $stub = file_get_contents($stubPath);
 
         if (!is_dir($directory = dirname($file))) {
             mkdir($directory, 0755, true);
@@ -64,17 +100,25 @@ class LaragramPublishCommand extends Command
 
         if (!file_exists($file)) {
             file_put_contents($file, $stub);
-            $this->info("Route file [{$file}] created.");
+            $this->info("{$label} file [{$file}] created.");
             return;
         }
 
         if ($this->option('force')) {
             file_put_contents($file, $stub);
-            $this->info("Route file [{$file}] overwritten.");
+            $this->info("{$label} file [{$file}] overwritten.");
             return;
         }
 
-        // Strip `<?php` and the opening block comment so we only append the route body.
+        $existing = file_get_contents($file);
+
+        // Idempotent: the demo block was already appended by a previous publish.
+        if (str_contains($existing, $marker)) {
+            $this->warn("{$label} already present in [{$file}]; skipped (use --force to overwrite).");
+            return;
+        }
+
+        // Strip `<?php` and the opening block comment so we only append the body.
         $appendable = preg_replace('/^<\?php\s*\/\*.*?\*\/\s*/s', '', $stub);
 
         // Separate use-import lines from the rest of the body.
@@ -92,46 +136,17 @@ class LaragramPublishCommand extends Command
             }
         }
 
-        $existing = file_get_contents($file);
-
         // Only include use statements that are not already in the file.
         $newUses = array_filter($useLines, fn($use) => !str_contains($existing, trim($use)));
 
-        $append  = "\n// --- Demo routes (added by laragram:publish) ---\n";
+        $append = "\n{$marker}\n";
         if (!empty($newUses)) {
             $append .= implode("\n", $newUses) . "\n";
         }
         $append .= ltrim(implode("\n", $bodyLines));
 
         file_put_contents($file, rtrim($existing) . "\n" . $append);
-        $this->info("Demo routes appended to [{$file}].");
-    }
-
-    /**
-     * Publish (or create) the demo scenes file.
-     *
-     * The bundled scene defines the multi-step "order" wizard that the demo
-     * routes enter via the /order command.
-     *
-     * @return void
-     */
-    protected function createScenes(): void
-    {
-        $scenesName = config('laragram.paths.scenes', 'laragram/scenes');
-        $file       = base_path("routes/{$scenesName}.php");
-        $stub       = file_get_contents(__DIR__ . '/stubs/routes/scenes.stub');
-
-        if (!is_dir($directory = dirname($file))) {
-            mkdir($directory, 0755, true);
-        }
-
-        if (file_exists($file) && !$this->option('force')) {
-            $this->warn("Scenes file [{$file}] already exists; skipped (use --force to overwrite).");
-            return;
-        }
-
-        file_put_contents($file, $stub);
-        $this->info("Scenes file [{$file}] published.");
+        $this->info("{$label} appended to [{$file}].");
     }
 
     /**
