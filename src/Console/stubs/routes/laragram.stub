@@ -17,12 +17,18 @@
  */
 
 use App\Http\Controllers\Laragram\HelloController;
+use App\Http\Controllers\Laragram\OrderController;
 use Wekser\Laragram\Facades\BotRoute;
 
 // Any station: match /start command
 BotRoute::get('message')
     ->contains('/start')
     ->call([HelloController::class, 'start']);
+
+// Any station: /order starts the multi-step "order" scene (routes/laragram/scenes.php)
+BotRoute::get('message')
+    ->contains('/order')
+    ->call([OrderController::class, 'order']);
 
 // Station 'home': echo back whatever the user sends
 BotRoute::get('message')
