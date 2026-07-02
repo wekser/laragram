@@ -293,6 +293,10 @@ src/
 ├── Exceptions/
 │   ├── ExceptionHandler.php   # static handler (NOT an exception class itself)
 │   └── ...                    # typed exceptions hierarchy
+├── Support/
+│   ├── RouteFile.php          # validates/resolves config paths.route & paths.scenes under routes/ (rejects .., backslash, absolute)
+│   ├── OutboundPayload.php    # method()/params() — strips internal '_'-prefixed keys; shared by ResponseDispatcher + PendingBroadcast so both send identically
+│   └── UpdateType.php         # detect(array $update): string — single source of update-type detection, shared by Router + SceneManager
 ├── BotAPI.php        # __call() proxy → BotClient (all Telegram methods work automatically)
 ├── BotAuth.php       # extracts sender, drives AuthDriverInterface
 ├── BotClient.php     # cURL transport to api.telegram.org
