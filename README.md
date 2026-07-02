@@ -250,7 +250,8 @@ $response->text('Choose:')->keyboard(
 $response->text('Choose:')->keyboard(
     ReplyKeyboard::make()
         ->button('Option A')->button('Option B')
-        ->row()->button('Help')
+        ->row()
+        ->requestLocation('📍 Send my location')   // also requestContact / requestPoll / requestUser / requestChat
         ->resize()->oneTime()
         ->toArray()
 );
@@ -259,7 +260,7 @@ ReplyKeyboard::remove();   // ['remove_keyboard' => true]
 ForceReply::make()->placeholder('Type here…')->toArray();
 ```
 
-`InlineKeyboard` covers the full button API (`switchInline()`, `switchInlineChosen()`, `switchInlineChosenChat()`, `loginUrl()`, `copyText()`, `pay()`, `callbackGame()`, plus a `paginate()` helper). Every button method on **both** builders accepts optional trailing `style:` (`primary`/`success`/`danger`) and `icon:` (custom emoji) attributes — e.g. `->button('Delete', 'rm', style: 'danger')` (Bot API 9.4+).
+`InlineKeyboard` covers the full button API (`switchInline()`, `switchInlineChosen()`, `switchInlineChosenChat()`, `loginUrl()`, `copyText()`, `pay()`, `callbackGame()`, plus a `paginate()` helper); `ReplyKeyboard` adds one-tap `requestContact()` / `requestLocation()` / `requestPoll()` / `requestUser()` / `requestChat()` buttons. Every button method on **both** builders accepts optional trailing `style:` (`primary`/`success`/`danger`) and `icon:` (custom emoji) attributes — e.g. `->button('Delete', 'rm', style: 'danger')` (Bot API 9.4+).
 
 ---
 
@@ -309,11 +310,16 @@ Define scenes in `routes/laragram/scenes.php`:
 ```php
 use Wekser\Laragram\Facades\BotResponse;
 use Wekser\Laragram\Facades\BotScene;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
 
 BotScene::define('order')
     ->step('size')
-        ->ask(fn ($ctx) => BotResponse::text('Size? (S/M/L)'))
-        ->rules(['required', 'in:S,M,L'])
+        ->ask(fn ($ctx) => BotResponse::text('What size?')->keyboard(   // pick by tapping
+            InlineKeyboard::make()
+                ->button('Small', 'Small')->button('Medium', 'Medium')->button('Large', 'Large')
+                ->toArray()))
+        ->expectCallback()                                             // read the tapped button
+        ->rules(['required', 'in:Small,Medium,Large'])
     ->step('address')
         ->ask(fn ($ctx) => BotResponse::text("Address for {$ctx->get('size')}?"))
         ->rules(['required', 'min:5'])

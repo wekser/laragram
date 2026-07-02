@@ -16,17 +16,25 @@ return [
         'tip'      => 'Try writing something and I will echo it back, tap a button above ⬆️, or send /order to try a multi-step scene.',
         'btn_foo'  => 'Foo',
         'btn_bar'  => 'Bar',
+        'btn_repo' => '⭐ GitHub',
     ],
 
     'callback' => [
-        'btn_click' => 'You clicked :name!',
+        // A short toast shown on the button (answerCallbackQuery)…
+        'toast'     => 'You tapped :name 👆',
+        // …plus a normal message sent in reply.
+        'btn_click' => 'You clicked <b>:name</b>! Send /start to see the buttons again.',
     ],
 
     // The /order demo scene (routes/laragram/scenes.php + OrderController).
     'order' => [
-        'size'      => 'What size would you like? Reply with <b>S</b>, <b>M</b> or <b>L</b>.',
-        'address'   => 'Where should we deliver your order?',
-        'placed'    => "✅ Order confirmed!\nSize: :size\nAddress: :address",
-        'cancelled' => 'Order cancelled.',
+        'size'          => 'Welcome to the demo pizzeria! 🍕 <b>What size</b> would you like?',
+        'size_s'        => '🍕 Small',
+        'size_m'        => '🍕 Medium',
+        'size_l'        => '🍕 Large',
+        'address'       => "Great — one <b>:size</b> pizza. 📍\nTap the button to share your location, or just type the <b>delivery address</b>.\n\n<i>Send /back to change the size, or /cancel to abort.</i>",
+        'send_location' => '📍 Send my location',
+        'placed'        => "✅ <b>Order confirmed!</b>\nSize: :size\nAddress: :address\n\nSend /order to try again.",
+        'cancelled'     => 'Order cancelled. Send /order to start over.',
     ],
 ];

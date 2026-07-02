@@ -44,11 +44,20 @@ class HelloController extends Controller
 
     /**
      * React to the inline button press (callback_query with '/click {name}').
+     *
+     * Returns two responses: answer() acknowledges the tap with a small toast
+     * (answerCallbackQuery — always do this so the button stops "loading"), and
+     * text() sends a normal follow-up message.
+     *
+     * @return BotResponse[]
      */
-    public function callback(BotRequest $request): BotResponse
+    public function callback(BotRequest $request): array
     {
-        return $this->response->text(
-            trans('laragram.callback.btn_click', ['name' => $request->input('name')])
-        );
+        $name = $request->input('name');
+
+        return [
+            $this->response->answer(trans('laragram.callback.toast', ['name' => $name])),
+            $this->response->text(trans('laragram.callback.btn_click', ['name' => $name])),
+        ];
     }
 }
