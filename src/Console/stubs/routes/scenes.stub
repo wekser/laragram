@@ -43,7 +43,7 @@ BotScene::define('order')
     // the user never has to type "S/M/L" by hand. The labels are translated but
     // the callback_data stays in English so validation is language-independent.
     ->step('size')
-        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.size'))
+        ->ask(fn ($ctx) => BotResponse::view('order.size')
             ->keyboard(InlineKeyboard::make()
                 ->button(__('laragram.order.size_s'), 'Small')
                 ->button(__('laragram.order.size_m'), 'Medium')
@@ -57,7 +57,7 @@ BotScene::define('order')
     // works on mobile and desktop alike. The prompt echoes the size chosen in
     // step 1, proving collected answers are available to later steps.
     ->step('address')
-        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.address', ['size' => $ctx->get('size')]))
+        ->ask(fn ($ctx) => BotResponse::view('order.address', ['size' => $ctx->get('size')])
             ->keyboard(ReplyKeyboard::make()
                 ->requestLocation(__('laragram.order.send_location'))
                 ->resize()
