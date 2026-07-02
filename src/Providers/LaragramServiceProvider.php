@@ -268,6 +268,10 @@ class LaragramServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/../Console/stubs/views/start.stub'          => resource_path(config('laragram.paths.views') . '/start/text.php'),
                 __DIR__ . '/../Console/stubs/views/start_keyboard.stub' => resource_path(config('laragram.paths.views') . '/start/inline_keyboard.php'),
+                __DIR__ . '/../Console/stubs/views/click.stub'          => resource_path(config('laragram.paths.views') . '/click/text.php'),
+                __DIR__ . '/../Console/stubs/views/order_size.stub'     => resource_path(config('laragram.paths.views') . '/order/size/text.php'),
+                __DIR__ . '/../Console/stubs/views/order_address.stub'  => resource_path(config('laragram.paths.views') . '/order/address/text.php'),
+                __DIR__ . '/../Console/stubs/views/order_placed.stub'   => resource_path(config('laragram.paths.views') . '/order/placed/text.php'),
             ], 'laragram-views');
 
             $this->publishes([

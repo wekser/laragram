@@ -1,0 +1,1 @@
+{!! __('laragram.callback.btn_click', ['name' => $name]) !!}

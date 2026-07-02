@@ -1,0 +1,1 @@
+{!! __('laragram.order.placed', ['size' => $size, 'address' => $address]) !!}

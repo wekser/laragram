@@ -35,10 +35,10 @@ class OrderController extends Controller
      */
     public function place(SceneContext $context): BotResponse
     {
-        return BotResponse::text(__('laragram.order.placed', [
+        return BotResponse::view('order.placed', [
             'size'    => $context->get('size'),
             'address' => $context->get('address'),
-        ]))->keyboard(ReplyKeyboard::remove())  // hide the "share location" keyboard
+        ])->keyboard(ReplyKeyboard::remove())  // hide the "share location" keyboard
           ->redirect('home');
     }
 }

@@ -47,7 +47,9 @@ class HelloController extends Controller
      *
      * Returns two responses: answer() acknowledges the tap with a small toast
      * (answerCallbackQuery — always do this so the button stops "loading"), and
-     * text() sends a normal follow-up message.
+     * view('click') sends a normal follow-up message. The message carries HTML
+     * markup, so it is rendered through a view (which emits the translation raw)
+     * rather than text(), whose whole-string escaping would show the tags.
      *
      * @return BotResponse[]
      */
@@ -57,7 +59,7 @@ class HelloController extends Controller
 
         return [
             $this->response->answer(trans('laragram.callback.toast', ['name' => $name])),
-            $this->response->text(trans('laragram.callback.btn_click', ['name' => $name])),
+            $this->response->view('click', ['name' => $name]),
         ];
     }
 }
