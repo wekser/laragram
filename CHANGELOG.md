@@ -57,7 +57,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 
 **Telegram Helpers**
 - `Telegram\Keyboards\InlineKeyboard` — fluent builder for `InlineKeyboardMarkup` covering the full `InlineKeyboardButton` API: `button()`, `href()`, `webApp()`, `switchInline()`, `switchInlineChosen()`, `switchInlineChosenChat()` (Bot API 6.7+), `loginUrl()`, `copyText()` (Bot API 7.11+), `pay()`, `callbackGame()`, plus `raw()`, `row()`, and a `paginate()` helper
-- `Telegram\Keyboards\ReplyKeyboard` — fluent builder for `ReplyKeyboardMarkup`; static `remove()` for `ReplyKeyboardRemove`
+- `Telegram\Keyboards\ReplyKeyboard` — fluent builder for `ReplyKeyboardMarkup`; one-tap request buttons `requestContact()`, `requestLocation()`, `requestPoll()`, `requestUser()` / `requestChat()` (Bot API 6.5+), the `resize()` / `oneTime()` / `persistent()` / `selective()` / `placeholder()` options, and static `remove()` for `ReplyKeyboardRemove`
 - `Telegram\Keyboards\ForceReply` — fluent builder for `ForceReply` with `placeholder()` and `selective()` options
 - `Telegram\Media\MediaGroup` — fluent builder for `sendMediaGroup` payloads (up to 10 items)
 - `Enums\ButtonStyle` — string-backed enum (`Primary` / `Success` / `Danger`) for the Bot API 9.4 button color; `normalize()` validates a string/enum and `decorate()` merges the `style` / `icon_custom_emoji_id` fields into a button payload

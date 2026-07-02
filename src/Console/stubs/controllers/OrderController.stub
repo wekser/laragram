@@ -8,6 +8,7 @@ use Wekser\Laragram\Facades\BotResponse;
 use Wekser\Laragram\Facades\BotScene;
 use Wekser\Laragram\Scene\SceneContext;
 use Wekser\Laragram\Scene\SceneTransition;
+use Wekser\Laragram\Telegram\Keyboards\ReplyKeyboard;
 
 class OrderController extends Controller
 {
@@ -37,6 +38,7 @@ class OrderController extends Controller
         return BotResponse::text(__('laragram.order.placed', [
             'size'    => $context->get('size'),
             'address' => $context->get('address'),
-        ]))->redirect('home');
+        ]))->keyboard(ReplyKeyboard::remove())  // hide the "share location" keyboard
+          ->redirect('home');
     }
 }

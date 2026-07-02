@@ -13,7 +13,10 @@
  *           ->ask('view.name')           Question: a view name…
  *           ->ask(fn ($ctx) => ...)      …or a closure returning BotResponse|string|array
  *           ->rules(['required', '...']) Laravel validation; on failure the step re-asks
+ *           ->expectCallback()           Read the answer from a tapped inline button
+ *                                        (also: expectText/expectContact/expectLocation/expectPhoto)
  *           ->transform(fn ($v) => ...)  Map the raw answer before storing it
+ *       ->allowBack('/back')             Optional: let the user step backwards
  *       ->cancelOn('/cancel')            Commands that abort the scene
  *       ->onCancel([Ctrl::class, 'm'])   Optional: handle cancellation
  *       ->onComplete([Ctrl::class, 'm']) Required: handle the finished wizard
@@ -31,15 +34,48 @@
 use App\Http\Controllers\Laragram\OrderController;
 use Wekser\Laragram\Facades\BotResponse;
 use Wekser\Laragram\Facades\BotScene;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
+use Wekser\Laragram\Telegram\Keyboards\ReplyKeyboard;
 
 BotScene::define('order')
+    // Step 1 — pick a size by tapping an inline button. expectCallback() reads
+    // the answer from the button's callback_data instead of a typed message, so
+    // the user never has to type "S/M/L" by hand. The labels are translated but
+    // the callback_data stays in English so validation is language-independent.
     ->step('size')
-        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.size')))
-        ->rules(['required', 'in:S,M,L'])
+        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.size'))
+            ->keyboard(InlineKeyboard::make()
+                ->button(__('laragram.order.size_s'), 'Small')
+                ->button(__('laragram.order.size_m'), 'Medium')
+                ->button(__('laragram.order.size_l'), 'Large')
+                ->toArray()))
+        ->expectCallback()
+        ->rules(['required', 'in:Small,Medium,Large'])
+    // Step 2 — delivery address. The reply keyboard offers a one-tap "share my
+    // location" button (requestLocation); the custom using() extractor prefers a
+    // shared location and otherwise falls back to a typed address, so the step
+    // works on mobile and desktop alike. The prompt echoes the size chosen in
+    // step 1, proving collected answers are available to later steps.
     ->step('address')
-        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.address')))
+        ->ask(fn ($ctx) => BotResponse::text(__('laragram.order.address', ['size' => $ctx->get('size')]))
+            ->keyboard(ReplyKeyboard::make()
+                ->requestLocation(__('laragram.order.send_location'))
+                ->resize()
+                ->oneTime()
+                ->toArray()))
+        ->using(function ($request) {
+            // A shared location → "lat, lng"; otherwise the typed message text.
+            $location = $request->get('location');
+
+            return is_array($location)
+                ? sprintf('%s, %s', $location['latitude'], $location['longitude'])
+                : $request->get('text');
+        })
         ->rules(['required', 'string', 'min:5'])
         ->transform(fn ($value) => trim($value))
+    ->allowBack('/back')   // send /back on the address step to change the size
     ->cancelOn('/cancel')
-    ->onCancel(fn ($ctx) => BotResponse::text(__('laragram.order.cancelled'))->redirect('home'))
+    ->onCancel(fn ($ctx) => BotResponse::text(__('laragram.order.cancelled'))
+        ->keyboard(ReplyKeyboard::remove())
+        ->redirect('home'))
     ->onComplete([OrderController::class, 'place']);
