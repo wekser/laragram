@@ -104,7 +104,7 @@ class LaragramPublishCommandTest extends TestCase
         $this->assertStringContainsString("BotScene::define('order')", $contents);
         $this->assertStringContainsString('// --- Demo scene (added by laragram:publish) ---', $contents);
         // The original blank header is preserved (we appended, not overwrote).
-        $this->assertStringContainsString('Laragram scenes (multi-step wizards)', $contents);
+        $this->assertStringContainsString('| Laragram Scenes', $contents);
         // BotScene use-import from the blank file is not duplicated.
         $this->assertSame(1, substr_count($contents, 'use Wekser\Laragram\Facades\BotScene;'));
         // OrderController import from the demo scene was added.

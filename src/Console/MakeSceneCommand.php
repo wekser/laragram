@@ -80,9 +80,10 @@ class MakeSceneCommand extends Command
         <?php
 
         /*
-         * Laragram scenes (multi-step wizards).
-         * See: https://github.com/wekser/laragram
-         */
+        |--------------------------------------------------------------------------
+        | Laragram Scenes
+        |--------------------------------------------------------------------------
+        */
 
         use Wekser\Laragram\Facades\BotResponse;
         use Wekser\Laragram\Facades\BotScene;
