@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property int $user_id
+ * @property int|null $chat_id
  * @property int $update_id
  * @property string $station
  * @property array $payload
@@ -40,7 +41,7 @@ class Session extends Model
      * @var array
      */
     protected $fillable = [
-        'user_id', 'update_id', 'station', 'payload', 'last_activity',
+        'user_id', 'chat_id', 'update_id', 'station', 'payload', 'last_activity',
     ];
 
     /**

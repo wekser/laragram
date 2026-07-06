@@ -140,10 +140,10 @@ class PollCommand extends Command
             $locale = $user->settings->get('language', config('app.locale'));
             app('translator')->setLocale($locale ?? 'en');
 
-            // Resolve station
+            // Resolve station for the originating chat (per-conversation state)
             $station = (config('laragram.auth.driver') !== 'database')
                 ? 'start'
-                : (empty($session = $user->session()) ? 'start' : $session->station);
+                : (empty($session = $user->session($auth->chatId())) ? 'start' : $session->station);
 
             // Dispatch through router
             $output = (new Router($station))->dispatch($update);

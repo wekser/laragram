@@ -52,6 +52,8 @@ class DemoStubRenderingTest extends TestCase
         $this->publishView('views/order_size.stub', 'order/size/text.php');
         $this->publishView('views/order_address.stub', 'order/address/text.php');
         $this->publishView('views/order_placed.stub', 'order/placed/text.php');
+        $this->publishView('views/payment_done.stub', 'payment/done/text.php');
+        $this->publishView('views/file_saved.stub', 'file/saved/text.php');
     }
 
     protected function tearDown(): void
@@ -62,6 +64,8 @@ class DemoStubRenderingTest extends TestCase
             @rmdir($dir);
         }
         @rmdir($this->viewsRoot . '/order');
+        @rmdir($this->viewsRoot . '/payment');
+        @rmdir($this->viewsRoot . '/file');
 
         BotResponse::flushTemplateCache();
 
@@ -105,6 +109,25 @@ class DemoStubRenderingTest extends TestCase
         $this->assertSame('HTML', $contents['parse_mode']);
         $this->assertStringContainsString('<b>Foo</b>', $contents['text']);
         $this->assertStringNotContainsString('&lt;b&gt;', $contents['text']);
+    }
+
+    public function test_payment_done_confirmation_renders_bold_raw(): void
+    {
+        $contents = $this->render('payment.done', ['amount' => 50]);
+
+        $this->assertSame('HTML', $contents['parse_mode']);
+        $this->assertStringContainsString('<b>Thank you</b>', $contents['text']);
+        $this->assertStringContainsString('50', $contents['text']);
+        $this->assertStringNotContainsString('&lt;', $contents['text']);
+    }
+
+    public function test_file_saved_confirmation_renders_bold_raw(): void
+    {
+        $contents = $this->render('file.saved', ['path' => 'inbox/report.pdf']);
+
+        $this->assertSame('HTML', $contents['parse_mode']);
+        $this->assertStringContainsString('<b>inbox/report.pdf</b>', $contents['text']);
+        $this->assertStringNotContainsString('&lt;', $contents['text']);
     }
 
     /** Render a demo view and return its assembled payload. */

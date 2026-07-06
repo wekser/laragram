@@ -13,7 +13,9 @@ declare(strict_types=1);
 namespace Wekser\Laragram;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Wekser\Laragram\Events\CallbackFormed;
+use Wekser\Laragram\Events\PaymentReceived;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
 use Wekser\Laragram\Facades\BotAuth;
 use Wekser\Laragram\Http\ResponseDispatcher;
@@ -104,6 +106,8 @@ class Laragram
 
         $this->bootstrap();
 
+        $this->capturePayment();
+
         $this->run();
 
         $this->fireEvent();
@@ -143,7 +147,12 @@ class Laragram
      */
     protected function defineStation(): string
     {
-        $session = $this->user?->session();
+        // Resolve the per-conversation session for the chat this update came from.
+        // Derived from the payload directly (a pure, stateless lookup) so it is
+        // correct even under a long-running queue worker where the BotAuth
+        // singleton could otherwise carry a previous update's chat.
+        $chat    = \Wekser\Laragram\BotAuth::findChatInPayload($this->request->all());
+        $session = $this->user?->session(isset($chat['id']) ? (int) $chat['id'] : null);
 
         if (empty($session)) {
             return 'start';
@@ -152,6 +161,32 @@ class Laragram
         $this->sceneState = $session->payload['scene'] ?? null;
 
         return $session->station;
+    }
+
+    /**
+     * Fire PaymentReceived when the update carries a completed payment.
+     *
+     * Telegram delivers a successful payment as a `successful_payment` field on a
+     * message update. Detecting it here — before routing — means the event (and
+     * the bundled history recorder) fires whether or not the host defined a route
+     * for it. Runs on both the sync and queued paths (shared handle()). Guarded so
+     * a listener error can never break update processing.
+     *
+     * @return void
+     */
+    protected function capturePayment(): void
+    {
+        $payment = Arr::get($this->request->all(), 'message.successful_payment');
+
+        if (! is_array($payment) || $payment === []) {
+            return;
+        }
+
+        try {
+            event(new PaymentReceived($this->user, $payment));
+        } catch (\Throwable $exception) {
+            ExceptionHandler::handle($exception);
+        }
     }
 
     /**

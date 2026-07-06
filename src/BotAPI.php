@@ -111,6 +111,8 @@ namespace Wekser\Laragram;
  * @method mixed createInvoiceLink(array $params)
  * @method mixed answerShippingQuery(array $params)
  * @method mixed answerPreCheckoutQuery(array $params)
+ * @method mixed refundStarPayment(array $params)
+ * @method mixed getStarTransactions(array $params)
  *
  * --- Webhook ---
  * @method mixed setWebhook(array $params)

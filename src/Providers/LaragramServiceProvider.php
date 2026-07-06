@@ -24,7 +24,9 @@ use Wekser\Laragram\Broadcasting\BroadcastRenderer;
 use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Scene\SceneManager;
 use Wekser\Laragram\Scene\SceneRegistry;
+use Wekser\Laragram\Services\MediaDownloader;
 use Wekser\Laragram\Services\MediaUploader;
+use Wekser\Laragram\Services\Payments;
 use Wekser\Laragram\Console\BroadcastCommand;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
@@ -72,6 +74,9 @@ class LaragramServiceProvider extends ServiceProvider
         'Wekser\Laragram\Events\BotExceptionHandled' => [
             'Wekser\Laragram\Listeners\DeactivateUnreachableUser',
         ],
+        'Wekser\Laragram\Events\PaymentReceived' => [
+            'Wekser\Laragram\Listeners\RecordPayment',
+        ],
     ];
 
     /**
@@ -91,6 +96,8 @@ class LaragramServiceProvider extends ServiceProvider
         $this->registerAuth();
         $this->registerResponse();
         $this->registerMediaUploader();
+        $this->registerMediaDownloader();
+        $this->registerPayments();
         $this->registerDispatcher();
         $this->registerScenes();
         $this->registerBroadcaster();
@@ -117,6 +124,8 @@ class LaragramServiceProvider extends ServiceProvider
         $this->app->alias('laragram.auth', BotAuth::class);
         $this->app->alias('laragram.response', BotResponse::class);
         $this->app->alias('laragram.media', MediaUploader::class);
+        $this->app->alias('laragram.downloader', MediaDownloader::class);
+        $this->app->alias('laragram.payments', Payments::class);
         $this->app->alias('laragram.dispatcher', ResponseDispatcher::class);
         $this->app->alias('laragram.scene', SceneManager::class);
         $this->app->alias('laragram.broadcast', Broadcaster::class);
@@ -199,6 +208,30 @@ class LaragramServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register the MediaDownloader service.
+     *
+     * @return void
+     */
+    protected function registerMediaDownloader(): void
+    {
+        $this->app->singleton(MediaDownloader::class, function ($app) {
+            return new MediaDownloader($app['laragram.api']);
+        });
+    }
+
+    /**
+     * Register the Payments service.
+     *
+     * @return void
+     */
+    protected function registerPayments(): void
+    {
+        $this->app->singleton(Payments::class, function ($app) {
+            return new Payments($app['laragram.api']);
+        });
+    }
+
+    /**
      * Register the ResponseDispatcher service.
      *
      * @return void
@@ -235,6 +268,25 @@ class LaragramServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register the bundled admin panel (routes + Blade views) when enabled.
+     *
+     * The panel is only useful under the "database" auth driver (there is no
+     * persisted user base otherwise); route registration is gated purely on the
+     * "enabled" flag so the middleware/controllers can surface a clear error.
+     *
+     * @return void
+     */
+    protected function registerAdminPanel(): void
+    {
+        if (! (bool) config('laragram.admin.enabled', true)) {
+            return;
+        }
+
+        $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'laragram');
+        $this->loadRoutesFrom(__DIR__ . '/../../routes/admin.php');
+    }
+
+    /**
      * Bootstrap any application services.
      *
      * @return void
@@ -253,6 +305,8 @@ class LaragramServiceProvider extends ServiceProvider
 
         $this->registerRateLimiter();
 
+        $this->registerAdminPanel();
+
         if ($this->app->runningInConsole()) {
             $this->registerCommands();
 
@@ -263,6 +317,7 @@ class LaragramServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/../Console/stubs/migrations/create_laragram_users_table.stub' => database_path('migrations/create_laragram_users_table.php'),
                 __DIR__ . '/../Console/stubs/migrations/create_laragram_sessions_table.stub' => database_path('migrations/create_laragram_sessions_table.php'),
+                __DIR__ . '/../Console/stubs/migrations/create_laragram_payments_table.stub' => database_path('migrations/create_laragram_payments_table.php'),
             ], 'laragram-migrations');
 
             $this->publishes([
@@ -272,6 +327,8 @@ class LaragramServiceProvider extends ServiceProvider
                 __DIR__ . '/../Console/stubs/views/order_size.stub'     => resource_path(config('laragram.paths.views') . '/order/size/text.php'),
                 __DIR__ . '/../Console/stubs/views/order_address.stub'  => resource_path(config('laragram.paths.views') . '/order/address/text.php'),
                 __DIR__ . '/../Console/stubs/views/order_placed.stub'   => resource_path(config('laragram.paths.views') . '/order/placed/text.php'),
+                __DIR__ . '/../Console/stubs/views/payment_done.stub'   => resource_path(config('laragram.paths.views') . '/payment/done/text.php'),
+                __DIR__ . '/../Console/stubs/views/file_saved.stub'     => resource_path(config('laragram.paths.views') . '/file/saved/text.php'),
             ], 'laragram-views');
 
             $this->publishes([

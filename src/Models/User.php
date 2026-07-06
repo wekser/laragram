@@ -65,10 +65,15 @@ class User extends Authenticatable
 
     /**
      * Get the most recent active session within the configured lifetime.
+     *
+     * Pass a $chatId to scope to a single conversation (group support); a
+     * private chat's id equals the user's uid. When null, the most recent
+     * session across all chats is returned (backward-compatible).
      */
-    public function session(): ?Session
+    public function session(?int $chatId = null): ?Session
     {
         return $this->sessions()
+            ->when($chatId !== null, fn ($q) => $q->where('chat_id', $chatId))
             ->where('last_activity', '>=', now()->subMinutes(config('laragram.auth.session.lifetime')))
             ->first();
     }

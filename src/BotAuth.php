@@ -33,6 +33,9 @@ class BotAuth
     /** Validated sender data extracted from the update payload. */
     private ?array $sender = null;
 
+    /** Chat the update originated in (group/supergroup/private/channel), or null. */
+    private ?array $chat = null;
+
     private readonly AuthDriverInterface $driverInstance;
 
     /** Driver name ('database' or 'array') — kept for backward compatibility. */
@@ -78,6 +81,7 @@ class BotAuth
         }
 
         $this->sender = $sender;
+        $this->chat   = static::findChatInPayload($this->request->all());
 
         try {
             $this->user = $this->driverInstance->resolveUser($sender, $this->resolveLanguage($sender));
@@ -122,6 +126,32 @@ class BotAuth
         return $this->sender;
     }
 
+    /** Return the raw chat data the update originated in, or null. */
+    public function chat(): ?array
+    {
+        return $this->chat;
+    }
+
+    /**
+     * Telegram chat id the update originated in.
+     *
+     * In a private chat this equals the sender's id; in a group/supergroup it is
+     * the shared chat id. Used both as the per-conversation session key and as
+     * the outbound chat_id fallback so replies stay in the originating chat.
+     */
+    public function chatId(): ?int
+    {
+        $id = $this->chat['id'] ?? null;
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /** Type of the originating chat: private | group | supergroup | channel. */
+    public function chatType(): ?string
+    {
+        return $this->chat['type'] ?? null;
+    }
+
     /** Telegram user ID of the sender, or null if not yet authenticated. */
     public function getUserId(): ?int
     {
@@ -139,6 +169,7 @@ class BotAuth
     {
         $this->user   = null;
         $this->sender = null;
+        $this->chat   = null;
     }
 
     /** Whether the authenticated user is active. */
@@ -188,12 +219,50 @@ class BotAuth
     }
 
     /**
+     * Find the raw 'chat' object in an arbitrary Telegram update payload.
+     *
+     * Mirror of findFromInPayload(): most update types carry `chat` at the top
+     * level of their object (message, channel_post, my_chat_member,
+     * message_reaction, …); callback_query nests it inside `message.chat`.
+     * Returns null for chat-less updates (inline_query, poll_answer, …).
+     */
+    public static function findChatInPayload(array $payload): ?array
+    {
+        foreach ($payload as $key => $value) {
+            if ($key === 'update_id' || !is_array($value)) {
+                continue;
+            }
+
+            if (isset($value['chat']) && is_array($value['chat'])) {
+                return $value['chat'];
+            }
+
+            // callback_query carries the chat inside the attached message.
+            if (isset($value['message']['chat']) && is_array($value['message']['chat'])) {
+                return $value['message']['chat'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Return true for update types that carry no sender at all (e.g. poll).
      * CheckAuth uses this to let senderless updates pass through.
      */
     public static function isSenderlessPayload(array $payload): bool
     {
-        return isset($payload['poll']) && !isset($payload['poll_answer']);
+        if (isset($payload['poll']) && !isset($payload['poll_answer'])) {
+            return true;
+        }
+
+        // Aggregate reaction counts never carry a sender; an anonymous reaction
+        // (made on behalf of a chat) carries actor_chat instead of user.
+        if (isset($payload['message_reaction_count'])) {
+            return true;
+        }
+
+        return isset($payload['message_reaction']) && !isset($payload['message_reaction']['user']);
     }
 
     /**

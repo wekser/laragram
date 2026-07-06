@@ -21,6 +21,15 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Wekser\Laragram\BotResponse edit(string $text, ?string $format = 'MarkdownV2')
  * @method static \Wekser\Laragram\BotResponse answer(string $text = '', bool $showAlert = false)
  * @method static \Wekser\Laragram\BotResponse delete()
+ * @method static \Wekser\Laragram\BotResponse react(string|array $reaction, bool $big = false)
+ *
+ * Inline mode & payments
+ * @method static \Wekser\Laragram\BotResponse inlineResults(\Wekser\Laragram\Telegram\Inline\InlineResults|array $results)
+ * @method static \Wekser\Laragram\BotResponse invoice(\Wekser\Laragram\Telegram\Payments\Invoice|array $invoice)
+ * @method static \Wekser\Laragram\BotResponse approveCheckout()
+ * @method static \Wekser\Laragram\BotResponse declineCheckout(string $reason)
+ * @method static \Wekser\Laragram\BotResponse approveShipping(array $options)
+ * @method static \Wekser\Laragram\BotResponse declineShipping(string $reason)
  *
  * Media
  * @method static \Wekser\Laragram\BotResponse photo(string $fileId, ?string $caption = null, ?string $format = 'MarkdownV2')

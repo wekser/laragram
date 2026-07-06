@@ -58,6 +58,7 @@ class LaragramInstallCommand extends Command
             $this->newLine();
             $this->line('<fg=yellow>The following variables were added to your .env file:</>');
             $this->line('  LARAGRAM_BOT_TOKEN=<your_bot_token_from_BotFather>');
+            $this->line('  LARAGRAM_BOT_USERNAME=<your_bot_username_without_@>  # for group commands');
             $this->line('  LARAGRAM_WEBHOOK_PREFIX=laragram');
             $this->line('  LARAGRAM_WEBHOOK_SECRET=' . $secret);
             $this->line('  LARAGRAM_VERIFY_SECRET=true');
@@ -178,6 +179,7 @@ class LaragramInstallCommand extends Command
         if (file_exists($file)) {
             $vars = PHP_EOL
                 . 'LARAGRAM_BOT_TOKEN=' . PHP_EOL
+                . 'LARAGRAM_BOT_USERNAME=' . PHP_EOL
                 . 'LARAGRAM_WEBHOOK_PREFIX=laragram' . PHP_EOL
                 . 'LARAGRAM_WEBHOOK_SECRET=' . $secret . PHP_EOL
                 . 'LARAGRAM_VERIFY_SECRET=true' . PHP_EOL;

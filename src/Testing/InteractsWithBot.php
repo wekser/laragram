@@ -90,7 +90,7 @@ trait InteractsWithBot
         $station    = 'start';
         $sceneState = null;
 
-        if (config('laragram.auth.driver') === 'database' && !empty($session = $user->session())) {
+        if (config('laragram.auth.driver') === 'database' && !empty($session = $user->session($auth->chatId()))) {
             $station    = $session->station;
             $sceneState = $session->payload['scene'] ?? null;
         }

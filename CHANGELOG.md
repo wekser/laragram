@@ -41,6 +41,39 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `laragram:broadcast {message?}` command — `--view`, `--role=*`, `--include-inactive`, `--dry-run`, `--no-confirm`; requires the `database` auth driver
 - `broadcast.chunk_size` / `broadcast.sync_delay_ms` / `broadcast.deactivate_unreachable` config keys
 
+**Payments (Invoices + Telegram Stars)**
+- `Telegram\Payments\Invoice` — fluent `sendInvoice`/`createInvoiceLink` params builder: `title()`, `description()`, `payload()`, `currency()`, `price(label, minorUnits)`, `providerToken()`, plus `photo()`, `needName()/needPhoneNumber()/needEmail()/needShippingAddress()`, `flexible()`, `maxTip()/suggestedTips()`, `startParameter()`, `providerData()`; `->stars(int $amount, string $label)` is the Telegram Stars shortcut (currency `XTR`, no provider token). `toArray()` validates required fields; fiat falls back to `payments.currency` / `payments.provider_token` config. Amounts are in the currency's smallest unit
+- `BotResponse::invoice(Invoice|array)` → `sendInvoice`; `approveCheckout()` / `declineCheckout($reason)` → `answerPreCheckoutQuery`; `approveShipping($options)` / `declineShipping($reason)` → `answerShippingQuery` (all clone-on-entry). `ResponseTransformer` auto-injects `pre_checkout_query_id` / `shipping_query_id` from the update (these methods carry no `chat_id`)
+- `BotRequest::preCheckoutQuery()`, `shippingQuery()`, `successfulPayment()` accessors; route a completed payment with the listener override `BotRoute::get('message', 'successful_payment')`
+- `Services\Payments` (alias `laragram.payments`) — outbound payment actions: `invoiceLink()` (`createInvoiceLink`), `refund($userId, $chargeId)` (`refundStarPayment`), `starTransactions()` (`getStarTransactions`)
+- `Events\PaymentReceived($user, $payment)` — fired for **every** completed payment (`message.successful_payment`), independently of routing, on both the sync and queued paths; accessors `invoicePayload()`, `chargeId()`, `totalAmount()`, `currency()`, `isStars()`. Dispatch is guarded so a listener error never breaks update processing
+- `Listeners\RecordPayment` + `Models\Payment` — opt-in payment history: persists each payment to `laragram_payments` via `updateOrCreate` keyed on `telegram_payment_charge_id` (idempotent under redelivery); gated by `payments.store`, requires the `database` driver and the published `create_laragram_payments_table` migration
+- `payments.provider_token` / `payments.currency` / `payments.store` / `payments.table` config keys (env: `LARAGRAM_PAYMENT_PROVIDER_TOKEN`, `LARAGRAM_PAYMENT_CURRENCY`, `LARAGRAM_PAYMENTS_STORE`)
+
+**Inline Mode**
+- `Telegram\Inline\InlineResults` — fluent `answerInlineQuery` results builder: `article()`, `photo()`, `gif()`, `video()`, `document()`, `cachedPhoto()`, `sticker()` (by file_id), and `raw(array)` for any other `InlineQueryResult` type; answer-level `cache()`, `personal()`, `nextOffset()` (pagination), `button()` (`InlineQueryResultsButton`). `toArray()` validates unique result ids and the 50-result cap
+- `BotResponse::inlineResults(InlineResults|array)` → `answerInlineQuery` (clone-on-entry); `ResponseTransformer` injects `inline_query_id` from the update (no `chat_id`)
+- `BotRequest::chosenInlineResult()` — the `chosen_inline_result` object for post-selection analytics (requires inline feedback enabled with @BotFather)
+
+**Incoming Files (getFile + download)**
+- `Services\MediaDownloader` (alias `laragram.downloader`) — the mirror image of `MediaUploader`: `getFile($fileId)` (Telegram File object), `download($fileId)` (raw bytes), `save($fileId, ?disk, ?path)` (streams to a Laravel Storage disk, returns the stored path)
+- `BotRequest::fileId()` — extracts the file_id from the incoming update across the common media fields (photo → largest size; document, video, audio, voice, animation, video_note, sticker); `BotRequest::file()` returns a `Support\IncomingFile` handle (`id()` / `bytes()` / `save()`); both return `null` when the update carries no file
+- Downloads are hardened: the URL host is pinned to `api.telegram.org`, a Telegram-supplied `file_path` containing `..` or a URL scheme is rejected (no SSRF), and `downloads.max_size` caps the byte size (default 20 MB, matching Telegram's getFile limit)
+- `downloads.disk` / `downloads.max_size` / `downloads.timeout` config keys (env: `LARAGRAM_DOWNLOADS_DISK`, `LARAGRAM_DOWNLOADS_MAX_SIZE`, `LARAGRAM_DOWNLOADS_TIMEOUT`)
+
+**Message Reactions**
+- `message_reaction` (listener `user`) and `message_reaction_count` (listener `reactions`) update types are now routable
+- `BotResponse::react(string|array $reaction, bool $big = false)` → `setMessageReaction` (clone-on-entry): accepts an emoji string, a list of emoji, raw `ReactionType` arrays (custom emoji), or `[]` to clear the bot's reaction; `ResponseTransformer` injects `chat_id` + `message_id` from the triggering message or `message_reaction` object, so it works from both reaction handlers and normal message handlers
+- `BotRequest::messageReaction()` — the `MessageReactionUpdated` object (`chat`, `message_id`, `user`/`actor_chat`, `old_reaction`, `new_reaction`)
+- `BotAuth::isSenderlessPayload()` extended so anonymous reactions (`actor_chat`, no `user`) and `message_reaction_count` updates pass `CheckAuth`; note Telegram only delivers reaction updates when `allowed_updates` explicitly includes them
+
+**Admin Panel**
+- Bundled server-rendered dashboard (own routes + Blade views with inline CSS, no build step, no external dependencies — the Horizon/Telescope model), mounted at `config('laragram.admin.path')` (default `laragram/admin`) with the `admin.middleware` group. Requires the `database` auth driver
+- Pages (route names `laragram.admin.*`): dashboard metrics, users (set role, activate/deactivate), sessions (browse + prune), and a broadcast composer (dry-run count or send, honouring the queue/sync path); `Admin\Metrics` computes the read-only aggregates
+- `Admin\Middleware\Authorize` gates access like Horizon: a `viewLaragram` Gate ability decides if defined; else the host user's email/id must be in `admin.allow`; else access is granted only in the `local` environment (otherwise 403)
+- Synchronous web broadcasts are capped by `broadcast.web_sync_limit` (default 200) — above it the panel asks you to enable the queue or use `laragram:broadcast`
+- `admin.enabled` / `admin.path` / `admin.middleware` / `admin.allow` config keys (env: `LARAGRAM_ADMIN_ENABLED`, `LARAGRAM_ADMIN_PATH`)
+
 **HTTP Layer**
 - `Http\RequestTransformer` — builds `BotRequest` from the raw update and the matched route (replaces `Support\FormRequest`)
 - `Http\ResponseTransformer` — normalizes the controller response — a single `BotResponse`/string **or an array/iterable of them** — into `output['response']['views']` (a list); per-view auto-injects `chat_id`, `callback_query_id`, and `message_id`; resolves one `redirect` per batch (last-write-wins) (replaces `Support\FormResponse`)
@@ -128,12 +161,10 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `laragram:make:view` — scaffolds a new bot view
 - `laragram:make:scene {name} [--steps=a,b]` — appends a scene (wizard) skeleton to the scenes file, creating it with the required imports if absent
 - `laragram:scene:list` — lists all registered scenes with their steps and options
-- `laragram:add-user-activity-fields` — publishes a migration adding `is_active` and `deactivated_at` columns to the users table
-- `laragram:add-role-field` — publishes a migration adding a `role VARCHAR DEFAULT 'user'` column to the users table
 
 **Testing**
 - `Testing\InteractsWithBot` — PHPUnit trait for feature-testing bot flows without HTTP; runs the full auth → router → session → **delivery** pipeline and captures the messages the bot actually sends
-- `Testing\BotUpdateFactory` — factory for realistic Telegram update arrays; supports `message()`, `callbackQuery()`, `inlineQuery()`, `editedMessage()`, `channelPost()`
+- `Testing\BotUpdateFactory` — factory for realistic Telegram update arrays; supports `message()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`
 - `Testing\RecordingBotAPI` — a `BotAPI` test double that records outbound calls instead of hitting Telegram; used by `InteractsWithBot` to capture sent messages
 - Single-message assertions (inspect the first sent message): `assertBotRepliedWith()`, `assertBotRepliedText()`, `assertResponseContains()`, `getBotResponse()`
 - Multi-message assertions: `assertBotRepliedTimes()`, `assertNthReplyWith()`, `assertNthReplyText()`, `getBotResponses()`
@@ -154,15 +185,16 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Support\UpdateType` — shared detection of the Telegram update type from a raw payload, used by both `Routing\Router` and `Scene\SceneManager`
 - `Support\OutboundPayload` — shared extraction of the Bot API method name and parameters from a formed payload (stripping the `method` key and internal `_`-prefixed bookkeeping keys), used by both `Http\ResponseDispatcher` and `Broadcasting\PendingBroadcast`
 - Laravel 13.x support (`illuminate/support: ^13.0`)
-- Support for 7 additional Telegram update types: `channel_post`, `edited_channel_post`, `poll`, `poll_answer`, `my_chat_member`, `chat_member`, `chat_join_request`
+- Support for 9 additional Telegram update types: `channel_post`, `edited_channel_post`, `poll`, `poll_answer`, `my_chat_member`, `chat_member`, `chat_join_request`, `message_reaction`, `message_reaction_count`
 - `BotAPI` PHPDoc `@method` annotations expanded from ~35 to ~70 Telegram API methods
 - `Facades\BotAPI`, `Facades\BotAuth`, `Facades\BotRoute`, `Facades\BotResponse`, `Facades\BotScene` — registered facades
 - `src/Examples/` removed (was incorrectly autoloaded as package code)
 
 ### Changed
 
+- `laragram:install` and `laragram:publish` have distinct roles: `install` bootstraps the host app with **blank** route/scene files, config, migrations, and `.env` variables; `publish` layers the runnable demo on top — views, lang, demo controllers (`HelloController`, `OrderController`, `ExtrasController` — the last demos Stars payments via `/donate`, inline mode, and file receiving) — and **appends** the demo routes + the demo `order` scene idempotently (marker sentinels prevent duplication on a second run; `--force` overwrites instead)
 - Bot route and scenes files now live together in `routes/laragram/` by default (`routes/laragram/routes.php` and `routes/laragram/scenes.php`); `paths.route` / `paths.scenes` accept a subdirectory and `laragram:install` scaffolds the folder. The publish targets follow the configured paths automatically
-- PHP requirement raised to `^8.3` (minimum required by Laravel 13); Laravel requirement raised to `^11.0|^12.0|^13.0`
+- PHP requirement raised to `^8.3` (minimum required by Laravel 13); Laravel requirement raised to `^12.0|^13.0`
 - `BotAPI` replaced ~40 explicit wrapper methods with a single `__call()` magic proxy — all Telegram API methods work automatically
 - `DatabaseAuthDriver` uses `updateOrCreate` atomically instead of `firstOrCreate` + `save()`; settings are merged (not replaced) on every request
 - `LogSession` listener now uses `updateOrCreate` — station is correctly updated on every request, not only on first visit; database failures are logged via `try/catch` instead of crashing the event listener
@@ -185,7 +217,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotRouter::findRoute()` — cryptic internal variable names (`$EF`, `$EC`, `$FS`, `$CD`, `$PD`, `$PEI`) replaced with descriptive ones
 - User settings no longer store a redundant `active` key — only `language` is written on authentication
 - Middleware stack order: `laragram.verify` → `laragram.auth` → `laragram.hook` → `laragram.throttle`
-- `require-dev` updated: `laravel/framework ^12.0|^13.0`, `orchestra/testbench ^10.0|^11.0`, `phpunit/phpunit ^11.0|^12.0`
+- `require-dev` updated: `laravel/framework ^12.60|^13.10` (the security-patched floors), `orchestra/testbench ^10.0|^11.0`, `phpunit/phpunit ^11.0|^12.0`
 - Removed deprecated `stopOnFailure` attribute from `phpunit.xml` (removed in PHPUnit 11+; `false` is the default)
 
 ### Removed

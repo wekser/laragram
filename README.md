@@ -136,7 +136,10 @@ $response->document($fileId)                       // sendDocument
 $response->edit('Updated text')                    // editMessageText
 $response->answer('Done!', showAlert: true)        // answerCallbackQuery
 $response->delete()                                // deleteMessage
+$response->react('👍')                             // setMessageReaction
 $response->action('typing')                        // sendChatAction
+$response->invoice(Invoice::make()...)             // sendInvoice (see Payments)
+$response->inlineResults(InlineResults::make()...) // answerInlineQuery (see Inline Mode)
 $response->keyboard([...])                         // attach reply_markup (call after content)
 $response->redirect('next_station')                // move user to a new station
 ```
@@ -301,6 +304,32 @@ php artisan laragram:route:match message "hello" --station=ask_name
 
 ---
 
+## Group Chats
+
+The bot works in private chats **and** in groups/supergroups — private (1-on-1) behaviour is unchanged.
+
+```php
+// Restrict routes to a chat type (default: any)
+BotRoute::get('message')->contains('/rules')->inGroups()->call([Ctrl::class, 'rules']);
+BotRoute::get('message')->contains('/settings')->inPrivate()->call([Ctrl::class, 'settings']);
+BotRoute::get('message')->contains('/kick')->chat('supergroup')->call([Ctrl::class, 'kick']);
+
+// Inspect the chat in a handler
+public function rules(BotRequest $request): BotResponse
+{
+    $request->isGroup();       // group || supergroup
+    $request->isPrivate();
+    $request->chatType();      // 'private' | 'group' | 'supergroup' | 'channel'
+    return $this->response->view('rules');
+}
+```
+
+- **Commands** like `/start` arrive as `/start@YourBot` in groups — the mention is stripped automatically. Set `LARAGRAM_BOT_USERNAME` (your bot's @username, without `@`) so only *your* bot's mention matches.
+- **State is per-(user, chat):** each member has independent station + scene state in each chat, so wizards never collide between a group and a private chat.
+- **Group privacy is ON by default** in @BotFather: the bot only sees commands aimed at it, replies to its own messages, and @mentions. To receive all group messages, disable privacy via @BotFather (`/setprivacy` → Disable) and re-add the bot.
+
+---
+
 ## Scenes (Wizards)
 
 For multi-step forms — registration, an order, a survey — a **scene** manages the whole flow for you: it asks each step's question, validates the answer, stores it, and hands all answers to a completion handler. It's built on top of stations, but you don't wire them by hand.
@@ -348,6 +377,124 @@ More step/scene options: `->when(fn ($ctx) => …)` (conditional steps), `->allo
 > Scenes require the `database` auth driver (step state is persisted between updates in `laragram_sessions.payload`). Scaffold one with `php artisan laragram:make:scene order --steps=size,address`.
 
 See the [Scenes wiki page](https://github.com/wekser/laragram/wiki/Scenes) for the full reference.
+
+---
+
+## Payments (Telegram Stars & fiat)
+
+Send invoices, answer the checkout steps, and handle completed payments — for both **Telegram Stars** (`XTR`) and fiat currencies (Telegram Payments 2.0):
+
+```php
+use Wekser\Laragram\Telegram\Payments\Invoice;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
+
+// 1. Send a Stars invoice — chat_id is injected automatically
+public function donate()
+{
+    return $this->response->invoice(
+        Invoice::make()->title('Support us')->description('One-time donation')
+            ->payload('donate_1')->stars(100, 'Donation')
+    )->keyboard(InlineKeyboard::make()->pay('Pay ⭐100')->toArray());
+}
+
+// Fiat variant: ->currency('USD')->price('Item', 1999)->providerToken(...)
+
+// 2. Approve (or decline) the pre-checkout step — answer within 10 seconds
+BotRoute::get('pre_checkout_query')->call(fn () => BotResponse::approveCheckout());
+
+// 3. Handle the completed payment (a field on a "message" update — note the listener override)
+BotRoute::get('message', 'successful_payment')->call([ShopController::class, 'paid']);
+```
+
+- Amounts are in the currency's **smallest unit** (cents; whole stars for `XTR`).
+- `approveShipping(array $options)` / `declineShipping($reason)` cover flexible-price shipping.
+- `BotRequest` accessors: `preCheckoutQuery()`, `shippingQuery()`, `successfulPayment()`.
+- **`Events\PaymentReceived`** fires for every completed payment — independently of routing — so you can grant the entitlement from a single listener (`invoicePayload()`, `chargeId()`, `totalAmount()`, `isStars()`).
+- Opt-in **payment history**: set `LARAGRAM_PAYMENTS_STORE=true` (plus the published `laragram_payments` migration) and every payment is persisted idempotently.
+- Outbound actions live on the `Services\Payments` service: `invoiceLink()` (createInvoiceLink), `refund($userId, $chargeId)` (refundStarPayment), `starTransactions()`.
+
+```env
+LARAGRAM_PAYMENT_PROVIDER_TOKEN=   # fiat only; Stars need no provider
+LARAGRAM_PAYMENT_CURRENCY=USD
+LARAGRAM_PAYMENTS_STORE=false
+```
+
+---
+
+## Inline Mode
+
+Answer `inline_query` updates — the results users get typing `@yourbot query` in any chat:
+
+```php
+use Wekser\Laragram\Telegram\Inline\InlineResults;
+
+BotRoute::get('inline_query')->call(function (BotRequest $request) {
+    return BotResponse::inlineResults(
+        InlineResults::make()
+            ->article('1', 'Say hello', 'Hello there!')       // sends text when picked
+            ->photo('2', 'https://example.com/pic.jpg')
+            ->cachedPhoto('3', $fileId)                        // by cached file_id
+            ->cache(300)->personal()
+    );
+});
+
+// Optional: know which result the user picked (enable inline feedback with @BotFather)
+BotRoute::get('chosen_inline_result')->call([StatsController::class, 'picked']);
+```
+
+Result builders: `article()`, `photo()`, `gif()`, `video()`, `document()`, `cachedPhoto()`, `sticker()`, and `raw(array)` for any other `InlineQueryResult` type. Answer-level options: `cache()`, `personal()`, `nextOffset()` (pagination), `button()`. The `inline_query_id` is injected automatically.
+
+---
+
+## Receiving Files
+
+Turn a file a user **sent to the bot** into bytes or a stored file — the mirror image of `MediaUploader`:
+
+```php
+use Wekser\Laragram\Services\MediaDownloader;
+
+public function receive(BotRequest $request, MediaDownloader $downloader)
+{
+    // Fluent handle off the request (null when the update carries no file):
+    $path  = $request->file()?->save('local', 'inbox/receipt.jpg');   // store on a disk
+    $bytes = $request->file()?->bytes();                              // raw bytes
+
+    // Or the service directly:
+    $path = $downloader->save($request->fileId(), 's3', 'kyc/doc.pdf');
+
+    return $this->response->text('Got it!');
+}
+```
+
+`BotRequest::fileId()` finds the file across the common media fields (photo → largest size, document, video, audio, voice, animation, video_note, sticker). Downloads are SSRF-hardened and size-capped:
+
+```env
+LARAGRAM_DOWNLOADS_DISK=local
+LARAGRAM_DOWNLOADS_MAX_SIZE=20971520   # 20 MB — Telegram's getFile limit
+LARAGRAM_DOWNLOADS_TIMEOUT=30          # download HTTP timeout, seconds
+```
+
+---
+
+## Message Reactions
+
+React to messages and handle users' reactions:
+
+```php
+// React to an incoming message (chat_id + message_id injected automatically)
+BotRoute::get('message')->contains('/like')
+    ->call(fn () => BotResponse::react('👍', big: true));
+
+// Handle a user changing their reaction on a message
+BotRoute::get('message_reaction')->call(function (BotRequest $request) {
+    $reaction = $request->messageReaction();   // chat, message_id, user, old/new_reaction
+    return BotResponse::react('❤️');           // react back on the same message
+});
+```
+
+`react()` accepts an emoji string, a list of them, raw `ReactionType` arrays (custom emoji), or `[]` to clear the bot's reaction.
+
+> Telegram delivers `message_reaction` / `message_reaction_count` updates only when `allowed_updates` explicitly includes them — pass it when calling `setWebhook`.
 
 ---
 
@@ -415,6 +562,26 @@ LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE=true
 
 ---
 
+## Admin Panel
+
+A bundled, server-rendered dashboard for your bot's user base — metrics, users & roles, sessions, and a broadcast composer. Self-contained (own routes + Blade views, no build step, no external dependencies), mounted at `/laragram/admin` by default. Requires the `database` auth driver.
+
+Access mirrors Horizon: define a `viewLaragram` Gate ability, or list allowed host-app users in `config('laragram.admin.allow')`; with neither, the panel is reachable only in the `local` environment.
+
+```php
+// app/Providers/AppServiceProvider.php
+Gate::define('viewLaragram', fn ($user) => $user->isAdmin());
+```
+
+```env
+LARAGRAM_ADMIN_ENABLED=true
+LARAGRAM_ADMIN_PATH=laragram/admin
+```
+
+Pages: **Dashboard** (total/active users, new today/week, roles, active sessions) · **Users** (set role, activate/deactivate) · **Sessions** (browse, prune) · **Broadcast** (dry-run count or send — honours the queue/sync path).
+
+---
+
 ## Observability
 
 Laragram never lets an exception escape update processing — routing, delivery, and the queued job all funnel their errors through `ExceptionHandler`, which logs reportable ones and silences user-unreachable ones. That makes silently-handled failures invisible (they never reach `failed_jobs`). The `BotExceptionHandled` event is the seam for surfacing them:
@@ -440,8 +607,8 @@ Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded,
 
 | Command | Description |
 |---|---|
-| `laragram:install` | Publish all package assets |
-| `laragram:publish` | Selective publish (config / migrations / views / routes) |
+| `laragram:install` | Bootstraps the host app: config, migrations, blank route/scene files, `.env` variables |
+| `laragram:publish` | Publishes the runnable demo: views, lang, demo controllers + routes (incl. Stars payments, inline mode, file receiving) |
 | `laragram:webhook:set` | Register the webhook with Telegram |
 | `laragram:webhook:remove` | Remove the webhook |
 | `laragram:getMe` | Display bot info (`getMe`) |
@@ -471,6 +638,8 @@ Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded,
 | `poll` | `question` |
 | `poll_answer` | `option_ids` |
 | `my_chat_member` / `chat_member` / `chat_join_request` | `from` |
+| `message_reaction` | `user` |
+| `message_reaction_count` | `reactions` |
 
 ---
 

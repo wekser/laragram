@@ -16,7 +16,6 @@ use Illuminate\Support\Arr;
 use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Exceptions\ResponseInvalidException;
-use Wekser\Laragram\Facades\BotAuth;
 
 /**
  * Transforms a controller/closure response into the output array consumed by
@@ -24,6 +23,21 @@ use Wekser\Laragram\Facades\BotAuth;
  */
 class ResponseTransformer
 {
+    /** answer* methods → the payload key their query object's id is injected into. */
+    private const QUERY_ID_PARAM = [
+        'answerCallbackQuery'    => 'callback_query_id',
+        'answerInlineQuery'      => 'inline_query_id',
+        'answerPreCheckoutQuery' => 'pre_checkout_query_id',
+        'answerShippingQuery'    => 'shipping_query_id',
+    ];
+
+    /** answer* methods that carry no chat_id (answerCallbackQuery does, so it is absent). */
+    private const QUERY_ANSWER_WITHOUT_CHAT = [
+        'answerInlineQuery',
+        'answerPreCheckoutQuery',
+        'answerShippingQuery',
+    ];
+
     /**
      * Build the full output array from the controller response.
      *
@@ -125,13 +139,22 @@ class ResponseTransformer
         $object = $output['update']['object'] ?? [];
         $method = $view['method'] ?? null;
 
-        // answerCallbackQuery requires callback_query_id (the id of the callback_query object)
-        if ($method === 'answerCallbackQuery' && !isset($view['callback_query_id'])) {
-            $view['callback_query_id'] = Arr::get($object, 'id');
+        // The answer* methods each take the id of their query object (the update
+        // object here IS that query). answerCallbackQuery is the exception that
+        // also carries a chat_id, so it falls through to the chat_id injection
+        // below; the others answer the query only and return early.
+        if (isset(self::QUERY_ID_PARAM[$method])) {
+            $view[self::QUERY_ID_PARAM[$method]] ??= Arr::get($object, 'id');
+
+            if (in_array($method, self::QUERY_ANSWER_WITHOUT_CHAT, true)) {
+                return $view;
+            }
         }
 
-        // deleteMessage / editMessageText require message_id from the triggering message
-        if (in_array($method, ['deleteMessage', 'editMessageText'], true) && !isset($view['message_id'])) {
+        // deleteMessage / editMessageText / setMessageReaction require message_id
+        // from the triggering message (or the message_reaction update object,
+        // which carries message_id at its top level)
+        if (in_array($method, ['deleteMessage', 'editMessageText', 'setMessageReaction'], true) && !isset($view['message_id'])) {
             $view['message_id'] =
                 Arr::get($object, 'message.message_id') ??
                 Arr::get($object, 'message_id');
@@ -144,11 +167,14 @@ class ResponseTransformer
         // $object is already the type-specific payload (e.g. the message object,
         // the callback_query object, etc.) extracted by RequestTransformer.
         // For most types chat.id is at the top level; for callback_query it's
-        // nested inside message.chat.id. User UID is the ultimate fallback.
+        // nested inside message.chat.id. When absent (poll_answer, some
+        // my_chat_member, …) fall back to the chat the update originated in,
+        // resolved from the payload upstream — in a group this keeps the reply in
+        // the group instead of DMing the member.
         $view['chat_id'] =
             Arr::get($object, 'chat.id') ??
             Arr::get($object, 'message.chat.id') ??
-            BotAuth::user()?->uid;
+            ($output['update']['chat_id'] ?? null);
 
         if ($view['chat_id'] === null) {
             app('log')->warning('laragram: could not determine chat_id for Telegram API call', [

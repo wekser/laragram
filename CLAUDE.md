@@ -32,7 +32,7 @@ CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` a
 | Command | Description |
 |---|---|
 | `laragram:install` | Bootstraps a host app: config, migrations, **blank** route + scene files, and `.env` variables |
-| `laragram:publish` | Publishes the runnable demo: views, lang, demo controllers, and **appends** demo routes + the demo `order` scene |
+| `laragram:publish` | Publishes the runnable demo: views, lang, demo controllers (`HelloController`, `OrderController`, `ExtrasController` — the last demos Stars payments / inline mode / file receiving), and **appends** demo routes + the demo `order` scene |
 | `laragram:webhook:set` | Registers webhook with Telegram |
 | `laragram:webhook:remove` | Removes the webhook |
 | `laragram:getMe` | Calls `getMe`, displays bot info |
@@ -102,6 +102,8 @@ return [
 | `poll` | `question` |
 | `poll_answer` | `option_ids` |
 | `my_chat_member` / `chat_member` / `chat_join_request` | `from` |
+| `message_reaction` | `user` |
+| `message_reaction_count` | `reactions` |
 
 ### Routing System
 
@@ -158,6 +160,26 @@ $collection->group(function ($c) {
 
 Each user has a "station" string in `laragram_sessions.station`. `BotResponse::redirect('next_station')` sets the next station written by `LogSession`. With `auth.driver = array`, station is always `'start'`.
 
+### Group Chats
+
+The bot works in private chats **and** in groups/supergroups. Three pieces make this work; **private (1-on-1) behaviour is unchanged** because in a private chat `chat.id == from.id`.
+
+- **Commands with `@botusername`.** In groups Telegram appends the bot's username to commands (`/start@MyBot`). `Support\Command::stripMention()` normalises the command token before `Routing\Router::matchesPattern()` compares it. Set `config('laragram.telegram.username')` (`LARAGRAM_BOT_USERNAME`, no leading `@`) so only *your* bot's mention is stripped (`/start@OtherBot` won't match); when empty, any `@suffix` is stripped (works out of the box, but matches other bots' mentions too). Param routes (`/order {id}`) already worked — `RequestTransformer::extractNamedParams()` drops the whole command token (mention included) before extracting args.
+- **Per-(user, chat) state.** The session key is the composite `(user_id, chat_id)` — each member keeps **independent** station + scene state in each chat (Alice's `/order` wizard in group A is separate from group B and from her private chat). The `chat_id` is derived **from the update payload** by `BotAuth::findChatInPayload()` (a pure static — never the request-scoped `BotAuth` singleton, which can be stale under a long-running queue worker), computed once in `Http\RequestTransformer::build()` and threaded through `output['update']['chat_id']`. `LogSession` keys the `updateOrCreate` on it; `Laragram::defineStation()` (and `PollCommand` / `InteractsWithBot`) read the session for that chat via `User::session(?int $chatId)`. Scenes inherit this for free (their state lives in the same session payload).
+- **Outbound targeting.** `Http\ResponseTransformer::injectTelegramIds()` targets `chat.id` from the update (already correct for group replies); its fallback is now `output['update']['chat_id']` (the originating chat) instead of the sender's uid, so a reply with no explicit chat never DMs the member.
+
+**Chat-type routing & introspection.**
+- Route DSL: `->chat('group', 'supergroup', …)` restricts a route to chat types; `->inGroups()` (group+supergroup) and `->inPrivate()` are shortcuts. Empty (default) = any chat type, so existing routes are unaffected. `group(..., chatTypes: 'group')` sets it for a whole group. `Routing\Router::matchesChatType()` reads the chat type from the payload (`Router::$chatType`, set in `dispatch()`).
+- `BotRequest`: `chatType()`, `isPrivate()`, `isGroup()` (group||supergroup), `isSupergroup()`, `isChannel()`. `chat()` resolves the chat from the object or the nested `message.chat` (callback_query).
+
+**Setup gotchas (document for host apps):**
+- **Group privacy mode** is ON by default in @BotFather: the bot only receives commands directed at it (`/cmd`, `/cmd@bot`), replies to its own messages, and @mentions. To receive *all* group messages, disable privacy via @BotFather (`/setprivacy` → Disable) and **re-add** the bot to the group.
+- Reaction / `chat_member` updates arrive only when listed in `allowed_updates` on `setWebhook`/`getUpdates`.
+- Route the bot being added/removed/promoted via the `my_chat_member` event (already supported).
+- **Known limitation:** messages from anonymous group admins / on behalf of a chat carry `sender_chat` and no `from` user — they pass through as senderless and are not tied to a `User`; handle them explicitly if needed.
+
+**Testing:** `BotUpdateFactory::groupMessage(text, chatId, userId, …)` builds a group update (chat.id ≠ from.id); `message()` / `callbackQuery()` gained a `chatType` param. See `tests/Unit/GroupChatTest.php` and `tests/Unit/GroupSessionIsolationTest.php`.
+
 ### Scenes (Wizards)
 
 Scenes are a high-level multi-step dialog layer **above** the station router — for forms, surveys, onboarding. While a user is in a scene their station is the sentinel `@scene:<name>`; `Laragram::run()` (and `InteractsWithBot::botReceives()`) route those updates to `Scene\SceneManager` instead of `Routing\Router`. The current step + collected answers live in `laragram_sessions.payload['scene']`, persisted by `LogSession` from `output['scene']` — **no new table**. Scenes **require the `database` auth driver** (station/payload must survive across updates); `BotScene::enter()` throws `\RuntimeException` under the `array` driver.
@@ -203,6 +225,111 @@ Runtime (`SceneManager::continue()`): the step answer is read via `BotRequest::q
 
 Scaffolding: `laragram:make:scene {name} --steps=a,b` appends a `BotScene::define()` block to the scenes file (creating it with imports if absent); `laragram:scene:list` tabulates registered scenes.
 
+### Incoming Files (getFile + download)
+
+The mirror image of `MediaUploader`: turn a file a user **sent** to the bot back
+into bytes or a stored file. `MediaUploader` only uploads (local file/URL →
+file_id); `MediaDownloader` closes the loop.
+
+```php
+public function receive(BotRequest $request, MediaDownloader $downloader)
+{
+    // Fluent handle off the request:
+    $path  = $request->file()?->save('local', 'inbox/receipt.jpg');  // → stored path
+    $bytes = $request->file()?->bytes();                              // → raw bytes
+
+    // Or the service directly:
+    $path = $downloader->save($request->fileId(), 's3', 'kyc/doc.pdf');
+}
+```
+
+- **`Services\MediaDownloader`** (container alias `laragram.downloader`): `getFile(fileId): array` (Telegram File object), `download(fileId): string` (raw bytes), `save(fileId, ?disk, ?path): string` (streams to a Laravel Storage disk, returns the stored path — path defaults to Telegram's basename, disk to `config('laragram.downloads.disk')`). Fetches from `api.telegram.org/file/bot<token>/<file_path>` via the `Http` client.
+- **Security.** The download URL host is asserted to be `api.telegram.org` and the Telegram-supplied `file_path` is rejected if it contains `..` or a URL scheme (no SSRF). `config('laragram.downloads.max_size')` caps the byte size (default 20 MB, matching Telegram's getFile limit; 0 disables). A missing `file_path` (file too big/expired) throws.
+- **`BotRequest::fileId(): ?string`** — extracts the file_id from the incoming update across the common media fields (photo → **largest** size; document/video/audio/voice/animation/video_note/sticker), precedence document-first. **`BotRequest::file(): ?IncomingFile`** returns a `Support\IncomingFile` handle (`id()` / `bytes()` / `save(?disk, ?path)`) that defers to `laragram.downloader`; both return null when the update carries no file.
+- **Config** `downloads.disk` (`LARAGRAM_DOWNLOADS_DISK`, default `local`) and `downloads.max_size` (`LARAGRAM_DOWNLOADS_MAX_SIZE`, default 20 MB).
+
+### Inline Mode (answerInlineQuery)
+
+First-class support for answering `inline_query` updates — the `@bot query`
+results shown inline in any chat.
+
+```php
+use Wekser\Laragram\Telegram\Inline\InlineResults;
+use Wekser\Laragram\Facades\BotResponse;
+
+return BotResponse::inlineResults(
+    InlineResults::make()
+        ->article('1', 'Say hello', 'Hello there!')            // sends text when picked
+        ->photo('2', 'https://ex.com/p.jpg', title: 'A photo')
+        ->cachedPhoto('3', $fileId)                            // by cached file_id
+        ->cache(300)->personal()->nextOffset('20')             // answer-level options
+);
+```
+
+- **`Telegram\Inline\InlineResults`** — fluent builder (mirrors `MediaGroup`/`Invoice`). Result methods: `article()`, `photo()`, `gif()`, `video()`, `document()`, `cachedPhoto()`, `sticker()` (file_id), and `raw(array)` for any other InlineQueryResult type. Each accepts an optional `reply_markup` (InlineKeyboard array) and captions default `parse_mode` to HTML only when a caption is present. Answer-level: `cache(int)` (cache_time), `personal()` (is_personal), `nextOffset(string)` (pagination), `button(text, startParameter?, webApp?)` (InlineQueryResultsButton). `toArray()` validates unique ids and the 50-result cap → `\InvalidArgumentException` / `\OverflowException`. Text/captions are passed **verbatim** (like the keyboard builders) — write HTML or pre-escape yourself.
+- **`BotResponse::inlineResults(InlineResults|array)`** → `answerInlineQuery` (clone-on-entry).
+- **`Http\ResponseTransformer`** injects `inline_query_id` from the update object's `id` (early-return, **no** `chat_id`), like the payment answer methods.
+- **`BotRequest::chosenInlineResult()`** — the `chosen_inline_result` object (post-selection analytics; requires inline feedback enabled with @BotFather). Routes via the already-present `chosen_inline_result` event (listener `result_id`).
+- **Testing:** `BotUpdateFactory::inlineQuery()` (existing) and `chosenInlineResult()` drive `InteractsWithBot` flows.
+
+### Payments (Invoices + Telegram Stars)
+
+First-class support for the full Telegram payment lifecycle — send an invoice,
+answer the pre-checkout / shipping steps, handle the completed payment, refund.
+Works for both fiat (Telegram Payments 2.0) and **Telegram Stars** (`XTR`).
+
+```php
+use Wekser\Laragram\Telegram\Payments\Invoice;
+use Wekser\Laragram\Facades\BotResponse;
+
+// 1. Send an invoice (Stars) — chat_id is injected automatically.
+return BotResponse::invoice(
+    Invoice::make()->title('Pro')->description('1 month')->payload('sub_42')->stars(500, 'Pro access')
+)->keyboard(InlineKeyboard::make()->pay('Pay ⭐500')->toArray());
+
+// Fiat variant: ->currency('USD')->price('Item', 1998)->providerToken(...)->flexible()
+```
+
+- **`Telegram\Payments\Invoice`** — fluent builder (mirrors `Telegram\Media\MediaGroup`):
+  `title()/description()/payload()/currency()/price(label, minorUnits)/providerToken()`,
+  optional `photo()/needName()/needPhoneNumber()/needEmail()/needShippingAddress()/flexible()/maxTip()/suggestedTips()/startParameter()/providerData()`.
+  `->stars(int $amount, string $label)` is the Stars shortcut (currency `XTR`, empty provider token, one whole-number price).
+  `toArray()` validates required fields (`title`/`description`/`payload`/`prices`, plus a provider token for fiat and **exactly one** price for Stars) → `\InvalidArgumentException`. Fiat falls back to `config('laragram.payments.currency'|'provider_token')` when unset. **Amounts are in the currency's smallest unit** (cents; whole stars for `XTR`).
+- **`BotResponse` payment helpers** (clone-on-entry like `answer()`/`edit()`):
+  - `invoice(Invoice|array)` → `sendInvoice`
+  - `approveCheckout()` / `declineCheckout(string $reason)` → `answerPreCheckoutQuery` (ok true/false)
+  - `approveShipping(array $options)` / `declineShipping(string $reason)` → `answerShippingQuery`
+- **`Http\ResponseTransformer` id injection.** `answerPreCheckoutQuery`/`answerShippingQuery` get their `pre_checkout_query_id`/`shipping_query_id` auto-injected from the update object's `id` (analogous to `callback_query_id`); these two methods carry **no** `chat_id`.
+- **`BotRequest` accessors:** `preCheckoutQuery()`, `shippingQuery()`, `successfulPayment()` (the last reads `message.successful_payment`).
+- **Routing the completed payment** — `successful_payment` is a field on a `message` update, not its own type, so route it via the listener override (no router change): `BotRoute::get('message', 'successful_payment')->call(...)`.
+- **`Services\Payments`** (container alias `laragram.payments`) — outbound actions that are direct API calls, not webhook responses: `invoiceLink(Invoice|array): string` (`createInvoiceLink`) and `refund(int $userId, string $chargeId): bool` (`refundStarPayment`).
+- **Config** `payments.provider_token` (`LARAGRAM_PAYMENT_PROVIDER_TOKEN`) and `payments.currency` (`LARAGRAM_PAYMENT_CURRENCY`, default `USD`) — fiat defaults only; Stars ignore both.
+- **Completed-payment event (phase 2).** The processing pipeline (`Laragram::capturePayment()`, run in the shared `handle()` so it covers the sync **and** queued paths) detects `message.successful_payment` and fires **`Events\PaymentReceived($user, $payment)`** — **independently of routing**, so a host can grant the entitlement from one listener without wiring a route. Accessors: `invoicePayload()`, `chargeId()`, `totalAmount()`, `currency()`, `isStars()`. Guarded so a listener error never breaks processing.
+- **Payment history (opt-in).** The bundled `Listeners\RecordPayment` (bound to `PaymentReceived`) persists each payment to `laragram_payments` (`Models\Payment`) via `updateOrCreate` keyed on `telegram_payment_charge_id` — **idempotent** under redelivery. Gated by `config('laragram.payments.store')` (default `false`; needs the `database` driver and the published `create_laragram_payments_table` migration); exception-safe. The `PaymentReceived` event fires regardless of this flag.
+- **`Services\Payments::starTransactions(offset, limit)`** — the bot's Stars statement (`getStarTransactions`).
+- **Config:** `payments.store` (`LARAGRAM_PAYMENTS_STORE`, default `false`) and `payments.table` (default `laragram_payments`).
+- **Testing:** `BotUpdateFactory::preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()` build the payment updates for `InteractsWithBot` flows.
+
+### Message Reactions (setMessageReaction)
+
+First-class support for reactions: routing `message_reaction` / `message_reaction_count` updates and reacting to messages.
+
+```php
+BotRoute::get('message_reaction')->call(fn (BotRequest $r) => BotResponse::react('❤️'));
+
+BotResponse::react('👍');                 // react to the triggering message
+BotResponse::react(['❤️', '🔥'], big: true);
+BotResponse::react([]);                   // clear the bot's reaction
+BotResponse::react([['type' => 'custom_emoji', 'custom_emoji_id' => '...']]); // raw ReactionType passthrough
+```
+
+- **`BotResponse::react(string|array $reaction, bool $big = false)`** → `setMessageReaction` (clone-on-entry). Emoji strings become `['type' => 'emoji', 'emoji' => …]`; array items are passed verbatim (custom_emoji/paid types); empty array removes the reaction.
+- **`Http\ResponseTransformer`** injects `message_id` for `setMessageReaction` (from `message.message_id` or the update object's top-level `message_id` — the `message_reaction` object carries both `chat` and `message_id` at its top level, so `chat_id` injection works too). So `react()` works both from a `message_reaction` handler and from a normal `message` handler (reacts to the incoming message).
+- **`BotRequest::messageReaction()`** — the MessageReactionUpdated object (`chat`, `message_id`, `user` or `actor_chat`, `old_reaction`, `new_reaction`).
+- **Sender handling:** `message_reaction.user` is found by `BotAuth::findFromInPayload()` (same `user` branch as `poll_answer`). `BotAuth::isSenderlessPayload()` also passes anonymous reactions (`actor_chat`, no `user`) and all `message_reaction_count` updates through `CheckAuth`.
+- **Webhook note:** Telegram only delivers reaction updates when `allowed_updates` explicitly includes them — pass it in `setWebhook`/`getUpdates`.
+- **Testing:** `BotUpdateFactory::messageReaction(new, old, …, anonymous: true)` builds the update.
+
 ### Broadcasting (Mass Messaging)
 
 Push one message to many users at once (announcements, promos, downtime notices) via the
@@ -242,10 +369,28 @@ BotBroadcast::view('news.release', ['version' => '2.0'])           // a view, re
   requires exactly one of `message` / `--view`, prints a recipient count on `--dry-run`, confirms before
   sending unless `--no-confirm`.
 
+### Admin Panel (bundled web dashboard)
+
+A server-rendered admin dashboard for the bot's user base — metrics, users &
+roles, sessions, and a broadcast launcher. Self-contained: its own routes +
+Blade views with inline CSS (theme-aware), **no build step and no external
+dependencies** (Horizon/Telescope model). **Requires the `database` auth driver.**
+
+- **Mount & config.** Routes are registered in `LaragramServiceProvider::registerAdminPanel()` (called from `boot()`), loaded from `routes/admin.php`, gated purely on `config('laragram.admin.enabled')`. It mounts at `config('laragram.admin.path')` (default `laragram/admin`) with the `config('laragram.admin.middleware')` group (default `['web']`) plus the `Admin\Middleware\Authorize` gate. Blade views live in `resources/views/admin/`, registered via `loadViewsFrom(..., 'laragram')` → referenced as `view('laragram::admin.*')`.
+- **Access control** (`Admin\Middleware\Authorize`) mirrors Horizon: if a `viewLaragram` Gate ability is defined it decides; else the host user's email / auth id must be in `config('laragram.admin.allow')`; else access is granted only in the `local` environment (otherwise **403**). The gate receives the **host app's** authenticated user (the panel is browsed by a human), not a Telegram user.
+- **Pages / routes** (route names `laragram.admin.*`): `dashboard` (metrics), `users` + `users.role` / `users.toggle` (POST — set role, activate/deactivate), `sessions` + `sessions.prune` (POST), `broadcast` + `broadcast.store` (POST — dry-run count or send).
+- **`Admin\Metrics`** computes the dashboard numbers (total/active/inactive users, new today/week, role breakdown, active sessions) — read-only, all derived from the DB (no tracking table). "Inactive" doubles as the blocked/unreachable count (auto-deactivation writes `is_active = false`).
+- **Reuse.** Users page uses `User` scopes/`activate()`/`deactivate()`; sessions page uses the `Session` model + the same prune rule as `laragram:session:prune`; the broadcast composer drives the existing `Broadcaster`/`PendingBroadcast` (dry-run = `->count()`, send = `->send()`), so it honours the queue/sync path.
+
 ### Namespace Structure
 
 ```
 src/
+├── Admin/                    # bundled web admin panel (requires database driver)
+│   ├── Metrics.php           # dashboard aggregates (users/sessions), read-only
+│   ├── Middleware/Authorize.php  # gates access: viewLaragram Gate → config allow → local only
+│   └── Controllers/          # Dashboard / User / Session / Broadcast controllers
+│                             # (Blade views in resources/views/admin, routes in routes/admin.php)
 ├── Routing/
 │   ├── Route.php             # Immutable Value Object (readonly props)
 │   ├── RouteCollection.php   # Fluent route DSL + file loader
@@ -283,9 +428,13 @@ src/
 │   ├── Keyboards/InlineKeyboard.php  # fluent InlineKeyboardMarkup builder
 │   ├── Keyboards/ReplyKeyboard.php   # fluent ReplyKeyboardMarkup builder
 │   ├── Keyboards/ForceReply.php      # fluent ForceReply markup builder
-│   └── Media/MediaGroup.php          # fluent sendMediaGroup payload builder
+│   ├── Media/MediaGroup.php          # fluent sendMediaGroup payload builder
+│   ├── Payments/Invoice.php          # fluent sendInvoice/createInvoiceLink builder (fiat + Stars)
+│   └── Inline/InlineResults.php      # fluent answerInlineQuery results builder
 ├── Services/
 │   ├── MediaUploader.php         # upload local file/URL to Telegram, return file_id (container alias: laragram.media)
+│   ├── MediaDownloader.php       # download an incoming file: getFile()/download()/save() (container alias: laragram.downloader)
+│   ├── Payments.php              # outbound payment actions: invoiceLink()/refund() (container alias: laragram.payments)
 │   └── TelegramErrorHandler.php  # maps API errors to typed exceptions; validateUserBeforeSend(), getUserStatus()
 ├── Enums/
 │   ├── TelegramErrorCode.php     # int-backed enum for Telegram HTTP error codes (400–504)
@@ -296,6 +445,8 @@ src/
 ├── Support/
 │   ├── RouteFile.php          # validates/resolves config paths.route & paths.scenes under routes/ (rejects .., backslash, absolute)
 │   ├── OutboundPayload.php    # method()/params() — strips internal '_'-prefixed keys; shared by ResponseDispatcher + PendingBroadcast so both send identically
+│   ├── IncomingFile.php       # handle from BotRequest::file(): id()/bytes()/save() — defers to laragram.downloader
+│   ├── Command.php            # stripMention(token, ?botUsername) — strips the @botusername suffix from group commands
 │   └── UpdateType.php         # detect(array $update): string — single source of update-type detection, shared by Router + SceneManager
 ├── BotAPI.php        # __call() proxy → BotClient (all Telegram methods work automatically)
 ├── BotAuth.php       # extracts sender, drives AuthDriverInterface
@@ -319,16 +470,23 @@ src/
 | `BotAPI` | `__call()` proxy to `BotClient`; use any Telegram method directly |
 | `BotAuth` | Authenticates sender via `AuthDriverInterface` |
 | `BotRequest` | `get('field')`, `input('param')`, `query()`, `message()`, `callbackQuery()`, `validate()` |
-| `BotResponse` | `text()`, `view()`, `redirect()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()` |
+| `BotResponse` | `text()`, `view()`, `redirect()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
+| `Telegram\Inline\InlineResults` | Fluent `answerInlineQuery` results builder; `article()`/`photo()`/`sticker()`/`raw()` + `cache()`/`personal()`/`nextOffset()`/`button()` |
+| `Telegram\Payments\Invoice` | Fluent `sendInvoice`/`createInvoiceLink` params builder; `stars()` shortcut for Telegram Stars |
+| `Services\Payments` | `invoiceLink()` (createInvoiceLink) + `refund()` (refundStarPayment); alias `laragram.payments` |
 | `Facades\BotRoute` | Static proxy for `RouteCollection`; use inside `routes/laragram/routes.php` instead of `$collection` |
 | `Facades\BotScene` | Facade for `Scene\SceneManager`; `define()` scenes in `routes/laragram/scenes.php`, `enter()` from a route handler |
 | `Scene\SceneManager` | Scene runtime; `start()` / `continue()` produce Router-shaped output (alias `laragram.scene`) |
 | `Facades\BotBroadcast` | Facade for `Broadcasting\Broadcaster` (alias `laragram.broadcast`); `view()` / `text()` → `PendingBroadcast`, then `->send()` |
 | `Broadcasting\Broadcaster` | Mass-messaging entry point; `view()` / `text()` return a fresh `PendingBroadcast` |
 | `Listeners\DeactivateUnreachableUser` | Bound to `BotExceptionHandled`; deactivates a user on a terminal/unreachable send error |
+| `Events\PaymentReceived` | Fired for every completed payment (`successful_payment`); carries the user + payment, with accessors |
+| `Listeners\RecordPayment` | Bound to `PaymentReceived`; persists to `laragram_payments` when `payments.store` is on (idempotent) |
 | `View\ComponentContext` | Stack-based context shared between `BotResponse` renderer and global helper functions |
 | `ExceptionHandler` | `handle(\Throwable)` — logs reportable exceptions, silences others |
 | `Services\MediaUploader` | `upload(string $type, string $source, int $chatId): string` — uploads local file or URL, returns `file_id` |
+| `Services\MediaDownloader` | `getFile()` / `download()` / `save()` — fetch an incoming file's bytes or store it; alias `laragram.downloader` |
+| `Support\IncomingFile` | Handle from `BotRequest::file()`; `id()` / `bytes()` / `save(?disk, ?path)` |
 | `Services\TelegramErrorHandler` | `handleError()` maps API error arrays → typed exceptions; `validateUserBeforeSend()` / `getUserStatus()` check DB |
 | `Enums\TelegramErrorCode` | Int-backed enum (400–504); `getDescription()`, `getRecommendedAction()`, `requiresUserDeactivation()` |
 
@@ -537,7 +695,8 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 ### Models & Database
 
 - `laragram_users` — `uid` (unique), `first_name`, `last_name`, `username`, `settings` (JSON cast to `AsCollection`), `role` (string, default `'user'`, indexed), `is_active` (indexed), `deactivated_at`
-- `laragram_sessions` — `user_id`, `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); composite index `(user_id, last_activity)` backs `User::session()`. **Migration-stub indexes only apply to fresh installs — existing host apps need their own `Schema::table(...)->index(...)` migration to add them.**
+- `laragram_sessions` — `user_id`, `chat_id` (nullable — the conversation the session belongs to; group support), `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); **unique `(user_id, chat_id)`** is the per-conversation upsert key, and composite index `(user_id, chat_id, last_activity)` backs `User::session(?int $chatId)`. In a private chat `chat_id == uid`. **Migration-stub changes only apply to fresh installs — existing host apps need their own migration to add `chat_id` (backfill `chat_id = uid`), swap the unique key to `(user_id, chat_id)`, and add the index.**
+- `laragram_payments` (opt-in, phase-2 payments) — `user_id`/`uid` (nullable, indexed), `currency`, `total_amount`, `invoice_payload`, `telegram_payment_charge_id` (unique → idempotent), `provider_payment_charge_id`, `payload` (JSON), timestamps. Written by `Listeners\RecordPayment` only when `payments.store` is enabled; needs its published migration.
 - `User::session()` returns the most recent session within the configured lifetime
 - `User::activate()` / `deactivate()` toggle `is_active` + `deactivated_at`
 - `User::hasRole(string|array $role)` — checks the `role` column; `isAdmin()` is a shorthand for `hasRole('admin')`
@@ -550,6 +709,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 | Key | Purpose |
 |---|---|
 | `telegram.token` | Bot token (`LARAGRAM_BOT_TOKEN`) |
+| `telegram.username` | Bot @username without `@` (`LARAGRAM_BOT_USERNAME`); strips the `@botusername` suffix Telegram appends to commands in groups. Empty → strips any `@suffix` |
 | `telegram.prefix` / `telegram.secret` | Webhook URL segments |
 | `auth.driver` | `database` or `array` |
 | `queue.enabled` | Defer update processing to a queue worker (`LARAGRAM_QUEUE_ENABLED`, default `false`) |
@@ -569,6 +729,10 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 | `bot.languages` | Array of supported language codes (e.g. `['en', 'ru']`) |
 | `rate.max_attempts` / `rate.decay_seconds` | Rate limiting |
 | `security.verify_secret` | Toggle `X-Telegram-Bot-Api-Secret-Token` check |
+| `payments.provider_token` / `payments.currency` | Fiat invoice defaults (`LARAGRAM_PAYMENT_PROVIDER_TOKEN` / `LARAGRAM_PAYMENT_CURRENCY`); Stars ignore both |
+| `payments.store` / `payments.table` | Persist payments to history (`LARAGRAM_PAYMENTS_STORE`, default off) + its table name |
+| `downloads.disk` / `downloads.max_size` | Incoming-file download disk + byte cap (`LARAGRAM_DOWNLOADS_DISK` / `LARAGRAM_DOWNLOADS_MAX_SIZE`) |
+| `admin.enabled` / `admin.path` / `admin.middleware` / `admin.allow` | Admin panel toggle, URL prefix, middleware group, and access allowlist (`LARAGRAM_ADMIN_ENABLED` / `LARAGRAM_ADMIN_PATH`) |
 
 ### BotRequest — update-type helpers
 
@@ -585,7 +749,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **320 tests / 593 assertions**
+- Current suite: **446 tests / 918 assertions**
 
 #### Feature testing with InteractsWithBot
 
@@ -610,7 +774,7 @@ class StartCommandTest extends TestCase
 }
 ```
 
-Available factory methods: `BotUpdateFactory::message()`, `callbackQuery()`, `inlineQuery()`, `editedMessage()`, `channelPost()`.
+Available factory methods: `BotUpdateFactory::message()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`.
 
 Available assertions: `assertBotRepliedWith(string $method)`, `assertBotRepliedText(string $expected)`, `assertResponseContains(string $key, mixed $value)` (all three inspect the **first** sent message), `assertUserRedirectedTo(string $station)`, `assertNoResponse()`, `getBotResponse(): array` (first message).
 

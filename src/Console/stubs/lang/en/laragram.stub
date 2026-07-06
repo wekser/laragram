@@ -21,9 +21,9 @@ return [
 
     'callback' => [
         // A short toast shown on the button (answerCallbackQuery)…
-        'toast'     => 'You tapped :name 👆',
+        'toast'     => 'You tapped :name ✅',
         // …plus a normal message sent in reply.
-        'btn_click' => 'You clicked <b>:name</b>! Send /start to see the buttons again.',
+        'btn_click' => 'You clicked <b>:name</b>!',
     ],
 
     // The /order demo scene (routes/laragram/scenes.php + OrderController).
@@ -36,5 +36,27 @@ return [
         'send_location' => '📍 Send my location',
         'placed'        => "✅ <b>Order confirmed!</b>\nSize: :size\nAddress: :address\n\nSend /order to try again.",
         'cancelled'     => 'Order cancelled. Send /order to start over.',
+    ],
+
+    // The /donate demo — a Telegram Stars payment (ExtrasController).
+    'donate' => [
+        'title'       => 'Support the developer',
+        'description' => 'A small tip to keep Laragram going.',
+        'label'       => 'Donation',
+        'button'      => '⭐ Donate 50 Stars',
+        'thanks'      => '🙏 <b>Thank you</b> for your :amount ⭐ donation!',
+    ],
+
+    // The inline-mode demo — type "@yourbot ..." in any chat (ExtrasController).
+    'inline' => [
+        'hello_title' => 'Say hello',
+        'hello_text'  => '👋 <b>Hello</b> from Laragram inline mode!',
+        'echo_title'  => 'Echo your query',
+        'echo_text'   => 'You typed: <b>:query</b>',
+    ],
+
+    // The incoming-file demo — send the bot a photo or document (ExtrasController).
+    'file' => [
+        'saved' => '📎 Saved your file to <b>:path</b>.',
     ],
 ];

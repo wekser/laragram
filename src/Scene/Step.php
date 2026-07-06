@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\Scene;
 
 use Closure;
+use Wekser\Laragram\Support\Media;
 
 /**
  * One step of a scene: the question to ask, how to validate the answer, and an
@@ -182,15 +183,7 @@ class Step
      */
     public function expectPhoto(): static
     {
-        return $this->using(static function ($request) {
-            $sizes = $request->get('photo');
-
-            if (!is_array($sizes) || $sizes === []) {
-                return null;
-            }
-
-            return end($sizes)['file_id'] ?? null;
-        });
+        return $this->using(static fn ($request) => Media::largestPhotoFileId($request->get('photo')));
     }
 
     // -------------------------------------------------------------------------

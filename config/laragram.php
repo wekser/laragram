@@ -25,6 +25,11 @@ return [
         'token'  => env('LARAGRAM_BOT_TOKEN'),
         'prefix' => env('LARAGRAM_WEBHOOK_PREFIX', 'laragram'),
         'secret' => env('LARAGRAM_WEBHOOK_SECRET'),
+
+        // The bot's @username (without the leading @). Used to strip the
+        // "@botusername" suffix Telegram appends to commands in group chats
+        // ("/start@MyBot"). When empty, any "@suffix" on a command is stripped.
+        'username' => env('LARAGRAM_BOT_USERNAME'),
     ],
 
     /*
@@ -166,6 +171,57 @@ return [
         'chunk_size'             => env('LARAGRAM_BROADCAST_CHUNK_SIZE', 500),
         'sync_delay_ms'          => env('LARAGRAM_BROADCAST_SYNC_DELAY_MS', 40),
         'deactivate_unreachable' => env('LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE', true),
+
+        // Max recipients the admin panel will send to synchronously (queue off).
+        // Above this the panel refuses to block the web request and asks you to
+        // enable the queue or use the laragram:broadcast command instead.
+        'web_sync_limit'         => env('LARAGRAM_BROADCAST_WEB_SYNC_LIMIT', 200),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Downloads (incoming files)
+    |--------------------------------------------------------------------------
+    |
+    | Settings for the MediaDownloader service (alias laragram.downloader) /
+    | BotRequest::file(), which fetch a file a user sent to the bot.
+    |
+    | "disk" is the default Laravel filesystem disk that ->save() writes to.
+    | "max_size" caps how many bytes will be downloaded (Telegram's getFile
+    | endpoint itself serves files up to 20 MB); 0 disables the check.
+    |
+    */
+
+    'downloads' => [
+        'disk'     => env('LARAGRAM_DOWNLOADS_DISK', 'local'),
+        'max_size' => env('LARAGRAM_DOWNLOADS_MAX_SIZE', 20 * 1024 * 1024),
+        'timeout'  => env('LARAGRAM_DOWNLOADS_TIMEOUT', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payments
+    |--------------------------------------------------------------------------
+    |
+    | Defaults for fiat invoices (Telegram Payments 2.0) built with the Invoice
+    | builder / BotResponse::invoice(). "provider_token" is the payment provider
+    | token from @BotFather; "currency" is the fallback ISO 4217 code when an
+    | invoice does not set one explicitly.
+    |
+    | Telegram Stars invoices (Invoice::stars()) ignore both — they use the
+    | "XTR" currency and never require a provider token.
+    |
+    */
+
+    'payments' => [
+        'provider_token' => env('LARAGRAM_PAYMENT_PROVIDER_TOKEN', ''),
+        'currency'       => env('LARAGRAM_PAYMENT_CURRENCY', 'USD'),
+
+        // Persist every successful payment to the payments table (idempotent).
+        // Requires the "database" driver and the published payments migration.
+        // The PaymentReceived event fires regardless of this flag.
+        'store' => env('LARAGRAM_PAYMENTS_STORE', false),
+        'table' => 'laragram_payments',
     ],
 
     /*
@@ -181,6 +237,31 @@ return [
     'rate' => [
         'max_attempts'  => env('LARAGRAM_RATE_MAX_ATTEMPTS', 60),
         'decay_seconds' => env('LARAGRAM_RATE_DECAY_SECONDS', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin panel
+    |--------------------------------------------------------------------------
+    |
+    | A bundled, server-rendered dashboard for the bot's user base: metrics,
+    | users & roles, sessions, and a broadcast launcher. It requires the
+    | "database" auth driver (there is nothing to show under "array").
+    |
+    | "path" is the URL prefix it mounts on (e.g. https://app.test/laragram/admin).
+    | "middleware" is the middleware group applied to its routes ("web" gives you
+    | sessions + CSRF for the forms). Access is gated by the "viewLaragram" Gate
+    | ability: define it in a service provider (Gate::define('viewLaragram', …));
+    | if none is defined the panel falls back to the "allow" list (host user emails
+    | or ids), and if that is empty it is reachable only in the "local" environment.
+    |
+    */
+
+    'admin' => [
+        'enabled'    => env('LARAGRAM_ADMIN_ENABLED', true),
+        'path'       => env('LARAGRAM_ADMIN_PATH', 'laragram/admin'),
+        'middleware' => ['web'],
+        'allow'      => [],
     ],
 
     /*

@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\Http;
 
 use Illuminate\Support\Arr;
+use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotRequest;
 
 /**
@@ -35,10 +36,17 @@ class RequestTransformer
         $contains     = $route['contains'] ?? null;
         $query        = Arr::get($updateObject, $listener);
 
+        // Derive the originating chat id once, from the payload itself (a pure,
+        // stateless lookup — never the request-scoped BotAuth singleton, which
+        // can be stale under a long-running worker). Threaded through the output
+        // so LogSession keys the session on it and ResponseDispatcher targets it.
+        $chat = BotAuth::findChatInPayload($this->update);
+
         $data = [
             'update' => [
-                'id'     => $this->update['update_id'],
-                'object' => $updateObject,
+                'id'      => $this->update['update_id'],
+                'object'  => $updateObject,
+                'chat_id' => $chat['id'] ?? null,
             ],
             'route'  => [
                 'event'    => $this->type,

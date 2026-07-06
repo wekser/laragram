@@ -14,6 +14,7 @@ namespace Wekser\Laragram\Routing;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Wekser\Laragram\BotAuth;
 use Wekser\Laragram\BotRequest;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Exceptions\NotExistMethodException;
@@ -22,6 +23,7 @@ use Wekser\Laragram\Http\RequestTransformer;
 use Wekser\Laragram\Http\ResponseTransformer;
 use Wekser\Laragram\Scene\SceneManager;
 use Wekser\Laragram\Scene\SceneTransition;
+use Wekser\Laragram\Support\Command;
 use Wekser\Laragram\Support\UpdateType;
 
 /**
@@ -31,6 +33,12 @@ class Router
 {
     /** Update type detected from the incoming payload (e.g. 'message'). */
     protected string $type = '';
+
+    /** Chat type the update originated in (private/group/supergroup/channel), or null. */
+    protected ?string $chatType = null;
+
+    /** Configured bot @username (without @), resolved once per dispatch for command matching. */
+    protected ?string $botUsername = null;
 
     /** The BotRequest built for the matched route. */
     protected ?BotRequest $request = null;
@@ -61,6 +69,8 @@ class Router
     public function dispatch(array $update): ?array
     {
         $this->getType($update);
+        $this->chatType    = BotAuth::findChatInPayload($update)['type'] ?? null;
+        $this->botUsername = config('laragram.telegram.username');
 
         return $this->runRoute($update, $this->findRoute($update, $this->station));
     }
@@ -84,7 +94,7 @@ class Router
                 continue;
             }
 
-            if ($this->matchesEvent($route) && $this->matchesRole($route) && $this->matchesContent($route, $object, $station)) {
+            if ($this->matchesEvent($route) && $this->matchesChatType($route) && $this->matchesRole($route) && $this->matchesContent($route, $object, $station)) {
                 return $route;
             }
         }
@@ -164,6 +174,22 @@ class Router
         return ($route['event'] ?? null) === $this->type;
     }
 
+    /**
+     * Match the route's chat-type constraint (private/group/supergroup/channel).
+     * Empty constraint matches any chat; an update with no chat never matches a
+     * constrained route.
+     */
+    private function matchesChatType(array $route): bool
+    {
+        $types = $route['chat_types'] ?? null;
+
+        if (empty($types)) {
+            return true;
+        }
+
+        return $this->chatType !== null && in_array($this->chatType, $types, true);
+    }
+
     private function matchesRole(array $route): bool
     {
         $roles = $route['roles'] ?? null;
@@ -237,9 +263,13 @@ class Router
         $pattern   = $contain['pattern']    ?? '';
         $hasParams = !empty($contain['params']);
 
+        // In group chats Telegram appends "@botusername" to commands
+        // ("/start@MyBot"); strip it before comparing to the pattern.
+        $dataFirst = is_string($data) ? Str::before($data, ' ') : '';
+
         $commandMatch = $isCommand
-            && Str::startsWith($data, '/')
-            && Str::before($pattern, ' ') === Str::before($data, ' ');
+            && str_starts_with($dataFirst, '/')
+            && Str::before($pattern, ' ') === Command::stripMention($dataFirst, $this->botUsername);
 
         $paramMatch = Str::startsWith($pattern, '{') && $hasParams;
         $exactMatch = $pattern === $data;

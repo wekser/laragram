@@ -43,9 +43,15 @@ class LogSession
             return; // Array driver — user is in-memory only, no DB persistence.
         }
 
+        // One session row per (user, chat). In a private chat the chat id equals
+        // the user's uid, so behaviour is unchanged; in a group each member keeps
+        // independent state per chat. Derived from the update payload upstream
+        // (RequestTransformer), so it is always this update's chat.
+        $chatId = $event->output['update']['chat_id'] ?? $event->user->uid;
+
         try {
             $this->model::updateOrCreate(
-                ['user_id' => $event->user->id],
+                ['user_id' => $event->user->id, 'chat_id' => $chatId],
                 [
                     'update_id'     => $event->output['update']['id'],
                     'station'       => $event->output['response']['redirect'],
