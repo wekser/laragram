@@ -14,24 +14,33 @@ namespace Wekser\Laragram\Admin\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Gates access to the Laragram admin panel.
  *
- * Resolution order (mirrors Horizon/Telescope):
- *   1. If a "viewLaragram" Gate ability is defined, it decides.
- *   2. Otherwise, the host user's email / auth id must be in config
- *      laragram.admin.allow.
- *   3. Otherwise, access is granted only in the "local" environment.
+ * Resolution order:
+ *   1. If a "viewLaragram" Gate ability is defined, it decides (an escape hatch
+ *      for host apps that want to reuse their own web auth). A denying Gate is a
+ *      hard 403.
+ *   2. Otherwise the panel is protected by the "laragram_admin" session guard
+ *      (the laragram_admins table); an unauthenticated visitor is redirected to
+ *      the login page. Create accounts with `php artisan laragram:admin:create`.
  */
 class Authorize
 {
     public function handle(Request $request, Closure $next): Response
     {
         if (! $this->authorized($request)) {
-            abort(403);
+            // A defined Gate that denies is a hard 403; otherwise send the
+            // visitor to the login page to authenticate as a Laragram admin.
+            if (Gate::has('viewLaragram')) {
+                abort(403);
+            }
+
+            return redirect()->guest(route('laragram.admin.login'));
         }
 
         // The panel reads the persisted user/session tables; under the "array"
@@ -46,19 +55,10 @@ class Authorize
 
     private function authorized(Request $request): bool
     {
-        $user = $request->user();
-
         if (Gate::has('viewLaragram')) {
-            return Gate::forUser($user)->check('viewLaragram');
+            return Gate::forUser($request->user())->check('viewLaragram');
         }
 
-        $allow = (array) config('laragram.admin.allow', []);
-
-        if ($allow !== [] && $user !== null) {
-            return in_array($user->email ?? null, $allow, true)
-                || in_array($user->getAuthIdentifier(), $allow, true);
-        }
-
-        return app()->environment('local');
+        return Auth::guard(config('laragram.admin.guard', 'laragram_admin'))->check();
     }
 }

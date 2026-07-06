@@ -115,17 +115,14 @@ class LaragramInstallCommand extends Command
      */
     protected function createMigrations()
     {
-        file_put_contents(
-            base_path('database/migrations/' . date('Y_m_d_His', time()) . '_create_laragram_users_table.php'),
-            file_get_contents(__DIR__ . '/stubs/migrations/create_laragram_users_table.stub')
-        );
-
-        sleep(2);
-
-        file_put_contents(
-            base_path('database/migrations/' . date('Y_m_d_His', time()) . '_create_laragram_sessions_table.php'),
-            file_get_contents(__DIR__ . '/stubs/migrations/create_laragram_sessions_table.stub')
-        );
+        // Offset the timestamp per file so migrations keep a stable order
+        // (users → sessions → admins) without blocking on sleep().
+        foreach (['users', 'sessions', 'admins'] as $offset => $name) {
+            file_put_contents(
+                base_path('database/migrations/' . date('Y_m_d_His', time() + $offset) . "_create_laragram_{$name}_table.php"),
+                file_get_contents(__DIR__ . "/stubs/migrations/create_laragram_{$name}_table.stub")
+            );
+        }
     }
 
     /**
