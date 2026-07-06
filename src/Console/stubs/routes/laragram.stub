@@ -31,11 +31,6 @@ BotRoute::get('message')
     ->contains('/order')
     ->call([OrderController::class, 'order']);
 
-// Station 'home': echo back whatever the user sends
-BotRoute::get('message')
-    ->from('home')
-    ->call([HelloController::class, 'home']);
-
 // Station 'home': react to inline button
 BotRoute::get('callback_query')
     ->from('home')
@@ -67,6 +62,11 @@ BotRoute::get('message', 'photo')
 
 BotRoute::get('message', 'document')
     ->call([ExtrasController::class, 'receiveFile']);
+
+// Station 'home': echo back whatever the user sends
+BotRoute::get('message')
+    ->from('home')
+    ->call([HelloController::class, 'home']);
 
 // Catch-all: handles any update that did not match a route above
 // BotRoute::fallback()->call([HelloController::class, 'fallback']);
