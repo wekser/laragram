@@ -143,6 +143,8 @@ $collection->get('message')           // Telegram event type
 - **role** — `role` is empty (any user) OR `$user->hasRole($roles)` returns `true`; unmatched role falls through to the next route (including fallback)
 - **content** — `contains` is empty (any content), OR command prefix match, OR exact match, OR param-pattern match (`{name}`)
 
+**Order matters — first match wins.** `findRoute()` iterates routes in declaration order and returns the *first* one that matches (`fallback` is the sole exception: it's remembered and only used if nothing else matched). A **station catch-all** — a route with `from('x')` and **no** `contains` — matches *any* message at station `x`, so it must be declared **below** every specific command route for that station. The demo (`src/Console/stubs/routes/laragram.stub`) puts all command routes (`/donate`, file demos, …) first and the `from('home')` echo route **last**; declaring the echo above `/donate` would make `/donate` echo instead of firing its handler while the user is at `home`.
+
 `contains()` accepts a string or array of patterns. Patterns starting with `/` are commands; `{param}` placeholders extract positional args into `BotRequest::input('param')`.
 
 `group()` supports shared `from` and `roles` constraints:

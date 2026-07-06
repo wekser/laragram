@@ -204,7 +204,7 @@ class LaragramServiceProvider extends ServiceProvider
      */
     protected function registerMediaUploader(): void
     {
-        $this->app->singleton(MediaUploader::class, function ($app) {
+        $this->app->singleton('laragram.media', function ($app) {
             return new MediaUploader($app['laragram.api']);
         });
     }
@@ -216,7 +216,7 @@ class LaragramServiceProvider extends ServiceProvider
      */
     protected function registerMediaDownloader(): void
     {
-        $this->app->singleton(MediaDownloader::class, function ($app) {
+        $this->app->singleton('laragram.downloader', function ($app) {
             return new MediaDownloader($app['laragram.api']);
         });
     }
@@ -228,7 +228,7 @@ class LaragramServiceProvider extends ServiceProvider
      */
     protected function registerPayments(): void
     {
-        $this->app->singleton(Payments::class, function ($app) {
+        $this->app->singleton('laragram.payments', function ($app) {
             return new Payments($app['laragram.api']);
         });
     }
