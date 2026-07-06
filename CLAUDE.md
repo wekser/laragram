@@ -698,7 +698,9 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 
 - `laragram_users` — `uid` (unique), `first_name`, `last_name`, `username`, `settings` (JSON cast to `AsCollection`), `role` (string, default `'user'`, indexed), `is_active` (indexed), `deactivated_at`
 - `laragram_sessions` — `user_id`, `chat_id` (nullable — the conversation the session belongs to; group support), `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); **unique `(user_id, chat_id)`** is the per-conversation upsert key, and composite index `(user_id, chat_id, last_activity)` backs `User::session(?int $chatId)`. In a private chat `chat_id == uid`. **Migration-stub changes only apply to fresh installs — existing host apps need their own migration to add `chat_id` (backfill `chat_id = uid`), swap the unique key to `(user_id, chat_id)`, and add the index.**
-- `laragram_payments` (opt-in, phase-2 payments) — `user_id`/`uid` (nullable, indexed), `currency`, `total_amount`, `invoice_payload`, `telegram_payment_charge_id` (unique → idempotent), `provider_payment_charge_id`, `payload` (JSON), timestamps. Written by `Listeners\RecordPayment` only when `payments.store` is enabled; needs its published migration.
+- `laragram_payments` (opt-in, phase-2 payments) — `user_id`/`uid` (nullable, indexed), `currency`, `total_amount`, `invoice_payload`, `telegram_payment_charge_id` (unique → idempotent), `provider_payment_charge_id`, `payload` (JSON), timestamps. Written by `Listeners\RecordPayment` only when `payments.store` is enabled; needs its published migration (`php artisan vendor:publish --tag=laragram-migrations`).
+
+**Migration publishing.** `laragram:install` writes the base `users`/`sessions`/`admins` migrations directly into `database/migrations/` **with a `Y_m_d_His` timestamp prefix** (`LaragramInstallCommand::createMigrations()`, one-second offsets to keep order). The `laragram-migrations` `vendor:publish` tag publishes **only** the opt-in `laragram_payments` migration — with a publish-time timestamp prefix computed in `LaragramServiceProvider::boot()`. The tag must never re-expose users/sessions/admins: those already exist (timestamped) after `install`, and republishing them (formerly done with fixed, un-timestamped filenames) duplicated the tables. Guarded by `tests/Unit/Console/MigrationPublishTagTest.php`.
 - `laragram_admins` (admin panel) — `name` (nullable), `username` (unique), `password` (hashed), `remember_token`, timestamps. Backs the admin-panel login (`Models\Admin`, a plain `Authenticatable` distinct from `Models\User`); rows are created by `laragram:admin:create`. Needs its published migration.
 - `User::session()` returns the most recent session within the configured lifetime
 - `User::activate()` / `deactivate()` toggle `is_active` + `deactivated_at`
@@ -752,7 +754,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **458 tests / 947 assertions**
+- Current suite: **461 tests / 953 assertions**
 
 #### Feature testing with InteractsWithBot
 

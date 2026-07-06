@@ -341,11 +341,14 @@ class LaragramServiceProvider extends ServiceProvider
                 $this->configPath() => config_path('laragram.php'),
             ], 'laragram-config');
 
+            // Only the opt-in payments migration is published here — the base
+            // users/sessions/admins tables are created (timestamped) by
+            // laragram:install. Publishing them again would duplicate those
+            // tables. The destination carries a publish-time timestamp so the
+            // migration gets a valid, correctly-ordered name (after install's).
             $this->publishes([
-                __DIR__ . '/../Console/stubs/migrations/create_laragram_users_table.stub' => database_path('migrations/create_laragram_users_table.php'),
-                __DIR__ . '/../Console/stubs/migrations/create_laragram_sessions_table.stub' => database_path('migrations/create_laragram_sessions_table.php'),
-                __DIR__ . '/../Console/stubs/migrations/create_laragram_payments_table.stub' => database_path('migrations/create_laragram_payments_table.php'),
-                __DIR__ . '/../Console/stubs/migrations/create_laragram_admins_table.stub' => database_path('migrations/create_laragram_admins_table.php'),
+                __DIR__ . '/../Console/stubs/migrations/create_laragram_payments_table.stub'
+                    => database_path('migrations/' . date('Y_m_d_His') . '_create_laragram_payments_table.php'),
             ], 'laragram-migrations');
 
             $this->publishes([
