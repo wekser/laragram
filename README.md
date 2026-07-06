@@ -566,7 +566,17 @@ LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE=true
 
 A bundled, server-rendered dashboard for your bot's user base — metrics, users & roles, sessions, and a broadcast composer. Self-contained (own routes + Blade views, no build step, no external dependencies), mounted at `/laragram/admin` by default. Requires the `database` auth driver.
 
-Access mirrors Horizon: define a `viewLaragram` Gate ability, or list allowed host-app users in `config('laragram.admin.allow')`; with neither, the panel is reachable only in the `local` environment.
+The panel is protected by its **own login page** backed by the `laragram_admins` table — no host-app web auth is required, and it works in production from any IP. Run the migration (`laragram:install` scaffolds it), then create an account:
+
+```bash
+php artisan laragram:admin:create            # prompts for username + password (min 8 chars)
+php artisan laragram:admin:create alice --name="Alice" --password=secret123   # or non-interactively
+php artisan laragram:admin:delete alice      # remove an account
+```
+
+Browse to `/laragram/admin` and you'll be redirected to the login page. Passwords are hashed automatically by `Models\Admin` (a dedicated `Authenticatable`, distinct from the Telegram `User`), which logs in through a self-registered `laragram_admin` session guard — so **no `config/auth.php` edits are needed**.
+
+**Escape hatch:** if you'd rather reuse your host app's own web auth, define a `viewLaragram` Gate ability — it overrides the login and decides access itself (a denying gate is a hard 403):
 
 ```php
 // app/Providers/AppServiceProvider.php
@@ -623,6 +633,8 @@ Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded,
 | `laragram:scene:list` | List all registered scenes |
 | `laragram:set-role {uid} {role}` | Assign a role to a user |
 | `laragram:broadcast {message?}` | Mass-message users (`--view`, `--role=*`, `--include-inactive`, `--dry-run`, `--no-confirm`) |
+| `laragram:admin:create {username?}` | Create (or reset the password of) an admin-panel login account (`--name`, `--password`) |
+| `laragram:admin:delete {username}` | Delete an admin-panel login account |
 
 ---
 
