@@ -70,9 +70,11 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 **Admin Panel**
 - Bundled server-rendered dashboard (own routes + Blade views with inline CSS, no build step, no external dependencies — the Horizon/Telescope model), mounted at `config('laragram.admin.path')` (default `laragram/admin`) with the `admin.middleware` group. Requires the `database` auth driver
 - Pages (route names `laragram.admin.*`): dashboard metrics, users (set role, activate/deactivate), sessions (browse + prune), and a broadcast composer (dry-run count or send, honouring the queue/sync path); `Admin\Metrics` computes the read-only aggregates
-- `Admin\Middleware\Authorize` gates access like Horizon: a `viewLaragram` Gate ability decides if defined; else the host user's email/id must be in `admin.allow`; else access is granted only in the `local` environment (otherwise 403)
+- **Login-backed access.** The panel is protected by its own login page against the `laragram_admins` table (`Models\Admin`, a dedicated `Authenticatable`) via a self-registered `laragram_admin` session guard — host apps need **no** `config/auth.php` edits and it works in production from any IP. `Admin\Controllers\AuthController` handles `show`/`login`/`logout` (session regenerate/invalidate); `Admin\Middleware\Authorize` resolves access in order: a `viewLaragram` Gate ability decides if defined (escape hatch to reuse the host app's own web auth; a denying gate is a hard 403), otherwise an authenticated `laragram_admin` passes and an unauthenticated visitor is redirected to the login page. The guard/model/table are configurable via `admin.guard` / `admin.model` / `admin.table`
+- `laragram:admin:create {username?}` (`--name`, `--password`, min 8 chars, prompted if omitted; password auto-hashed by the model's `hashed` cast) creates or resets a login account; `laragram:admin:delete {username}` removes one
+- `Models\Admin` + `laragram_admins` migration (`name`, `username` unique, `password` hashed, `remember_token`, timestamps)
 - Synchronous web broadcasts are capped by `broadcast.web_sync_limit` (default 200) — above it the panel asks you to enable the queue or use `laragram:broadcast`
-- `admin.enabled` / `admin.path` / `admin.middleware` / `admin.allow` config keys (env: `LARAGRAM_ADMIN_ENABLED`, `LARAGRAM_ADMIN_PATH`)
+- `admin.enabled` / `admin.path` / `admin.middleware` / `admin.guard` / `admin.model` / `admin.table` config keys (env: `LARAGRAM_ADMIN_ENABLED`, `LARAGRAM_ADMIN_PATH`)
 
 **HTTP Layer**
 - `Http\RequestTransformer` — builds `BotRequest` from the raw update and the matched route (replaces `Support\FormRequest`)
@@ -128,6 +130,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 
 **Database**
 - Migration-stub indexes for fresh installs: `laragram_sessions (user_id, last_activity)` (backs `User::session()`), and `laragram_users.role` / `laragram_users.is_active` (back `scopeByRole()` / `scopeActive()` and admin/broadcast queries). Existing host apps must add these via their own `Schema::table()` migration
+- `laragram_admins` table (admin-panel login) — `name` (nullable), `username` (unique), `password` (hashed), `remember_token`, timestamps; backs `Models\Admin`, rows created by `laragram:admin:create`
 
 **BotResponse**
 - `BotResponse::answer(string $text, bool $showAlert)` — sends `answerCallbackQuery`
@@ -157,6 +160,8 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `laragram:route:match {event} {text} [--station=]` — debug command; shows which route would match a given event and text
 - `laragram:session:prune` — deletes expired sessions
 - `laragram:set-role {uid} {role}` — assigns a role to a user by their Telegram ID
+- `laragram:admin:create {username?}` — creates (or resets the password of) an admin-panel login account (`--name`, `--password`, min 8 chars, prompted if omitted; password auto-hashed)
+- `laragram:admin:delete {username}` — deletes an admin-panel login account
 - `laragram:make:controller` — scaffolds a new bot controller
 - `laragram:make:view` — scaffolds a new bot view
 - `laragram:make:scene {name} [--steps=a,b]` — appends a scene (wizard) skeleton to the scenes file, creating it with the required imports if absent
