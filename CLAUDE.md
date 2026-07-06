@@ -45,6 +45,8 @@ CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` a
 | `laragram:make:scene` | Appends a scene (wizard) skeleton to the scenes file (`--steps=a,b`) |
 | `laragram:scene:list` | Lists all registered scenes with steps and options |
 | `laragram:set-role {uid} {role}` | Assigns a role to a user by their Telegram ID (requires `database` driver) |
+| `laragram:admin:create {username?}` | Creates (or resets the password of) an admin-panel login account; `--name=`, `--password=` (prompted if omitted, min 8 chars). Password auto-hashed by the model cast |
+| `laragram:admin:delete {username}` | Deletes an admin-panel login account |
 | `laragram:broadcast {message?}` | Mass-message the user base — view via `--view`, filter via `--role=*` / `--include-inactive`, `--dry-run`, `--no-confirm`; requires `database` driver |
 | `laragram:route:match {event} {text}` | Debug: shows which route would match a given event + text (`--station=` optional) |
 
@@ -376,8 +378,8 @@ roles, sessions, and a broadcast launcher. Self-contained: its own routes +
 Blade views with inline CSS (theme-aware), **no build step and no external
 dependencies** (Horizon/Telescope model). **Requires the `database` auth driver.**
 
-- **Mount & config.** Routes are registered in `LaragramServiceProvider::registerAdminPanel()` (called from `boot()`), loaded from `routes/admin.php`, gated purely on `config('laragram.admin.enabled')`. It mounts at `config('laragram.admin.path')` (default `laragram/admin`) with the `config('laragram.admin.middleware')` group (default `['web']`) plus the `Admin\Middleware\Authorize` gate. Blade views live in `resources/views/admin/`, registered via `loadViewsFrom(..., 'laragram')` → referenced as `view('laragram::admin.*')`.
-- **Access control** (`Admin\Middleware\Authorize`) mirrors Horizon: if a `viewLaragram` Gate ability is defined it decides; else the host user's email / auth id must be in `config('laragram.admin.allow')`; else access is granted only in the `local` environment (otherwise **403**). The gate receives the **host app's** authenticated user (the panel is browsed by a human), not a Telegram user.
+- **Mount & config.** Routes are registered in `LaragramServiceProvider::registerAdminPanel()` (called from `boot()`), loaded from `routes/admin.php`, gated purely on `config('laragram.admin.enabled')`. It mounts at `config('laragram.admin.path')` (default `laragram/admin`) with the `config('laragram.admin.middleware')` group (default `['web']`); the login/logout routes run under that group **only**, while the panel routes add the `Admin\Middleware\Authorize` gate on top. Blade views live in `resources/views/admin/`, registered via `loadViewsFrom(..., 'laragram')` → referenced as `view('laragram::admin.*')`.
+- **Access control — login page backed by `laragram_admins`.** The panel is protected by a **session login** against the `laragram_admins` table (`Models\Admin`), via a dedicated `laragram_admin` session guard. `registerAdminPanel()` calls `registerAdminGuard()`, which injects a `session` guard + `eloquent` provider into `config('auth.*')` at boot — so **host apps need no `config/auth.php` edits**. `Admin\Controllers\AuthController` handles `show`/`login`/`logout` (`Auth::guard('laragram_admin')->attempt()`, session regenerate on login/invalidate on logout). Create accounts with `laragram:admin:create` (password auto-hashed by the model's `hashed` cast). `Admin\Middleware\Authorize` resolves in order: (1) if a `viewLaragram` Gate ability is defined it **decides** (escape hatch to reuse the host app's own web auth; a denying Gate is a hard **403**); (2) otherwise an authenticated `laragram_admin` passes, and an unauthenticated visitor is **redirected to the login page** (`redirect()->guest()`, so `redirect()->intended()` returns them after login). The guard/model/table names are configurable via `admin.guard` / `admin.model` / `admin.table`.
 - **Pages / routes** (route names `laragram.admin.*`): `dashboard` (metrics), `users` + `users.role` / `users.toggle` (POST — set role, activate/deactivate), `sessions` + `sessions.prune` (POST), `broadcast` + `broadcast.store` (POST — dry-run count or send).
 - **`Admin\Metrics`** computes the dashboard numbers (total/active/inactive users, new today/week, role breakdown, active sessions) — read-only, all derived from the DB (no tracking table). "Inactive" doubles as the blocked/unreachable count (auto-deactivation writes `is_active = false`).
 - **Reuse.** Users page uses `User` scopes/`activate()`/`deactivate()`; sessions page uses the `Session` model + the same prune rule as `laragram:session:prune`; the broadcast composer drives the existing `Broadcaster`/`PendingBroadcast` (dry-run = `->count()`, send = `->send()`), so it honours the queue/sync path.
@@ -388,9 +390,9 @@ dependencies** (Horizon/Telescope model). **Requires the `database` auth driver.
 src/
 ├── Admin/                    # bundled web admin panel (requires database driver)
 │   ├── Metrics.php           # dashboard aggregates (users/sessions), read-only
-│   ├── Middleware/Authorize.php  # gates access: viewLaragram Gate → config allow → local only
-│   └── Controllers/          # Dashboard / User / Session / Broadcast controllers
-│                             # (Blade views in resources/views/admin, routes in routes/admin.php)
+│   ├── Middleware/Authorize.php  # gates access: viewLaragram Gate → laragram_admin login (redirects to login page)
+│   └── Controllers/          # Auth (login/logout) / Dashboard / User / Session / Broadcast controllers
+│                             # (Blade views in resources/views/admin incl. login.blade.php, routes in routes/admin.php)
 ├── Routing/
 │   ├── Route.php             # Immutable Value Object (readonly props)
 │   ├── RouteCollection.php   # Fluent route DSL + file loader
@@ -697,6 +699,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - `laragram_users` — `uid` (unique), `first_name`, `last_name`, `username`, `settings` (JSON cast to `AsCollection`), `role` (string, default `'user'`, indexed), `is_active` (indexed), `deactivated_at`
 - `laragram_sessions` — `user_id`, `chat_id` (nullable — the conversation the session belongs to; group support), `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); **unique `(user_id, chat_id)`** is the per-conversation upsert key, and composite index `(user_id, chat_id, last_activity)` backs `User::session(?int $chatId)`. In a private chat `chat_id == uid`. **Migration-stub changes only apply to fresh installs — existing host apps need their own migration to add `chat_id` (backfill `chat_id = uid`), swap the unique key to `(user_id, chat_id)`, and add the index.**
 - `laragram_payments` (opt-in, phase-2 payments) — `user_id`/`uid` (nullable, indexed), `currency`, `total_amount`, `invoice_payload`, `telegram_payment_charge_id` (unique → idempotent), `provider_payment_charge_id`, `payload` (JSON), timestamps. Written by `Listeners\RecordPayment` only when `payments.store` is enabled; needs its published migration.
+- `laragram_admins` (admin panel) — `name` (nullable), `username` (unique), `password` (hashed), `remember_token`, timestamps. Backs the admin-panel login (`Models\Admin`, a plain `Authenticatable` distinct from `Models\User`); rows are created by `laragram:admin:create`. Needs its published migration.
 - `User::session()` returns the most recent session within the configured lifetime
 - `User::activate()` / `deactivate()` toggle `is_active` + `deactivated_at`
 - `User::hasRole(string|array $role)` — checks the `role` column; `isAdmin()` is a shorthand for `hasRole('admin')`
@@ -732,7 +735,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 | `payments.provider_token` / `payments.currency` | Fiat invoice defaults (`LARAGRAM_PAYMENT_PROVIDER_TOKEN` / `LARAGRAM_PAYMENT_CURRENCY`); Stars ignore both |
 | `payments.store` / `payments.table` | Persist payments to history (`LARAGRAM_PAYMENTS_STORE`, default off) + its table name |
 | `downloads.disk` / `downloads.max_size` | Incoming-file download disk + byte cap (`LARAGRAM_DOWNLOADS_DISK` / `LARAGRAM_DOWNLOADS_MAX_SIZE`) |
-| `admin.enabled` / `admin.path` / `admin.middleware` / `admin.allow` | Admin panel toggle, URL prefix, middleware group, and access allowlist (`LARAGRAM_ADMIN_ENABLED` / `LARAGRAM_ADMIN_PATH`) |
+| `admin.enabled` / `admin.path` / `admin.middleware` / `admin.guard` / `admin.model` / `admin.table` | Admin panel toggle, URL prefix, middleware group, and the session guard / Eloquent model / table backing the login page (`LARAGRAM_ADMIN_ENABLED` / `LARAGRAM_ADMIN_PATH`) |
 
 ### BotRequest — update-type helpers
 
@@ -749,7 +752,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **446 tests / 918 assertions**
+- Current suite: **458 tests / 947 assertions**
 
 #### Feature testing with InteractsWithBot
 

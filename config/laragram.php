@@ -250,10 +250,17 @@ return [
     |
     | "path" is the URL prefix it mounts on (e.g. https://app.test/laragram/admin).
     | "middleware" is the middleware group applied to its routes ("web" gives you
-    | sessions + CSRF for the forms). Access is gated by the "viewLaragram" Gate
-    | ability: define it in a service provider (Gate::define('viewLaragram', …));
-    | if none is defined the panel falls back to the "allow" list (host user emails
-    | or ids), and if that is empty it is reachable only in the "local" environment.
+    | sessions + CSRF for the forms).
+    |
+    | Access is protected by a login page backed by the laragram_admins table (the
+    | "laragram_admin" session guard). Create accounts with:
+    |
+    |     php artisan laragram:admin:create
+    |
+    | As an escape hatch, if you define a "viewLaragram" Gate ability in a service
+    | provider it overrides the login and decides access itself (e.g. to reuse your
+    | host app's own web auth). "guard" / "model" / "table" let you rename the
+    | pieces the login uses.
     |
     */
 
@@ -261,7 +268,9 @@ return [
         'enabled'    => env('LARAGRAM_ADMIN_ENABLED', true),
         'path'       => env('LARAGRAM_ADMIN_PATH', 'laragram/admin'),
         'middleware' => ['web'],
-        'allow'      => [],
+        'guard'      => 'laragram_admin',
+        'model'      => \Wekser\Laragram\Models\Admin::class,
+        'table'      => 'laragram_admins',
     ],
 
     /*

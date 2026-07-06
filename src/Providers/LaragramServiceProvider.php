@@ -27,6 +27,8 @@ use Wekser\Laragram\Scene\SceneRegistry;
 use Wekser\Laragram\Services\MediaDownloader;
 use Wekser\Laragram\Services\MediaUploader;
 use Wekser\Laragram\Services\Payments;
+use Wekser\Laragram\Console\AdminCreateCommand;
+use Wekser\Laragram\Console\AdminDeleteCommand;
 use Wekser\Laragram\Console\BroadcastCommand;
 use Wekser\Laragram\Console\GetInfoCommand;
 use Wekser\Laragram\Console\LaragramInstallCommand;
@@ -282,8 +284,33 @@ class LaragramServiceProvider extends ServiceProvider
             return;
         }
 
+        $this->registerAdminGuard();
+
         $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'laragram');
         $this->loadRoutesFrom(__DIR__ . '/../../routes/admin.php');
+    }
+
+    /**
+     * Register the session guard the admin panel logs in against, so host apps
+     * need no auth.php edits: it injects a "session" guard + "eloquent" provider
+     * for the laragram_admins table at boot. Existing guards are left untouched.
+     *
+     * @return void
+     */
+    protected function registerAdminGuard(): void
+    {
+        $guard = (string) config('laragram.admin.guard', 'laragram_admin');
+
+        config([
+            "auth.guards.{$guard}" => [
+                'driver'   => 'session',
+                'provider' => 'laragram_admins',
+            ],
+            'auth.providers.laragram_admins' => [
+                'driver' => 'eloquent',
+                'model'  => config('laragram.admin.model', \Wekser\Laragram\Models\Admin::class),
+            ],
+        ]);
     }
 
     /**
@@ -318,6 +345,7 @@ class LaragramServiceProvider extends ServiceProvider
                 __DIR__ . '/../Console/stubs/migrations/create_laragram_users_table.stub' => database_path('migrations/create_laragram_users_table.php'),
                 __DIR__ . '/../Console/stubs/migrations/create_laragram_sessions_table.stub' => database_path('migrations/create_laragram_sessions_table.php'),
                 __DIR__ . '/../Console/stubs/migrations/create_laragram_payments_table.stub' => database_path('migrations/create_laragram_payments_table.php'),
+                __DIR__ . '/../Console/stubs/migrations/create_laragram_admins_table.stub' => database_path('migrations/create_laragram_admins_table.php'),
             ], 'laragram-migrations');
 
             $this->publishes([
@@ -433,6 +461,8 @@ class LaragramServiceProvider extends ServiceProvider
             RouteMatchCommand::class,
             SessionPruneCommand::class,
             SetRoleCommand::class,
+            AdminCreateCommand::class,
+            AdminDeleteCommand::class,
             PollCommand::class,
             WebhookInfoCommand::class,
         ]);
