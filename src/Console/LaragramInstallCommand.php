@@ -56,6 +56,11 @@ class LaragramInstallCommand extends Command
             $this->line('  php artisan migrate');
 
             $this->newLine();
+            $this->line('<fg=yellow>Optional — to store a payment history (Telegram Stars / invoices):</>');
+            $this->line('  php artisan vendor:publish --tag=laragram-migrations');
+            $this->line('  (publishes the <fg=cyan>laragram_payments</> table; then set <fg=cyan>LARAGRAM_PAYMENTS_STORE=true</>)');
+
+            $this->newLine();
             $this->line('<fg=yellow>The following variables were added to your .env file:</>');
             $this->line('  LARAGRAM_BOT_TOKEN=<your_bot_token_from_BotFather>');
             $this->line('  LARAGRAM_BOT_USERNAME=<your_bot_username_without_@>  # for group commands');
