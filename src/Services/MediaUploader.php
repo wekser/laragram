@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\Services;
 
 use Wekser\Laragram\BotAPI;
+use Wekser\Laragram\Support\Media;
 
 /**
  * Uploads media files to Telegram and returns the permanent file_id.
@@ -158,10 +159,7 @@ class MediaUploader
     private function extractFileId(string $field, array $result): string
     {
         if ($field === 'photo') {
-            $sizes  = $result['photo'] ?? [];
-            $fileId = !empty($sizes)
-                ? ($sizes[array_key_last($sizes)]['file_id'] ?? null)
-                : null;
+            $fileId = Media::largestPhotoFileId($result['photo'] ?? []);
         } else {
             $fileId = $result[$field]['file_id'] ?? null;
         }

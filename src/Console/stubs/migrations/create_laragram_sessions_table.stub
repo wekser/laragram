@@ -16,14 +16,22 @@ class CreateLaragramSessionsTable extends Migration
         Schema::create(config('laragram.auth.session.table'), function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained(config('laragram.auth.user.table'))->cascadeOnDelete();
+            // Telegram chat the conversation belongs to. In a private chat this
+            // equals the user's uid; in a group/supergroup it is the shared chat
+            // id, so each member keeps independent state per chat.
+            $table->bigInteger('chat_id')->nullable();
             $table->unsignedBigInteger('update_id')->unique();
             $table->string('station');
             $table->json('payload');
             $table->timestamp('last_activity');
 
-            // Matches User::session(): WHERE user_id = ? AND last_activity >= ?
-            // ORDER BY last_activity DESC. Resolved on every database-driver request.
-            $table->index(['user_id', 'last_activity']);
+            // One session row per (user, chat): the upsert key used by LogSession.
+            $table->unique(['user_id', 'chat_id']);
+
+            // Matches User::session(): WHERE user_id = ? AND chat_id = ? AND
+            // last_activity >= ? ORDER BY last_activity DESC. Resolved on every
+            // database-driver request.
+            $table->index(['user_id', 'chat_id', 'last_activity']);
         });
     }
 

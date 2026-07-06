@@ -27,6 +27,7 @@ final class Route
      * @param callable|null       $callback   Closure used when no controller/method is set
      * @param string|null         $name       Optional route name for introspection
      * @param array|null          $roles      Role(s) the user must have for this route to match
+     * @param array|null          $chatTypes  Chat type(s) the update must originate from (private/group/…)
      */
     public function __construct(
         public readonly string    $event,
@@ -38,6 +39,7 @@ final class Route
         public readonly mixed     $callback   = null,
         public readonly ?string   $name       = null,
         public readonly ?array    $roles      = null,
+        public readonly ?array    $chatTypes  = null,
     ) {}
 
     /**
@@ -74,6 +76,7 @@ final class Route
             'callback'   => $this->callback,
             'name'       => $this->name,
             'roles'      => $this->roles,
+            'chat_types' => $this->chatTypes,
         ], fn ($v) => $v !== null);
     }
 
@@ -92,6 +95,7 @@ final class Route
             callback:   $data['callback']   ?? null,
             name:       $data['name']       ?? null,
             roles:      isset($data['roles']) ? (array) $data['roles'] : null,
+            chatTypes:  isset($data['chat_types']) ? (array) $data['chat_types'] : null,
         );
     }
 }

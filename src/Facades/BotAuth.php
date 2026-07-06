@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\Facade;
 /**
  * This is the BotAuth facade class.
  *
- * @method static User user()
+ * @method static User|null user()
+ * @method static array|null chat()
+ * @method static int|null   chatId()
+ * @method static string|null chatType()
  *
  * @see User
  */

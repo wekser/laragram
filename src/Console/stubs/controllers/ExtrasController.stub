@@ -1,0 +1,117 @@
+<?php
+
+namespace {{namespace}}Http\Controllers\Laragram;
+
+use App\Http\Controllers\Controller;
+use Wekser\Laragram\BotRequest;
+use Wekser\Laragram\BotResponse;
+use Wekser\Laragram\Telegram\Inline\InlineResults;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
+use Wekser\Laragram\Telegram\Payments\Invoice;
+
+/**
+ * Demos for three Laragram features: Telegram Stars payments, inline mode, and
+ * receiving files. Wired up by the routes appended by `php artisan laragram:publish`.
+ */
+class ExtrasController extends Controller
+{
+    public function __construct(
+        protected BotResponse $response,
+    ) {}
+
+    // -------------------------------------------------------------------------
+    // Payments — Telegram Stars
+    // -------------------------------------------------------------------------
+
+    /**
+     * /donate — send a Telegram Stars invoice.
+     *
+     * Stars need no payment provider token: Invoice::stars() sets the XTR
+     * currency and a single whole-number price. The Pay button is added via the
+     * inline keyboard (it must be the first button on an invoice).
+     */
+    public function donate(BotRequest $request): BotResponse
+    {
+        return $this->response->invoice(
+            Invoice::make()
+                ->title(__('laragram.donate.title'))
+                ->description(__('laragram.donate.description'))
+                ->payload('donation')
+                ->stars(50, __('laragram.donate.label'))
+        )->keyboard(
+            InlineKeyboard::make()->pay(__('laragram.donate.button'))->toArray()
+        );
+    }
+
+    /**
+     * Confirm the payment right before Telegram charges the user.
+     *
+     * Telegram sends a pre_checkout_query that MUST be answered within 10 seconds.
+     * Validate stock/price here; approveCheckout() lets the charge proceed
+     * (declineCheckout('reason') would reject it).
+     */
+    public function checkout(BotRequest $request): BotResponse
+    {
+        return $this->response->approveCheckout();
+    }
+
+    /**
+     * Handle a completed payment.
+     *
+     * successful_payment arrives as a field on a normal message update (that is
+     * why the route is get('message', 'successful_payment')). successfulPayment()
+     * exposes the amount, currency and telegram_payment_charge_id (keep the charge
+     * id if you may need to refund via the laragram.payments service).
+     */
+    public function paid(BotRequest $request): BotResponse
+    {
+        $payment = $request->successfulPayment();
+
+        return $this->response
+            ->view('payment.done', ['amount' => $payment['total_amount'] ?? 0])
+            ->redirect('home');
+    }
+
+    // -------------------------------------------------------------------------
+    // Inline mode
+    // -------------------------------------------------------------------------
+
+    /**
+     * Answer an inline query (type "@yourbot something" in any chat).
+     *
+     * InlineResults builds the answerInlineQuery payload; each article sends its
+     * text when the user picks it. The inline_query_id is injected automatically.
+     */
+    public function inline(BotRequest $request): BotResponse
+    {
+        $query = $request->query() ?: '…';
+
+        return $this->response->inlineResults(
+            InlineResults::make()
+                ->article('hello', __('laragram.inline.hello_title'), __('laragram.inline.hello_text'))
+                ->article('echo', __('laragram.inline.echo_title'), __('laragram.inline.echo_text', ['query' => $query]))
+                ->cache(10)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Incoming files
+    // -------------------------------------------------------------------------
+
+    /**
+     * Store a photo or document the user sent.
+     *
+     * BotRequest::file() returns a handle over the largest photo size / document;
+     * save() downloads it (getFile + fetch) onto the default disk and returns the
+     * stored path. Never store unbounded uploads without a size cap in production
+     * (see config laragram.downloads.max_size).
+     */
+    public function receiveFile(BotRequest $request): BotResponse
+    {
+        $path = $request->file()?->save();
+
+        return $this->response
+            ->view('file.saved', ['path' => $path ?? '—'])
+            ->redirect('home');
+    }
+}

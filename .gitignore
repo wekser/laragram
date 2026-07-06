@@ -11,6 +11,7 @@ composer.lock
 /tests/Fixtures/bootstrap/cache/*
 /tests/Fixtures/storage/framework/cache/*
 /tests/Fixtures/storage/framework/sessions/*
+/tests/Fixtures/storage/framework/testing/*
 /tests/Fixtures/storage/framework/views/*
 /tests/Fixtures/storage/logs/*
 !/tests/Fixtures/bootstrap/cache/.gitkeep

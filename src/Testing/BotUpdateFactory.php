@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Testing;
 
+use Wekser\Laragram\Support\Reaction;
+
 /**
  * Factory for realistic Telegram update arrays used in feature tests.
  *
@@ -42,17 +44,40 @@ class BotUpdateFactory
         string $username  = 'test_user',
         string $language  = 'en',
         int    $chatId    = 100,
+        string $chatType  = 'private',
     ): array {
         return [
             'update_id' => self::nextId(),
             'message'   => [
                 'message_id' => 1,
                 'from'       => self::sender($userId, $firstName, $lastName, $username, $language),
-                'chat'       => ['id' => $chatId, 'type' => 'private'],
+                'chat'       => ['id' => $chatId, 'type' => $chatType],
                 'date'       => time(),
                 'text'       => $text,
             ],
         ];
+    }
+
+    /**
+     * Create a text message update coming from a group/supergroup chat.
+     *
+     * The chat id differs from the sender id (as in real groups), so per-(user,
+     * chat) state and outbound targeting can be exercised.
+     */
+    public static function groupMessage(
+        string $text,
+        int    $chatId    = -1_000_000,
+        int    $userId    = 100,
+        string $firstName = 'Test',
+        string $chatType  = 'supergroup',
+    ): array {
+        return self::message(
+            text: $text,
+            userId: $userId,
+            firstName: $firstName,
+            chatId: $chatId,
+            chatType: $chatType,
+        );
     }
 
     /**
@@ -66,6 +91,7 @@ class BotUpdateFactory
         string $username  = 'test_user',
         string $language  = 'en',
         int    $chatId    = 100,
+        string $chatType  = 'private',
     ): array {
         return [
             'update_id'      => self::nextId(),
@@ -74,7 +100,7 @@ class BotUpdateFactory
                 'from'    => self::sender($userId, $firstName, $lastName, $username, $language),
                 'message' => [
                     'message_id' => 1,
-                    'chat'       => ['id' => $chatId, 'type' => 'private'],
+                    'chat'       => ['id' => $chatId, 'type' => $chatType],
                     'date'       => time(),
                 ],
                 'data' => $data,
@@ -100,6 +126,29 @@ class BotUpdateFactory
                 'from'   => self::sender($userId, $firstName, $lastName, $username, $language),
                 'query'  => $query,
                 'offset' => '',
+            ],
+        ];
+    }
+
+    /**
+     * Create a chosen_inline_result update (user picked one of the bot's
+     * inline results).
+     */
+    public static function chosenInlineResult(
+        string $resultId  = '1',
+        string $query     = '',
+        int    $userId    = 100,
+        string $firstName = 'Test',
+        string $lastName  = '',
+        string $username  = 'test_user',
+        string $language  = 'en',
+    ): array {
+        return [
+            'update_id'            => self::nextId(),
+            'chosen_inline_result' => [
+                'result_id' => $resultId,
+                'from'      => self::sender($userId, $firstName, $lastName, $username, $language),
+                'query'     => $query,
             ],
         ];
     }
@@ -146,6 +195,122 @@ class BotUpdateFactory
         ];
     }
 
+    /**
+     * Create a pre_checkout_query update (payment confirmation step).
+     */
+    public static function preCheckoutQuery(
+        string $payload     = 'order_1',
+        int    $totalAmount = 500,
+        string $currency    = 'XTR',
+        int    $userId      = 100,
+        string $firstName   = 'Test',
+        string $lastName    = '',
+        string $username    = 'test_user',
+        string $language    = 'en',
+    ): array {
+        return [
+            'update_id'          => self::nextId(),
+            'pre_checkout_query' => [
+                'id'              => (string) random_int(100_000, 999_999),
+                'from'            => self::sender($userId, $firstName, $lastName, $username, $language),
+                'currency'        => $currency,
+                'total_amount'    => $totalAmount,
+                'invoice_payload' => $payload,
+            ],
+        ];
+    }
+
+    /**
+     * Create a shipping_query update (flexible-price delivery step).
+     */
+    public static function shippingQuery(
+        string $payload   = 'order_1',
+        int    $userId    = 100,
+        string $firstName = 'Test',
+        string $lastName  = '',
+        string $username  = 'test_user',
+        string $language  = 'en',
+    ): array {
+        return [
+            'update_id'      => self::nextId(),
+            'shipping_query' => [
+                'id'              => (string) random_int(100_000, 999_999),
+                'from'            => self::sender($userId, $firstName, $lastName, $username, $language),
+                'invoice_payload' => $payload,
+                'shipping_address' => [
+                    'country_code' => 'US',
+                    'state'        => 'CA',
+                    'city'         => 'San Francisco',
+                    'street_line1' => '1 Market St',
+                    'street_line2' => '',
+                    'post_code'    => '94105',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Create a message update carrying a successful_payment (completed order).
+     */
+    public static function successfulPaymentMessage(
+        string $payload     = 'order_1',
+        int    $totalAmount = 500,
+        string $currency    = 'XTR',
+        string $chargeId    = 'charge_abc123',
+        int    $userId      = 100,
+        string $firstName   = 'Test',
+        int    $chatId      = 100,
+    ): array {
+        return [
+            'update_id' => self::nextId(),
+            'message'   => [
+                'message_id' => 1,
+                'from'       => self::sender($userId, $firstName),
+                'chat'       => ['id' => $chatId, 'type' => 'private'],
+                'date'       => time(),
+                'successful_payment' => [
+                    'currency'                     => $currency,
+                    'total_amount'                 => $totalAmount,
+                    'invoice_payload'              => $payload,
+                    'telegram_payment_charge_id'   => $chargeId,
+                    'provider_payment_charge_id'   => '',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Create a message_reaction update (user changed their reaction on a message).
+     *
+     * $new / $old accept an emoji string, a list of emoji strings, or raw
+     * ReactionType arrays. Pass $anonymous = true to emit an actor_chat instead
+     * of a user (a reaction made on behalf of a chat).
+     */
+    public static function messageReaction(
+        string|array $new       = '👍',
+        string|array $old       = [],
+        int          $userId    = 100,
+        string       $firstName = 'Test',
+        int          $chatId    = 100,
+        int          $messageId = 1,
+        bool         $anonymous = false,
+    ): array {
+        $actor = $anonymous
+            ? ['actor_chat' => ['id' => $chatId, 'type' => 'channel']]
+            : ['user' => self::sender($userId, $firstName)];
+
+        return [
+            'update_id'        => self::nextId(),
+            'message_reaction' => array_merge([
+                'chat'         => ['id' => $chatId, 'type' => 'private'],
+                'message_id'   => $messageId,
+                'date'         => time(),
+                'old_reaction' => self::reactionTypes($old),
+                'new_reaction' => self::reactionTypes($new),
+            ], $actor),
+        ];
+    }
+
     // -------------------------------------------------------------------------
     // Utility
     // -------------------------------------------------------------------------
@@ -165,6 +330,17 @@ class BotUpdateFactory
     private static function nextId(): int
     {
         return self::$updateIdCounter++;
+    }
+
+    /**
+     * Normalize emoji string(s) / raw ReactionType arrays into a ReactionType list.
+     *
+     * @param string|array<int, string|array<string, mixed>> $reaction
+     * @return array<int, array<string, mixed>>
+     */
+    private static function reactionTypes(string|array $reaction): array
+    {
+        return Reaction::normalize($reaction);
     }
 
     private static function sender(

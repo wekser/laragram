@@ -15,6 +15,8 @@ namespace Wekser\Laragram;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Wekser\Laragram\Support\IncomingFile;
+use Wekser\Laragram\Support\Media;
 
 /**
  * BotRequest handles Telegram bot request data and provides convenient access methods.
@@ -85,6 +87,49 @@ class BotRequest
     public function input(string $key, mixed $default = null): mixed
     {
         return $this->getNestedData("data.all.{$key}", $default);
+    }
+
+    /**
+     * Get the file_id of the file attached to the incoming update, if any.
+     *
+     * Scans the common media fields in precedence order; for a photo (an array
+     * of sizes) the largest — the last — size's file_id is returned.
+     *
+     * @return string|null The file_id or null when the update carries no file
+     */
+    public function fileId(): ?string
+    {
+        $photoFileId = Media::largestPhotoFileId($this->get('photo'));
+
+        if ($photoFileId !== null) {
+            return $photoFileId;
+        }
+
+        foreach (['document', 'video', 'audio', 'voice', 'animation', 'video_note', 'sticker'] as $type) {
+            $fileId = $this->get("{$type}.file_id");
+
+            if ($fileId !== null) {
+                return (string) $fileId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a handle to the file attached to the incoming update, if any.
+     *
+     * The handle downloads / stores the file via the MediaDownloader service:
+     *
+     *   $request->file()?->save('local', 'inbox/doc.pdf');
+     *
+     * @return IncomingFile|null Null when the update carries no file
+     */
+    public function file(): ?IncomingFile
+    {
+        $fileId = $this->fileId();
+
+        return $fileId !== null ? new IncomingFile($fileId) : null;
     }
 
     /**
@@ -240,11 +285,56 @@ class BotRequest
     /**
      * Get chat information from the request.
      *
+     * Most update types carry `chat` at the top level of their object; for
+     * callback_query it is nested inside the attached message.
+     *
      * @return array|null Chat data or null if not available
      */
     public function chat(): ?array
     {
-        return $this->get('chat');
+        return $this->get('chat') ?? $this->get('message.chat');
+    }
+
+    /**
+     * Get the type of the originating chat.
+     *
+     * @return string|null private | group | supergroup | channel, or null
+     */
+    public function chatType(): ?string
+    {
+        return $this->chat()['type'] ?? null;
+    }
+
+    /**
+     * Whether the update came from a private (1-on-1) chat.
+     */
+    public function isPrivate(): bool
+    {
+        return $this->chatType() === 'private';
+    }
+
+    /**
+     * Whether the update came from a group or supergroup chat.
+     */
+    public function isGroup(): bool
+    {
+        return in_array($this->chatType(), ['group', 'supergroup'], true);
+    }
+
+    /**
+     * Whether the update came from a supergroup chat specifically.
+     */
+    public function isSupergroup(): bool
+    {
+        return $this->chatType() === 'supergroup';
+    }
+
+    /**
+     * Whether the update came from a channel.
+     */
+    public function isChannel(): bool
+    {
+        return $this->chatType() === 'channel';
     }
 
     /**
@@ -287,6 +377,71 @@ class BotRequest
         return $this->route('event') === 'inline_query'
             ? $this->getNestedData('update.object')
             : null;
+    }
+
+    /**
+     * Get the chosen inline result object (a user picked one of your inline
+     * results). Requires inline feedback to be enabled with @BotFather.
+     *
+     * @return array|null Chosen inline result data or null if not this update type
+     */
+    public function chosenInlineResult(): ?array
+    {
+        return $this->route('event') === 'chosen_inline_result'
+            ? $this->getNestedData('update.object')
+            : null;
+    }
+
+    /**
+     * Get the pre-checkout query object (payment confirmation step).
+     *
+     * @return array|null Pre-checkout query data or null if not this update type
+     */
+    public function preCheckoutQuery(): ?array
+    {
+        return $this->route('event') === 'pre_checkout_query'
+            ? $this->getNestedData('update.object')
+            : null;
+    }
+
+    /**
+     * Get the shipping query object (flexible-price delivery step).
+     *
+     * @return array|null Shipping query data or null if not this update type
+     */
+    public function shippingQuery(): ?array
+    {
+        return $this->route('event') === 'shipping_query'
+            ? $this->getNestedData('update.object')
+            : null;
+    }
+
+    /**
+     * Get the message reaction object (a user changed their reaction on a message).
+     *
+     * Carries chat, message_id, the acting user (or actor_chat for anonymous
+     * reactions), old_reaction and new_reaction lists.
+     *
+     * @return array|null Message reaction data or null if not this update type
+     */
+    public function messageReaction(): ?array
+    {
+        return $this->route('event') === 'message_reaction'
+            ? $this->getNestedData('update.object')
+            : null;
+    }
+
+    /**
+     * Get the successful payment object carried by a completed-payment message.
+     *
+     * Arrives as a field on a "message" update — route it with
+     * BotRoute::get('message', 'successful_payment').
+     *
+     * @return array|null Successful payment data or null if absent
+     */
+    public function successfulPayment(): ?array
+    {
+        return $this->get('successful_payment');
     }
 
     /**

@@ -16,6 +16,7 @@
  * See: https://github.com/wekser/laragram
  */
 
+use App\Http\Controllers\Laragram\ExtrasController;
 use App\Http\Controllers\Laragram\HelloController;
 use App\Http\Controllers\Laragram\OrderController;
 use Wekser\Laragram\Facades\BotRoute;
@@ -40,6 +41,32 @@ BotRoute::get('callback_query')
     ->from('home')
     ->contains('/click {name}')
     ->call([HelloController::class, 'callback']);
+
+// --- Payments demo (Telegram Stars) ---
+// /donate sends a Stars invoice; the pre-checkout must be answered within 10s;
+// the completed payment arrives as a field on a message update.
+BotRoute::get('message')
+    ->contains('/donate')
+    ->call([ExtrasController::class, 'donate']);
+
+BotRoute::get('pre_checkout_query')
+    ->call([ExtrasController::class, 'checkout']);
+
+BotRoute::get('message', 'successful_payment')
+    ->call([ExtrasController::class, 'paid']);
+
+// --- Inline mode demo ---
+// Type "@yourbot something" in any chat (enable inline mode with @BotFather first).
+BotRoute::get('inline_query')
+    ->call([ExtrasController::class, 'inline']);
+
+// --- Incoming files demo ---
+// Send the bot a photo or a document and it stores the file, then confirms.
+BotRoute::get('message', 'photo')
+    ->call([ExtrasController::class, 'receiveFile']);
+
+BotRoute::get('message', 'document')
+    ->call([ExtrasController::class, 'receiveFile']);
 
 // Catch-all: handles any update that did not match a route above
 // BotRoute::fallback()->call([HelloController::class, 'fallback']);

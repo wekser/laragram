@@ -153,7 +153,8 @@ class LaragramPublishCommand extends Command
      * Publish the example bot controllers to the application.
      *
      * HelloController powers the /start echo demo; OrderController drives the
-     * /order scene demo.
+     * /order scene demo; ExtrasController demos payments (Stars), inline mode,
+     * and receiving files.
      *
      * @return void
      */
@@ -165,7 +166,7 @@ class LaragramPublishCommand extends Command
             mkdir($directory, 0755, true);
         }
 
-        foreach (['HelloController', 'OrderController'] as $controller) {
+        foreach (['HelloController', 'OrderController', 'ExtrasController'] as $controller) {
             $file = $directory . "/{$controller}.php";
 
             if (file_exists($file) && !$this->option('force')) {

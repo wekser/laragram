@@ -1,0 +1,42 @@
+<?php
+
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
+
+class CreateLaragramPaymentsTable extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create(config('laragram.payments.table', 'laragram_payments'), function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->nullable()->index();
+            $table->unsignedBigInteger('uid')->nullable()->index();
+            $table->string('currency', 16);
+            $table->unsignedBigInteger('total_amount');
+            $table->string('invoice_payload')->nullable();
+
+            // Unique per payment — makes recording idempotent under redelivery.
+            $table->string('telegram_payment_charge_id')->unique();
+            $table->string('provider_payment_charge_id')->nullable();
+
+            $table->json('payload')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists(config('laragram.payments.table', 'laragram_payments'));
+    }
+}

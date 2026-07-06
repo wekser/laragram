@@ -38,6 +38,9 @@ abstract class TestCase extends OrchestraTestCase
 
     protected function getEnvironmentSetUp($app): void
     {
+        // Needed by the "web" middleware group (EncryptCookies) exercised by the
+        // admin-panel feature tests; harmless for the rest of the suite.
+        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
         $app['config']->set('laragram.telegram.token', '123456789:TestTokenABCDEFGHIJKLMNOPQRSTUVWXYZ');
         $app['config']->set('laragram.telegram.prefix', 'laragram');
         $app['config']->set('laragram.telegram.secret', null);
@@ -80,6 +83,21 @@ abstract class TestCase extends OrchestraTestCase
                 public function user(): ?User
                 {
                     return $this->resolvedUser;
+                }
+
+                public function chat(): ?array
+                {
+                    return null;
+                }
+
+                public function chatId(): ?int
+                {
+                    return null;
+                }
+
+                public function chatType(): ?string
+                {
+                    return null;
                 }
 
                 public function authenticate(): static

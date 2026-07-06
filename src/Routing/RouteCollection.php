@@ -49,6 +49,8 @@ class RouteCollection
         'my_chat_member',
         'chat_member',
         'chat_join_request',
+        'message_reaction',
+        'message_reaction_count',
     ];
 
     /**
@@ -69,6 +71,8 @@ class RouteCollection
         'my_chat_member'       => 'from',
         'chat_member'          => 'from',
         'chat_join_request'    => 'from',
+        'message_reaction'       => 'user',
+        'message_reaction_count' => 'reactions',
     ];
 
     /**
@@ -133,6 +137,34 @@ class RouteCollection
     }
 
     /**
+     * Restrict the route to the given chat type(s): private, group, supergroup,
+     * channel. Empty (the default) matches any chat type.
+     *
+     * @param string ...$types
+     */
+    public function chat(string ...$types): static
+    {
+        $this->currentRoute['chat_types'] = array_values($types);
+        return $this;
+    }
+
+    /**
+     * Restrict the route to group and supergroup chats.
+     */
+    public function inGroups(): static
+    {
+        return $this->chat('group', 'supergroup');
+    }
+
+    /**
+     * Restrict the route to private (1-on-1) chats.
+     */
+    public function inPrivate(): static
+    {
+        return $this->chat('private');
+    }
+
+    /**
      * Restrict the route to users with the given role(s).
      * Accepts a single role string or an array of roles.
      *
@@ -148,16 +180,18 @@ class RouteCollection
      * Group routes sharing common constraints.
      *
      * Supports:
-     *   - from:  pre-set station(s) for all routes in the group
-     *   - roles: pre-set role(s) for all routes in the group
+     *   - from:      pre-set station(s) for all routes in the group
+     *   - roles:     pre-set role(s) for all routes in the group
+     *   - chatTypes: pre-set chat type(s) for all routes in the group
      *
-     * Individual route calls to from() / role() still override the group defaults.
+     * Individual route calls to from() / role() / chat() still override the group defaults.
      *
-     * @param callable             $callback Routes registered inside this closure inherit group defaults.
-     * @param string|string[]|null $from     Station(s) to apply to every route in the group.
-     * @param string|string[]|null $roles    Role(s) to apply to every route in the group.
+     * @param callable             $callback  Routes registered inside this closure inherit group defaults.
+     * @param string|string[]|null $from      Station(s) to apply to every route in the group.
+     * @param string|string[]|null $roles     Role(s) to apply to every route in the group.
+     * @param string|string[]|null $chatTypes Chat type(s) to apply to every route in the group.
      */
-    public function group(callable $callback, string|array|null $from = null, string|array|null $roles = null): static
+    public function group(callable $callback, string|array|null $from = null, string|array|null $roles = null, string|array|null $chatTypes = null): static
     {
         $saved = $this->groupDefaults;
 
@@ -167,6 +201,10 @@ class RouteCollection
 
         if ($roles !== null) {
             $this->groupDefaults['roles'] = (array) $roles;
+        }
+
+        if ($chatTypes !== null) {
+            $this->groupDefaults['chat_types'] = (array) $chatTypes;
         }
 
         $callback($this);

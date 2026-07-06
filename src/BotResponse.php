@@ -16,6 +16,9 @@ use Wekser\Laragram\Exceptions\NotExistsViewException;
 use Wekser\Laragram\Exceptions\ViewInvalidException;
 use Wekser\Laragram\Facades\BotAuth;
 use Wekser\Laragram\Models\User;
+use Wekser\Laragram\Support\Reaction;
+use Wekser\Laragram\Telegram\Inline\InlineResults;
+use Wekser\Laragram\Telegram\Payments\Invoice;
 use Wekser\Laragram\View\ComponentContext;
 use Wekser\Laragram\View\InlineKeyboardState;
 use Wekser\Laragram\View\MediaGroupState;
@@ -231,6 +234,149 @@ class BotResponse
         return $this->begin([
             'method'   => 'deleteMessage',
             '_escaped' => true,
+        ]);
+    }
+
+    /**
+     * React to the current message (setMessageReaction).
+     *
+     * Accepts an emoji string, a list of emoji strings, or raw ReactionType
+     * arrays (e.g. ['type' => 'custom_emoji', 'custom_emoji_id' => ...]) for
+     * the non-emoji reaction types. An empty array clears the bot's reaction.
+     * The chat_id and message_id are injected automatically by
+     * ResponseTransformer from the triggering message or message_reaction update.
+     *
+     *   return BotResponse::react('👍');
+     *   return BotResponse::react(['❤️', '🔥'], big: true);
+     *   return BotResponse::react([]); // remove reaction
+     *
+     * @param string|array<int, string|array<string, mixed>> $reaction
+     * @param bool $big Show the reaction with a big animation.
+     * @return $this
+     */
+    public function react(string|array $reaction, bool $big = false): self
+    {
+        return $this->begin([
+            'method'   => 'setMessageReaction',
+            'reaction' => Reaction::normalize($reaction),
+            'is_big'   => $big,
+            '_escaped' => true,
+        ]);
+    }
+
+    /**
+     * Answer an inline query (answerInlineQuery).
+     *
+     * Accepts an InlineResults builder or a raw parameter array. The
+     * inline_query_id is injected automatically by ResponseTransformer.
+     *
+     *   return BotResponse::inlineResults(
+     *       InlineResults::make()->article('1', 'Hi', 'Hello!')->cache(300)
+     *   );
+     *
+     * @param InlineResults|array<string, mixed> $results
+     * @return $this
+     */
+    public function inlineResults(InlineResults|array $results): self
+    {
+        $params = $results instanceof InlineResults ? $results->toArray() : $results;
+
+        return $this->begin(array_merge(
+            ['method' => 'answerInlineQuery'],
+            $params,
+            ['_escaped' => true],
+        ));
+    }
+
+    /**
+     * Send an invoice (sendInvoice).
+     *
+     * Accepts an Invoice builder or a raw parameter array. The recipient chat_id
+     * is injected automatically by ResponseTransformer, like any other send call.
+     *
+     *   return BotResponse::invoice(
+     *       Invoice::make()->title('Pro')->description('1 month')
+     *           ->payload('sub_42')->stars(500, 'Pro access')
+     *   );
+     *
+     * @param Invoice|array<string, mixed> $invoice
+     * @return $this
+     */
+    public function invoice(Invoice|array $invoice): self
+    {
+        $params = $invoice instanceof Invoice ? $invoice->toArray() : $invoice;
+
+        return $this->begin(array_merge(
+            ['method' => 'sendInvoice'],
+            $params,
+            ['_escaped' => true],
+        ));
+    }
+
+    /**
+     * Approve a pending payment (answerPreCheckoutQuery with ok = true).
+     *
+     * Answer a pre_checkout_query within 10 seconds to let the payment proceed.
+     * The pre_checkout_query_id is injected automatically by ResponseTransformer.
+     *
+     * @return $this
+     */
+    public function approveCheckout(): self
+    {
+        return $this->begin([
+            'method'   => 'answerPreCheckoutQuery',
+            'ok'       => true,
+            '_escaped' => true,
+        ]);
+    }
+
+    /**
+     * Reject a pending payment (answerPreCheckoutQuery with ok = false).
+     *
+     * @param string $reason Human-readable message shown to the user explaining
+     *                       why the checkout could not be completed.
+     * @return $this
+     */
+    public function declineCheckout(string $reason): self
+    {
+        return $this->begin([
+            'method'        => 'answerPreCheckoutQuery',
+            'ok'            => false,
+            'error_message' => $reason,
+            '_escaped'      => true,
+        ]);
+    }
+
+    /**
+     * Accept a shipping query and offer shipping options (answerShippingQuery ok = true).
+     *
+     * @param array<int, array<string, mixed>> $options ShippingOption objects.
+     * @return $this
+     */
+    public function approveShipping(array $options): self
+    {
+        return $this->begin([
+            'method'           => 'answerShippingQuery',
+            'ok'               => true,
+            'shipping_options' => $options,
+            '_escaped'         => true,
+        ]);
+    }
+
+    /**
+     * Reject a shipping query (answerShippingQuery ok = false).
+     *
+     * @param string $reason Human-readable message explaining why delivery to the
+     *                       requested address is not possible.
+     * @return $this
+     */
+    public function declineShipping(string $reason): self
+    {
+        return $this->begin([
+            'method'        => 'answerShippingQuery',
+            'ok'            => false,
+            'error_message' => $reason,
+            '_escaped'      => true,
         ]);
     }
 
