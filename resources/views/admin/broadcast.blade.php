@@ -10,7 +10,7 @@
     <form method="POST" action="{{ route('laragram.admin.broadcast.store') }}" class="lg-form" id="lg-broadcast-form">
         @csrf
 
-        <fieldset class="lg-modes">
+        <fieldset class="lg-segment">
             <legend>Content</legend>
             <label class="lg-check">
                 <input type="radio" name="content_type" value="text" @checked($mode !== 'view') data-lg-mode>
