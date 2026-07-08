@@ -47,8 +47,10 @@
         tr:last-child td { border-bottom: 0; }
         .lg-table-wrap { overflow-x: auto; }
         input, select, textarea, button { font: inherit; }
-        input, select, textarea { background: var(--bg); color: var(--text);
-            border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px; transition: border-color .15s, box-shadow .15s; }
+        input:not([type=checkbox]):not([type=radio]), select, textarea {
+            background: var(--field); color: var(--text);
+            border: 1px solid var(--field-border); border-radius: 10px; padding: 9px 12px;
+            transition: border-color .15s, box-shadow .15s; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
         textarea { width: 100%; resize: vertical; }
         button { cursor: pointer; border: 1px solid var(--border); background: var(--panel);
@@ -72,17 +74,35 @@
         .lg-check { flex-direction: row !important; align-items: center; gap: 8px !important; }
         .lg-form-actions { display: flex; gap: 10px; margin-top: 4px; }
         .lg-hint { color: var(--muted); margin-top: 16px; }
-        .lg-segment { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
-            background: var(--panel); display: flex; gap: 6px; margin: 0; }
+        .lg-segment { border: 1px solid var(--border); border-radius: var(--radius); padding: 5px;
+            background: var(--field); display: flex; gap: 5px; margin: 0; }
         .lg-segment legend { color: var(--muted); font-size: 12px; text-transform: uppercase;
             letter-spacing: .4px; padding: 0 6px; }
-        .lg-segment .lg-check { flex: 1; margin: 0; padding: 8px 12px; border-radius: 8px;
-            cursor: pointer; transition: background .15s; }
+        .lg-segment .lg-check { flex: 1; margin: 0; padding: 8px 12px;
+            border-radius: calc(var(--radius) - 5px); border: 1px solid transparent;
+            cursor: pointer; transition: background .15s, border-color .15s, box-shadow .15s; }
         .lg-segment .lg-check:hover { background: var(--row-hover); }
-        .lg-segment .lg-check:has(input:checked) { background: var(--accent-soft); color: var(--accent); }
+        .lg-segment .lg-check:has(input:checked) { background: var(--accent-soft);
+            color: var(--accent); border-color: color-mix(in srgb, var(--accent) 25%, transparent); }
         code { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
         .lg-muted { color: var(--muted); }
-    </style>
+        @media (max-width: 640px) {
+            .lg-nav { flex-wrap: wrap; gap: 10px 14px; padding: 10px 16px; }
+            .lg-brand { order: 1; }
+            .lg-nav > form { order: 2; margin-left: auto; }
+            .lg-nav nav { order: 3; width: 100%; gap: 6px;
+                overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
+                scrollbar-width: none; }
+            .lg-nav nav::-webkit-scrollbar { display: none; }
+            .lg-nav nav a { white-space: nowrap; }
+            .lg-main { padding: 20px 16px 48px; }
+            h1 { font-size: 20px; margin-bottom: 18px; }
+            h2 { font-size: 15px; }
+            .lg-form { max-width: none; }
+            .lg-segment { flex-direction: column; gap: 5px; }
+            .lg-form-actions, .lg-filters, .lg-actions { width: 100%; }
+            .lg-form-actions button { flex: 1; }
+        }
 </head>
 <body>
     <header class="lg-nav">
