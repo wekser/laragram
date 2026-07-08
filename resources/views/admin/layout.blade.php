@@ -103,6 +103,7 @@
             .lg-form-actions, .lg-filters, .lg-actions { width: 100%; }
             .lg-form-actions button { flex: 1; }
         }
+    </style>
 </head>
 <body>
     <header class="lg-nav">

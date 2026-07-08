@@ -80,6 +80,24 @@ class AdminPanelTest extends TestCase
             ->assertSee('Users by role');
     }
 
+    public function test_layout_closes_its_style_tag(): void
+    {
+        // Regression guard: an unclosed <style> in the layout swallows the whole
+        // <body> as raw CSS, rendering every panel page blank in a browser.
+        // assertSee() is a substring match, so it cannot catch this on its own —
+        // assert the closing tag is present explicitly.
+        $this->makeUser(['role' => 'admin']);
+
+        $html = $this->get('/laragram/admin')->assertOk()->getContent();
+
+        $this->assertStringContainsString('</style>', $html);
+        $this->assertSame(
+            substr_count($html, '<style>'),
+            substr_count($html, '</style>'),
+            'Every <style> tag in the admin layout must be closed.',
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Users
     // -------------------------------------------------------------------------
@@ -109,6 +127,31 @@ class AdminPanelTest extends TestCase
             ->assertSessionHas('status');
 
         $this->assertSame('moderator', $user->fresh()->role);
+    }
+
+    public function test_update_role_accepts_any_role_when_no_whitelist(): void
+    {
+        config(['laragram.admin.roles' => []]);
+
+        $user = $this->makeUser(['role' => 'user']);
+
+        $this->post("/laragram/admin/users/{$user->id}/role", ['role' => 'anything'])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('anything', $user->fresh()->role);
+    }
+
+    public function test_update_role_rejects_value_outside_whitelist(): void
+    {
+        config(['laragram.admin.roles' => ['user', 'moderator', 'admin']]);
+
+        $user = $this->makeUser(['role' => 'user']);
+
+        $this->post("/laragram/admin/users/{$user->id}/role", ['role' => 'amdin'])
+            ->assertSessionHasErrors('role');
+
+        $this->assertSame('user', $user->fresh()->role);
     }
 
     public function test_toggle_active(): void
