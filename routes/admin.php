@@ -18,7 +18,9 @@ Route::group([
     // NOT the Authorize gate, so there is no redirect loop to the login page).
     Route::group(['middleware' => $web], function (): void {
         Route::get('login', [AuthController::class, 'show'])->name('login');
-        Route::post('login', [AuthController::class, 'login'])->name('login.attempt');
+        Route::post('login', [AuthController::class, 'login'])
+            ->middleware('throttle:5,1') // brute-force guard: 5 attempts / minute / IP
+            ->name('login.attempt');
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
     });
 

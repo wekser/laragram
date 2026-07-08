@@ -262,6 +262,11 @@ return [
     | host app's own web auth). "guard" / "model" / "table" let you rename the
     | pieces the login uses.
     |
+    | "roles" is an optional whitelist of role names the panel may assign. When
+    | non-empty, the Users page only accepts these values (a typo like "amdin"
+    | is rejected instead of silently creating a dead role no route matches).
+    | Leave it empty to allow any free-form role string (the default).
+    |
     */
 
     'admin' => [
@@ -271,6 +276,7 @@ return [
         'guard'      => 'laragram_admin',
         'model'      => \Wekser\Laragram\Models\Admin::class,
         'table'      => 'laragram_admins',
+        'roles'      => [],
     ],
 
     /*

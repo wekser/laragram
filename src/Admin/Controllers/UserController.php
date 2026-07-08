@@ -15,6 +15,7 @@ namespace Wekser\Laragram\Admin\Controllers;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserController
 {
@@ -61,7 +62,15 @@ class UserController
      */
     public function updateRole(Request $request, int|string $id): RedirectResponse
     {
-        $data = $request->validate(['role' => ['required', 'string', 'max:50']]);
+        // When a whitelist is configured, restrict assignable roles to it so a
+        // typo cannot create a dead role that no route ever matches.
+        $rule = ['required', 'string', 'max:50'];
+
+        if ($allowed = array_values((array) config('laragram.admin.roles', []))) {
+            $rule[] = Rule::in($allowed);
+        }
+
+        $data = $request->validate(['role' => $rule]);
 
         $user = $this->userModel()::query()->findOrFail($id);
         $user->update(['role' => $data['role']]);
