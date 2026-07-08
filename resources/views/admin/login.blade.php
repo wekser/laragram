@@ -8,31 +8,40 @@
 @include('laragram::admin.partials.theme')
         body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh;
             display: flex; align-items: center; justify-content: center; padding: 24px;
-            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased; }
         .lg-login { width: 100%; max-width: 360px; background: var(--panel);
-            border: 1px solid var(--border); border-radius: 12px; padding: 28px 24px;
+            border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px;
             box-shadow: var(--shadow); }
-        .lg-brand { font-weight: 700; letter-spacing: .3px; font-size: 18px; }
-        .lg-sub { color: var(--muted); margin: 4px 0 22px; }
+        .lg-brand { display: flex; align-items: center; gap: 10px; font-weight: 700;
+            letter-spacing: .2px; font-size: 19px; }
+        .lg-brand-mark { width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+            background: var(--brand-gradient); }
+        .lg-sub { color: var(--muted); margin: 6px 0 24px; }
         .lg-alert-error { background: var(--off-bg); color: var(--off-text);
-            border: 1px solid var(--border); padding: 10px 14px; border-radius: 8px; margin-bottom: 18px; }
+            border: 1px solid transparent; border-left: 3px solid var(--off-text);
+            padding: 11px 14px; border-radius: 10px; margin-bottom: 18px; }
         form { display: flex; flex-direction: column; gap: 14px; }
         label { display: flex; flex-direction: column; gap: 6px; }
         .lg-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
         input { font: inherit; background: var(--bg); color: var(--text);
-            border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; }
-        input:focus { outline: none; border-color: var(--accent); }
+            border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+            transition: border-color .15s, box-shadow .15s; }
+        input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
         .lg-check { flex-direction: row; align-items: center; gap: 8px; }
         .lg-check input { width: auto; }
         button { font: inherit; cursor: pointer; margin-top: 4px;
             background: var(--accent); color: var(--accent-text); border: 1px solid var(--accent);
-            border-radius: 8px; padding: 10px 12px; font-weight: 600; }
-        button:hover { opacity: .92; }
+            border-radius: 10px; padding: 11px 12px; font-weight: 600;
+            transition: background .15s, box-shadow .15s, transform .1s; }
+        button:hover { background: var(--accent-hover); border-color: var(--accent-hover);
+            box-shadow: var(--accent-glow); }
+        button:active { transform: translateY(1px); }
     </style>
 </head>
 <body>
     <div class="lg-login">
-        <div class="lg-brand">Laragram</div>
+        <div class="lg-brand"><span class="lg-brand-mark"></span>Laragram</div>
         <div class="lg-sub">Sign in to the admin panel</div>
 
         @if ($errors->any())

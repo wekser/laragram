@@ -7,57 +7,86 @@
     <style>
 @include('laragram::admin.partials.theme')
         body { margin: 0; background: var(--bg); color: var(--text);
-            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased; }
         a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .lg-nav { display: flex; align-items: center; gap: 24px; padding: 12px 20px;
-            background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
-        .lg-brand { font-weight: 700; letter-spacing: .3px; }
-        .lg-nav nav { display: flex; gap: 16px; flex-wrap: wrap; }
-        .lg-nav nav a { color: var(--muted); padding: 4px 2px; }
-        .lg-nav nav a.active { color: var(--text); border-bottom: 2px solid var(--accent); }
-        .lg-main { max-width: 1040px; margin: 0 auto; padding: 24px 20px 64px; }
-        h1 { font-size: 22px; margin: 4px 0 20px; }
-        h2 { font-size: 16px; margin: 28px 0 12px; }
-        .lg-alert { background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--border);
-            padding: 10px 14px; border-radius: 8px; margin-bottom: 18px; }
-        .lg-alert-error { background: var(--off-bg); color: var(--off-text); }
-        .lg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-        .lg-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-            padding: 16px; box-shadow: var(--shadow); }
-        .lg-card-value { font-size: 26px; font-weight: 700; }
-        .lg-card-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+        .lg-nav { display: flex; align-items: center; gap: 24px; padding: 10px 20px;
+            background: color-mix(in srgb, var(--panel) 85%, transparent);
+            backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px);
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+        .lg-brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700;
+            letter-spacing: .2px; font-size: 15px; }
+        .lg-brand-mark { width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto;
+            background: var(--brand-gradient); }
+        .lg-nav nav { display: flex; gap: 4px; flex-wrap: wrap; }
+        .lg-nav nav a { color: var(--muted); padding: 6px 12px; border-radius: 999px;
+            font-weight: 500; transition: background .15s, color .15s; }
+        .lg-nav nav a:hover, .lg-nav nav a.active { background: var(--accent-soft); color: var(--accent); }
+        .lg-nav nav a:hover { text-decoration: none; }
+        .lg-main { max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px; }
+        h1 { font-size: 24px; font-weight: 700; margin: 4px 0 22px; letter-spacing: -.2px; }
+        h2 { font-size: 16px; margin: 30px 0 12px; }
+        .lg-alert { background: var(--ok-bg); color: var(--ok-text); border: 1px solid transparent;
+            border-left: 3px solid var(--ok-text); padding: 11px 14px; border-radius: 10px; margin-bottom: 18px; }
+        .lg-alert-error { background: var(--off-bg); color: var(--off-text); border-left-color: var(--off-text); }
+        .lg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+        .lg-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 18px; box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s; }
+        .lg-card:hover { transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 12px 24px rgba(0,0,0,.05); }
+        .lg-card-value { font-size: 28px; font-weight: 700; letter-spacing: -.4px; }
+        .lg-card-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
         table { width: 100%; border-collapse: collapse; background: var(--panel);
-            border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-        th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+            border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+        th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px;
+            background: color-mix(in srgb, var(--accent-soft) 60%, transparent); font-weight: 600; }
+        tbody td { transition: background .12s; }
+        tbody tr:hover td { background: var(--row-hover); }
         tr:last-child td { border-bottom: 0; }
         .lg-table-wrap { overflow-x: auto; }
         input, select, textarea, button { font: inherit; }
         input, select, textarea { background: var(--bg); color: var(--text);
-            border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+            border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px; transition: border-color .15s, box-shadow .15s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
         textarea { width: 100%; resize: vertical; }
         button { cursor: pointer; border: 1px solid var(--border); background: var(--panel);
-            color: var(--text); border-radius: 8px; padding: 7px 12px; }
-        button:hover { border-color: var(--accent); }
+            color: var(--text); border-radius: 10px; padding: 8px 14px; font-weight: 500;
+            transition: background .15s, border-color .15s, transform .1s, box-shadow .15s; }
+        button:hover { background: var(--row-hover); border-color: var(--accent); }
+        button:active { transform: translateY(1px); }
         .lg-btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+        .lg-btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover);
+            box-shadow: var(--accent-glow); }
         .lg-filters, .lg-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .lg-actions form { display: inline; }
-        .lg-badge-ok { background: var(--ok-bg); color: var(--ok-text); padding: 2px 8px; border-radius: 999px; font-size: 12px; }
-        .lg-badge-off { background: var(--off-bg); color: var(--off-text); padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+        .lg-badge-ok, .lg-badge-off { display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+        .lg-badge-ok::before, .lg-badge-off::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .lg-badge-ok { background: var(--ok-bg); color: var(--ok-text); }
+        .lg-badge-off { background: var(--off-bg); color: var(--off-text); }
         .lg-pager { display: flex; gap: 16px; align-items: center; margin-top: 16px; color: var(--muted); }
         .lg-form { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
         .lg-form label { display: flex; flex-direction: column; gap: 6px; }
         .lg-check { flex-direction: row !important; align-items: center; gap: 8px !important; }
-        .lg-form-actions { display: flex; gap: 10px; }
+        .lg-form-actions { display: flex; gap: 10px; margin-top: 4px; }
         .lg-hint { color: var(--muted); margin-top: 16px; }
-        code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+        .lg-segment { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
+            background: var(--panel); display: flex; gap: 6px; margin: 0; }
+        .lg-segment legend { color: var(--muted); font-size: 12px; text-transform: uppercase;
+            letter-spacing: .4px; padding: 0 6px; }
+        .lg-segment .lg-check { flex: 1; margin: 0; padding: 8px 12px; border-radius: 8px;
+            cursor: pointer; transition: background .15s; }
+        .lg-segment .lg-check:hover { background: var(--row-hover); }
+        .lg-segment .lg-check:has(input:checked) { background: var(--accent-soft); color: var(--accent); }
+        code { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
         .lg-muted { color: var(--muted); }
     </style>
 </head>
 <body>
     <header class="lg-nav">
-        <div class="lg-brand">Laragram</div>
+        <div class="lg-brand"><span class="lg-brand-mark"></span>Laragram</div>
         <nav>
             <a href="{{ route('laragram.admin.dashboard') }}" @class(['active' => request()->routeIs('laragram.admin.dashboard')])>Dashboard</a>
             <a href="{{ route('laragram.admin.users') }}" @class(['active' => request()->routeIs('laragram.admin.users')])>Users</a>
