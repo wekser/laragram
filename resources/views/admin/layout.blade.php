@@ -37,15 +37,14 @@
             box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 12px 24px rgba(0,0,0,.05); }
         .lg-card-value { font-size: 28px; font-weight: 700; letter-spacing: -.4px; }
         .lg-card-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
-        table { width: 100%; border-collapse: collapse; background: var(--panel);
-            border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: var(--radius); overflow: hidden; }
         th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
         th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px;
             background: color-mix(in srgb, var(--accent-soft) 60%, transparent); font-weight: 600; }
         tbody td { transition: background .12s; }
         tbody tr:hover td { background: var(--row-hover); }
         tr:last-child td { border-bottom: 0; }
-        .lg-table-wrap { overflow-x: auto; }
+        .lg-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
         input, select, textarea, button { font: inherit; }
         input:not([type=checkbox]):not([type=radio]), select, textarea {
             background: var(--field); color: var(--text);
