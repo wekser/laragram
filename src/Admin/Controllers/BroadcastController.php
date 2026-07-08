@@ -15,6 +15,9 @@ namespace Wekser\Laragram\Admin\Controllers;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Wekser\Laragram\Broadcasting\PendingBroadcast;
+use Wekser\Laragram\Broadcasting\ViewCatalog;
 
 class BroadcastController
 {
@@ -27,6 +30,7 @@ class BroadcastController
 
         return view('laragram::admin.broadcast', [
             'roles' => $model::query()->select('role')->distinct()->orderBy('role')->pluck('role'),
+            'views' => ViewCatalog::all(),
         ]);
     }
 
@@ -35,14 +39,42 @@ class BroadcastController
      */
     public function store(Request $request): RedirectResponse
     {
-        $data = $request->validate([
-            'message'          => ['required', 'string', 'max:4096'],
+        // Default to 'text' so a form without the toggle (and older callers)
+        // behaves exactly as before.
+        $contentType = $request->input('content_type') === 'view' ? 'view' : 'text';
+
+        $rules = [
             'role'             => ['nullable', 'string', 'max:50'],
             'include_inactive' => ['sometimes', 'boolean'],
             'action'           => ['required', 'in:preview,send'],
-        ]);
+        ];
 
-        $pending = app('laragram.broadcast')->text($data['message']);
+        if ($contentType === 'view') {
+            $rules['view'] = ['required', 'string', Rule::in(ViewCatalog::all())];
+            $rules['data'] = ['nullable', 'string'];
+        } else {
+            $rules['message'] = ['required', 'string', 'max:4096'];
+        }
+
+        $data = $request->validate($rules);
+
+        if ($contentType === 'view') {
+            $viewData = [];
+
+            if (! empty($data['data'])) {
+                $viewData = json_decode($data['data'], true);
+
+                if (json_last_error() !== JSON_ERROR_NONE || ! is_array($viewData)) {
+                    return back()->withInput()->withErrors(['data' => 'Data must be a valid JSON object.']);
+                }
+            }
+
+            /** @var PendingBroadcast $pending */
+            $pending = app('laragram.broadcast')->view($data['view'], $viewData);
+        } else {
+            /** @var PendingBroadcast $pending */
+            $pending = app('laragram.broadcast')->text($data['message']);
+        }
 
         if (! empty($data['role'])) {
             $pending->role($data['role']);

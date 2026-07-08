@@ -21,6 +21,7 @@ class BroadcastCommand extends Command
     protected $signature = 'laragram:broadcast
         {message? : Raw text to broadcast (omit when using --view)}
         {--view= : View directory name to render per recipient}
+        {--data= : JSON object of data passed to the --view template}
         {--role=* : Restrict recipients to one or more roles}
         {--include-inactive : Also send to deactivated users}
         {--dry-run : Print the recipient count and exit without sending}
@@ -49,11 +50,22 @@ class BroadcastCommand extends Command
             return self::FAILURE;
         }
 
+        $data = [];
+
+        if ($view !== null && ($json = $this->option('data')) !== null && $json !== '') {
+            $data = json_decode((string) $json, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+                $this->error('The --data option must be a valid JSON object.');
+                return self::FAILURE;
+            }
+        }
+
         /** @var Broadcaster $broadcaster */
         $broadcaster = app('laragram.broadcast');
 
         $pending = $view !== null
-            ? $broadcaster->view($view)
+            ? $broadcaster->view($view, $data)
             : $broadcaster->text((string) $message);
 
         $roles = (array) $this->option('role');

@@ -18,6 +18,7 @@ use Wekser\Laragram\Broadcasting\BroadcastRenderer;
 use Wekser\Laragram\Broadcasting\PendingBroadcast;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Facades\BotBroadcast;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
 use Wekser\Laragram\Testing\RecordingBotAPI;
 use Wekser\Laragram\Tests\Concerns\UsesUserDatabase;
 use Wekser\Laragram\Tests\TestCase;
@@ -138,5 +139,38 @@ class BroadcasterTest extends TestCase
             ['Hi Alice, we are live!', 'Hi Bob, we are live!'],
             $texts,
         );
+    }
+
+    public function test_message_broadcasts_a_prebuilt_botresponse_with_media_and_keyboard(): void
+    {
+        $a = $this->makeUser();
+        $b = $this->makeUser();
+
+        $response = (new BotResponse('laragram'))
+            ->photo('FILE123', 'Look at this')
+            ->keyboard(InlineKeyboard::make()->button('Open', 'open')->toArray());
+
+        $result = BotBroadcast::message($response)->send();
+
+        $this->assertCount(2, $this->api->calls);
+        $this->assertSame(['total' => 2, 'sent' => 2, 'failed' => 0, 'queued' => 0], $result->toArray());
+
+        $call = $this->api->calls[0];
+        $this->assertSame('sendPhoto', $call['method']);
+        $this->assertSame('FILE123', $call['params']['photo']);
+        $this->assertSame('Look at this', $call['params']['caption']);
+        $this->assertArrayHasKey('reply_markup', $call['params']);
+        $this->assertArrayHasKey('inline_keyboard', $call['params']['reply_markup']);
+
+        $chatIds = array_map(static fn (array $c): int => $c['params']['chat_id'], $this->api->calls);
+        sort($chatIds);
+        $this->assertSame([$a->uid, $b->uid], $chatIds);
+    }
+
+    public function test_message_rejects_an_empty_botresponse(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        BotBroadcast::message(new BotResponse('laragram'));
     }
 }

@@ -89,4 +89,35 @@ class BroadcastCommandTest extends TestCase
 
         $this->assertCount(2, $api->calls);
     }
+
+    public function test_view_data_json_is_passed_to_the_template(): void
+    {
+        $this->setUpUserDatabase();
+        config(['laragram.queue.enabled' => false]);
+
+        $api = new RecordingBotAPI();
+        $this->app->instance('laragram.api', $api);
+
+        $this->makeUser(['first_name' => 'Alice']);
+
+        $this->artisan('laragram:broadcast', [
+            '--view'      => 'broadcast_view',
+            '--data'      => '{"headline":"we are live"}',
+            '--no-confirm' => true,
+        ])->assertSuccessful();
+
+        $this->assertCount(1, $api->calls);
+        $this->assertSame('Hi Alice, we are live!', $api->calls[0]['params']['text']);
+    }
+
+    public function test_fails_on_invalid_data_json(): void
+    {
+        $this->setUpUserDatabase();
+
+        $this->artisan('laragram:broadcast', [
+            '--view'      => 'broadcast_view',
+            '--data'      => 'not-json',
+            '--no-confirm' => true,
+        ])->assertFailed();
+    }
 }

@@ -207,4 +207,52 @@ class AdminPanelTest extends TestCase
             ->assertRedirect()
             ->assertSessionHasErrors('message');
     }
+
+    public function test_broadcast_page_lists_available_views(): void
+    {
+        $this->get('/laragram/admin/broadcast')
+            ->assertOk()
+            ->assertSee('broadcast_view');
+    }
+
+    public function test_broadcast_view_mode_sends_a_rendered_view(): void
+    {
+        config(['laragram.queue.enabled' => false]);
+
+        $api = new \Wekser\Laragram\Testing\RecordingBotAPI();
+        $this->app->instance('laragram.api', $api);
+
+        $this->makeUser(['first_name' => 'Alice']);
+
+        $this->post('/laragram/admin/broadcast', [
+            'content_type' => 'view',
+            'view'         => 'broadcast_view',
+            'data'         => '{"headline":"we are live"}',
+            'action'       => 'send',
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $this->assertCount(1, $api->calls);
+        $this->assertSame('Hi Alice, we are live!', $api->calls[0]['params']['text']);
+    }
+
+    public function test_broadcast_view_mode_rejects_an_unknown_view(): void
+    {
+        $this->post('/laragram/admin/broadcast', [
+            'content_type' => 'view',
+            'view'         => 'no_such_view',
+            'action'       => 'send',
+        ])->assertSessionHasErrors('view');
+    }
+
+    public function test_broadcast_view_mode_rejects_invalid_json_data(): void
+    {
+        $this->makeUser(['is_active' => true]);
+
+        $this->post('/laragram/admin/broadcast', [
+            'content_type' => 'view',
+            'view'         => 'broadcast_view',
+            'data'         => 'not-json',
+            'action'       => 'send',
+        ])->assertSessionHasErrors('data');
+    }
 }

@@ -350,14 +350,26 @@ BotBroadcast::view('news.release', ['version' => '2.0'])           // a view, re
     ->includeInactive()                                            // optional: also deactivated users
     ->query(fn ($q) => $q->where('created_at', '>', now()->subMonth()))  // arbitrary extra constraint
     ->send();
+
+// Full BotResponse — formatting + keyboard + media, anything a reply can carry:
+BotBroadcast::message(
+    BotResponse::photo($fileId, 'Launch day!')->keyboard(InlineKeyboard::make()->href('Read more', $url)->toArray())
+)->send();
 ```
 
-- `Broadcaster::view()` / `text()` each return a fresh `Broadcasting\PendingBroadcast` (clone-on-entry
-  pattern, like `BotResponse`), so the shared singleton never leaks recipient filters between broadcasts.
-- Content is a **serializable spec** (`['type' => 'view'|'text', ...]`), rendered **per recipient** by
-  `Broadcasting\BroadcastRenderer`: it sets the translator locale from the user's `settings['language']`
-  (mirroring `Laragram::bootstrap()`), builds a `BotResponse` with `setUser($recipient)`, and injects
-  `chat_id = $user->uid` (a broadcast has no incoming update, so nothing else sets it).
+- `Broadcaster::view()` / `text()` / `message()` each return a fresh `Broadcasting\PendingBroadcast`
+  (clone-on-entry pattern, like `BotResponse`), so the shared singleton never leaks recipient filters
+  between broadcasts.
+- Content is a **serializable spec** (`['type' => 'view'|'text'|'payload', ...]`).
+  - `view` / `text` are rendered **per recipient** by `Broadcasting\BroadcastRenderer`: it sets the
+    translator locale from the user's `settings['language']` (mirroring `Laragram::bootstrap()`), builds a
+    `BotResponse` with `setUser($recipient)`, and injects `chat_id = $user->uid` (a broadcast has no
+    incoming update, so nothing else sets it).
+  - `message(BotResponse $r)` stores the **already-built** `$r->contents` (a plain, queue-safe array
+    carrying method/keyboard/media/`_escaped`) as a `payload` spec. It is rendered **once** at compose
+    time — **not** re-localized per recipient — so use `view()` when you need per-user language. The
+    renderer's `payload` arm returns it verbatim and only injects `chat_id`. `message()` throws
+    `\InvalidArgumentException` on an empty `BotResponse` (no content method called).
 - **Delivery:** `PendingBroadcast::send()` iterates recipients with `chunkById(config('laragram.broadcast.chunk_size'))`.
   When `queue.enabled`, it dispatches one `Jobs\SendBroadcastMessage` per recipient onto the configured
   connection/queue (throttled by the same `laragram` rate limiter as incoming updates). Otherwise it sends
@@ -369,9 +381,13 @@ BotBroadcast::view('news.release', ['version' => '2.0'])           // a view, re
   `getUserId()`, `ChatNotFoundException` → `getChatId()`), the matching `User::deactivate()` runs and
   future broadcasts skip them. Gated by `config('laragram.broadcast.deactivate_unreachable')` (default
   `true`), no-op under the `array` driver, and exception-safe (never breaks the swallow contract).
-- `laragram:broadcast {message?} {--view=} {--role=*} {--include-inactive} {--dry-run} {--no-confirm}`:
+- `laragram:broadcast {message?} {--view=} {--data=} {--role=*} {--include-inactive} {--dry-run} {--no-confirm}`:
   requires exactly one of `message` / `--view`, prints a recipient count on `--dry-run`, confirms before
-  sending unless `--no-confirm`.
+  sending unless `--no-confirm`. `--data=` is a JSON object of template data for `--view` (invalid JSON
+  fails the command).
+- **View discovery** (`Broadcasting\ViewCatalog::all()`) enumerates on-disk view directories under
+  `resources/{paths.views}` that contain a renderable component (`text.php` or a media component),
+  dot-notated and sorted — used to populate the admin panel's view picker.
 
 ### Admin Panel (bundled web dashboard)
 
@@ -384,7 +400,7 @@ dependencies** (Horizon/Telescope model). **Requires the `database` auth driver.
 - **Access control — login page backed by `laragram_admins`.** The panel is protected by a **session login** against the `laragram_admins` table (`Models\Admin`), via a dedicated `laragram_admin` session guard. `registerAdminPanel()` calls `registerAdminGuard()`, which injects a `session` guard + `eloquent` provider into `config('auth.*')` at boot — so **host apps need no `config/auth.php` edits**. `Admin\Controllers\AuthController` handles `show`/`login`/`logout` (`Auth::guard('laragram_admin')->attempt()`, session regenerate on login/invalidate on logout). Create accounts with `laragram:admin:create` (password auto-hashed by the model's `hashed` cast). `Admin\Middleware\Authorize` resolves in order: (1) if a `viewLaragram` Gate ability is defined it **decides** (escape hatch to reuse the host app's own web auth; a denying Gate is a hard **403**); (2) otherwise an authenticated `laragram_admin` passes, and an unauthenticated visitor is **redirected to the login page** (`redirect()->guest()`, so `redirect()->intended()` returns them after login). The guard/model/table names are configurable via `admin.guard` / `admin.model` / `admin.table`.
 - **Pages / routes** (route names `laragram.admin.*`): `dashboard` (metrics), `users` + `users.role` / `users.toggle` (POST — set role, activate/deactivate), `sessions` + `sessions.prune` (POST), `broadcast` + `broadcast.store` (POST — dry-run count or send).
 - **`Admin\Metrics`** computes the dashboard numbers (total/active/inactive users, new today/week, role breakdown, active sessions) — read-only, all derived from the DB (no tracking table). "Inactive" doubles as the blocked/unreachable count (auto-deactivation writes `is_active = false`).
-- **Reuse.** Users page uses `User` scopes/`activate()`/`deactivate()`; sessions page uses the `Session` model + the same prune rule as `laragram:session:prune`; the broadcast composer drives the existing `Broadcaster`/`PendingBroadcast` (dry-run = `->count()`, send = `->send()`), so it honours the queue/sync path.
+- **Reuse.** Users page uses `User` scopes/`activate()`/`deactivate()`; sessions page uses the `Session` model + the same prune rule as `laragram:session:prune`; the broadcast composer drives the existing `Broadcaster`/`PendingBroadcast` (dry-run = `->count()`, send = `->send()`), so it honours the queue/sync path. The composer offers a **Text** or **View** mode: View mode picks an on-disk view from `Broadcasting\ViewCatalog::all()` (validated against that whitelist) plus an optional JSON data field, so an operator can send a fully-formatted view (buttons/media from its component files, localized per recipient) — not just plain text. Mode defaults to `text`, so a form/caller without `content_type` behaves exactly as before.
 
 ### Namespace Structure
 
@@ -407,9 +423,10 @@ src/
 │   ├── SceneRegistry.php     # Lazy loader + static cache of scenes file (flushCache() for tests)
 │   └── SceneManager.php      # Runtime: start()/continue(); produces Router-shaped output (container alias: laragram.scene)
 ├── Broadcasting/
-│   ├── Broadcaster.php       # mass-messaging entry point (alias laragram.broadcast); view()/text() → PendingBroadcast
+│   ├── Broadcaster.php       # mass-messaging entry point (alias laragram.broadcast); view()/text()/message() → PendingBroadcast
 │   ├── PendingBroadcast.php  # fluent audience (role/includeInactive/query) + send(): queue-or-sync; count()
-│   ├── BroadcastRenderer.php # content spec + recipient User → payload (per-recipient locale, chat_id = uid)
+│   ├── BroadcastRenderer.php # content spec + recipient User → payload (view/text per-recipient locale; payload verbatim; chat_id = uid)
+│   ├── ViewCatalog.php       # discovers on-disk broadcastable views (dot-notated, sorted) for the admin picker
 │   └── BroadcastResult.php   # value object: total/sent/failed/queued
 ├── Jobs/
 │   ├── ProcessTelegramUpdate.php # queued update processor (when queue.enabled); rebuilds Request from payload, re-resolves auth, calls Laragram::handle()
@@ -756,7 +773,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **461 tests / 953 assertions**
+- Current suite: **475 tests / 990 assertions**
 
 #### Feature testing with InteractsWithBot
 

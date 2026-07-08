@@ -532,6 +532,8 @@ Send one message to your whole user base — announcements, promos, downtime not
 
 ```php
 use Wekser\Laragram\Facades\BotBroadcast;
+use Wekser\Laragram\Facades\BotResponse;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
 
 // Raw text to every active user
 BotBroadcast::text('We are back online!')->send();
@@ -541,17 +543,32 @@ BotBroadcast::view('news.release', ['version' => '2.0'])
     ->role(['admin', 'moderator'])     // optional: restrict to roles
     ->includeInactive()                // optional: also reach deactivated users
     ->send();
+
+// A fully-composed BotResponse — formatting + keyboard + media, anything a reply can carry
+BotBroadcast::message(
+    BotResponse::photo($fileId, 'Launch day!')
+        ->keyboard(InlineKeyboard::make()->href('Read more', $url)->toArray())
+)->send();
 ```
+
+Three ways to compose a broadcast — all can carry **full formatting, inline/reply keyboards, and media**:
+
+| Method | Rendered | Use for |
+|---|---|---|
+| `text($text)` | once | a plain announcement |
+| `view($name, $data)` | **per recipient** (localized, `$user` in scope) | a reusable, translated message; buttons/media come from the view's component files |
+| `message(BotResponse)` | once | an ad-hoc rich message (keyboard/media built inline) — throws on an empty `BotResponse` |
 
 From the CLI:
 
 ```bash
 php artisan laragram:broadcast "We are back online!"             # text to all active users
 php artisan laragram:broadcast --view=news.release              # render a view per recipient
+php artisan laragram:broadcast --view=news.release --data='{"version":"2.0"}'   # + template data (JSON)
 php artisan laragram:broadcast "Admins only" --role=admin --dry-run   # just print the recipient count
 ```
 
-- **Delivery scales with your setup.** With the queue enabled, a broadcast dispatches one job per recipient, throttled by the same `laragram` rate limiter as incoming updates; otherwise it sends synchronously, paced just under Telegram's ~30 msg/sec limit. Each message is rendered per recipient, so views localize to each user.
+- **Delivery scales with your setup.** With the queue enabled, a broadcast dispatches one job per recipient, throttled by the same `laragram` rate limiter as incoming updates; otherwise it sends synchronously, paced just under Telegram's ~30 msg/sec limit. `text()` / `view()` messages are rendered per recipient (so views localize to each user); a `message()` payload is rendered once at compose time.
 - **Unreachable users self-prune.** The first time a send fails because a user blocked the bot, deactivated, or the chat is gone, that user is marked inactive (`User::deactivate()`) so future broadcasts skip them. This runs for *every* send, not just broadcasts, via the `BotExceptionHandled` event — toggle with `LARAGRAM_BROADCAST_DEACTIVATE_UNREACHABLE`.
 
 ```env
@@ -588,7 +605,7 @@ LARAGRAM_ADMIN_ENABLED=true
 LARAGRAM_ADMIN_PATH=laragram/admin
 ```
 
-Pages: **Dashboard** (total/active users, new today/week, roles, active sessions) · **Users** (set role, activate/deactivate) · **Sessions** (browse, prune) · **Broadcast** (dry-run count or send — honours the queue/sync path).
+Pages: **Dashboard** (total/active users, new today/week, roles, active sessions) · **Users** (set role, activate/deactivate) · **Sessions** (browse, prune) · **Broadcast** — compose a plain-text message **or** pick an on-disk view (with optional JSON data) so an operator can send a fully-formatted, per-recipient-localized message with buttons/media, not just text; dry-run count or send, honouring the queue/sync path.
 
 ---
 
@@ -632,7 +649,7 @@ Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded,
 | `laragram:make:scene` | Scaffold a new scene (wizard) in the scenes file |
 | `laragram:scene:list` | List all registered scenes |
 | `laragram:set-role {uid} {role}` | Assign a role to a user |
-| `laragram:broadcast {message?}` | Mass-message users (`--view`, `--role=*`, `--include-inactive`, `--dry-run`, `--no-confirm`) |
+| `laragram:broadcast {message?}` | Mass-message users (`--view`, `--data`, `--role=*`, `--include-inactive`, `--dry-run`, `--no-confirm`) |
 | `laragram:admin:create {username?}` | Create (or reset the password of) an admin-panel login account (`--name`, `--password`) |
 | `laragram:admin:delete {username}` | Delete an admin-panel login account |
 
