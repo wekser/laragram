@@ -24,8 +24,8 @@
         form { display: flex; flex-direction: column; gap: 14px; }
         label { display: flex; flex-direction: column; gap: 6px; }
         .lg-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
-        input { font: inherit; background: var(--bg); color: var(--text);
-            border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+        input:not([type=checkbox]) { font: inherit; background: var(--field); color: var(--text);
+            border: 1px solid var(--field-border); border-radius: 10px; padding: 10px 12px;
             transition: border-color .15s, box-shadow .15s; }
         input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
         .lg-check { flex-direction: row; align-items: center; gap: 8px; }
