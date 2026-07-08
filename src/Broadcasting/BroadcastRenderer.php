@@ -33,11 +33,21 @@ class BroadcastRenderer
     /**
      * Render a content spec to a Telegram payload addressed to $user.
      *
-     * @param array{type: string, view?: string, data?: array, text?: string, format?: ?string} $content
+     * @param array{type: string, view?: string, data?: array, text?: string, payload?: array, format?: ?string} $content
      * @return array<string, mixed>
      */
     public function render(array $content, User $user): array
     {
+        // A 'payload' spec is a pre-built BotResponse::$contents array — rendered
+        // once when the broadcast was composed, not per recipient. Return it as
+        // is (only chat_id is injected below); no locale/re-render applies.
+        if (($content['type'] ?? null) === 'payload') {
+            $payload = $content['payload'];
+            $payload['chat_id'] = $user->uid;
+
+            return $payload;
+        }
+
         // An explicit format key (including null, meaning "already formatted —
         // do not escape") must be honored; only its absence defaults to HTML.
         $format = array_key_exists('format', $content) ? $content['format'] : 'HTML';

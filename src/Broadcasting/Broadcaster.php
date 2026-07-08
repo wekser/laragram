@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Broadcasting;
 
+use Wekser\Laragram\BotResponse;
+
 /**
  * Entry point for mass messaging.
  *
@@ -23,9 +25,11 @@ namespace Wekser\Laragram\Broadcasting;
  *
  *   BotBroadcast::text('We are back online!')->send();
  *   BotBroadcast::view('news.release', ['version' => '2.0'])->role('admin')->send();
+ *   BotBroadcast::message(BotResponse::photo($id, 'Hi')->keyboard($kb))->send();
  *
- * Content is rendered per recipient (honoring each user's language); delivery
- * is queued when queue.enabled is true and synchronous otherwise.
+ * The view() / text() paths render per recipient (honoring each user's
+ * language); message() sends a pre-built BotResponse rendered once. Delivery is
+ * queued when queue.enabled is true and synchronous otherwise.
  */
 class Broadcaster
 {
@@ -51,6 +55,30 @@ class Broadcaster
     {
         return new PendingBroadcast(
             ['type' => 'text', 'text' => $text, 'format' => $format],
+            $this->renderer,
+        );
+    }
+
+    /**
+     * Broadcast a fully-composed BotResponse — formatting, an inline/reply
+     * keyboard, and media (anything a normal reply can carry).
+     *
+     * Unlike view() / text(), the message is rendered ONCE here (not per
+     * recipient), so it is not re-localized for each user's language; use view()
+     * when you need per-recipient localization. The already-built payload
+     * (BotResponse::$contents — a plain, queue-safe array) is stored verbatim and
+     * only the recipient's chat_id is injected at delivery.
+     */
+    public function message(BotResponse $response): PendingBroadcast
+    {
+        if ($response->contents === []) {
+            throw new \InvalidArgumentException(
+                'Cannot broadcast an empty BotResponse — call a content method (text/view/photo/…) first.'
+            );
+        }
+
+        return new PendingBroadcast(
+            ['type' => 'payload', 'payload' => $response->contents],
             $this->renderer,
         );
     }
