@@ -62,10 +62,44 @@ class CheckAuthTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // Rejecting requests
+    // Skipping updates with no actionable sender
     // -------------------------------------------------------------------------
 
-    public function test_rejects_request_from_bot(): void
+    public function test_does_not_process_update_from_bot(): void
+    {
+        $request = $this->requestWithSender([
+            'id' => 456, 'first_name' => 'MyBot', 'is_bot' => true,
+        ]);
+
+        $processed = false;
+        $this->middleware()->handle($request, function ($r) use (&$processed) {
+            $processed = true;
+
+            return response('ok');
+        });
+
+        $this->assertFalse($processed);
+    }
+
+    public function test_does_not_process_update_with_no_sender(): void
+    {
+        $request = Request::create('/', 'POST', ['update_id' => 1]);
+
+        $processed = false;
+        $this->middleware()->handle($request, function ($r) use (&$processed) {
+            $processed = true;
+
+            return response('ok');
+        });
+
+        $this->assertFalse($processed);
+    }
+
+    /**
+     * Telegram redelivers any update the webhook answers with a non-2xx status,
+     * so a routine bot-authored update must still be acknowledged.
+     */
+    public function test_acknowledges_update_from_bot_with_ok(): void
     {
         $request = $this->requestWithSender([
             'id' => 456, 'first_name' => 'MyBot', 'is_bot' => true,
@@ -73,33 +107,23 @@ class CheckAuthTest extends TestCase
 
         $response = $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame(200, $response->getStatusCode());
     }
 
-    public function test_rejects_request_with_no_sender(): void
+    public function test_acknowledges_update_with_no_sender_with_ok(): void
     {
         $request = Request::create('/', 'POST', ['update_id' => 1]);
 
         $response = $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertSame(401, $response->getStatusCode());
-    }
-
-    public function test_rejection_response_is_json_with_message_key(): void
-    {
-        $request = Request::create('/', 'POST', ['update_id' => 1]);
-
-        $response = $this->middleware()->handle($request, fn ($r) => response('ok'));
-
-        $data = json_decode($response->getContent(), true);
-        $this->assertArrayHasKey('message', $data);
+        $this->assertSame(200, $response->getStatusCode());
     }
 
     // -------------------------------------------------------------------------
-    // Security logging
+    // Logging
     // -------------------------------------------------------------------------
 
-    public function test_logs_warning_when_rejecting_bot_request(): void
+    public function test_does_not_log_warning_when_skipping_bot_update(): void
     {
         $handler = $this->attachLogHandler();
 
@@ -109,10 +133,11 @@ class CheckAuthTest extends TestCase
 
         $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertTrue($handler->hasWarningRecords());
+        $this->assertFalse($handler->hasWarningRecords());
+        $this->assertTrue($handler->hasDebugRecords());
     }
 
-    public function test_logs_warning_when_rejecting_no_sender_request(): void
+    public function test_does_not_log_warning_when_skipping_senderless_update(): void
     {
         $handler = $this->attachLogHandler();
 
@@ -120,7 +145,8 @@ class CheckAuthTest extends TestCase
 
         $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertTrue($handler->hasWarningRecords());
+        $this->assertFalse($handler->hasWarningRecords());
+        $this->assertTrue($handler->hasDebugRecords());
     }
 
     public function test_does_not_log_for_valid_request(): void
@@ -133,6 +159,6 @@ class CheckAuthTest extends TestCase
 
         $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertFalse($handler->hasWarningRecords());
+        $this->assertFalse($handler->hasDebugRecords());
     }
 }
