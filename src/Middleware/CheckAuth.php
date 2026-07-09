@@ -22,6 +22,14 @@ class CheckAuth
     /**
      * Handle an incoming request.
      *
+     * Updates the bot cannot act on — authored by another bot (or by itself, as
+     * with its own channel posts), or carrying no sender at all — are skipped
+     * without invoking the pipeline. They are still acknowledged with 200:
+     * Telegram redelivers any update the webhook answers with a non-2xx status,
+     * so rejecting a routine bot-authored update loops it back indefinitely and
+     * stalls the pending-update queue behind it. Request authenticity is already
+     * enforced upstream by VerifyTelegramSecret.
+     *
      * @param \Illuminate\Http\Request $request
      * @param \Closure $next
      * @return mixed
@@ -40,11 +48,11 @@ class CheckAuth
             return $next($request);
         }
 
-        Log::warning('laragram: unauthorized request rejected', [
+        Log::debug('laragram: update skipped, no actionable sender', [
             'ip'     => $request->ip(),
             'is_bot' => $user['is_bot'] ?? null,
         ]);
 
-        return response()->json(['message' => 'Unauthorized.'], 401);
+        return response('OK', 200);
     }
 }
