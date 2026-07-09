@@ -123,7 +123,11 @@ class CheckAuthTest extends TestCase
     // Logging
     // -------------------------------------------------------------------------
 
-    public function test_does_not_log_warning_when_skipping_bot_update(): void
+    /**
+     * A bot sitting in a channel or group receives bot-authored updates
+     * continuously, so skipping one is routine and must never touch the log.
+     */
+    public function test_does_not_log_when_skipping_bot_update(): void
     {
         $handler = $this->attachLogHandler();
 
@@ -133,11 +137,10 @@ class CheckAuthTest extends TestCase
 
         $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertFalse($handler->hasWarningRecords());
-        $this->assertTrue($handler->hasDebugRecords());
+        $this->assertSame([], $handler->getRecords());
     }
 
-    public function test_does_not_log_warning_when_skipping_senderless_update(): void
+    public function test_does_not_log_when_skipping_senderless_update(): void
     {
         $handler = $this->attachLogHandler();
 
@@ -145,8 +148,7 @@ class CheckAuthTest extends TestCase
 
         $this->middleware()->handle($request, fn ($r) => response('ok'));
 
-        $this->assertFalse($handler->hasWarningRecords());
-        $this->assertTrue($handler->hasDebugRecords());
+        $this->assertSame([], $handler->getRecords());
     }
 
     public function test_does_not_log_for_valid_request(): void

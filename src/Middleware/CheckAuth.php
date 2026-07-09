@@ -14,7 +14,6 @@ namespace Wekser\Laragram\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Wekser\Laragram\BotAuth;
 
 class CheckAuth
@@ -29,6 +28,9 @@ class CheckAuth
      * so rejecting a routine bot-authored update loops it back indefinitely and
      * stalls the pending-update queue behind it. Request authenticity is already
      * enforced upstream by VerifyTelegramSecret.
+     *
+     * A skip is not logged: a bot sitting in a channel or group receives such
+     * updates continuously without anyone talking to it.
      *
      * @param \Illuminate\Http\Request $request
      * @param \Closure $next
@@ -47,11 +49,6 @@ class CheckAuth
         if (empty($user) && BotAuth::isSenderlessPayload($payload)) {
             return $next($request);
         }
-
-        Log::debug('laragram: update skipped, no actionable sender', [
-            'ip'     => $request->ip(),
-            'is_bot' => $user['is_bot'] ?? null,
-        ]);
 
         return response('OK', 200);
     }

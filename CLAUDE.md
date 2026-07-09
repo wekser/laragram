@@ -59,7 +59,7 @@ CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` a
 Telegram sends a POST webhook to `/{prefix}/{secret}`. The middleware stack runs in this order:
 
 1. **`laragram.verify`** (`VerifyTelegramSecret`) — validates `X-Telegram-Bot-Api-Secret-Token` header with `hash_equals()`; empty configured secret → **500**; wrong token in header → **401**
-2. **`laragram.auth`** (`CheckAuth`) — skips updates with no actionable sender: authored by a bot (`is_bot = true`, e.g. the bot's own channel posts, `GroupAnonymousBot`, another bot in a group) or carrying no sender at all. Uses `BotAuth::findFromInPayload()` to locate the sender across all update types, and `isSenderlessPayload()` to let genuinely senderless types (`poll`, `message_reaction_count`, anonymous reactions) through. A skipped update is **acknowledged with `OK 200`, not rejected** — Telegram redelivers any update the webhook answers with a non-2xx status, so returning 401 for a routine bot-authored update loops it indefinitely and stalls the pending-update queue behind it. Authenticity is already enforced upstream by `laragram.verify`; this middleware is a routing gate, not a security boundary. Skips log at `debug`.
+2. **`laragram.auth`** (`CheckAuth`) — skips updates with no actionable sender: authored by a bot (`is_bot = true`, e.g. the bot's own channel posts, `GroupAnonymousBot`, another bot in a group) or carrying no sender at all. Uses `BotAuth::findFromInPayload()` to locate the sender across all update types, and `isSenderlessPayload()` to let genuinely senderless types (`poll`, `message_reaction_count`, anonymous reactions) through. A skipped update is **acknowledged with `OK 200`, not rejected** — Telegram redelivers any update the webhook answers with a non-2xx status, so returning 401 for a routine bot-authored update loops it indefinitely and stalls the pending-update queue behind it. Authenticity is already enforced upstream by `laragram.verify`; this middleware is a routing gate, not a security boundary. A skip is **not logged** — a bot sitting in a channel or group receives bot-authored updates continuously with nobody talking to it, so logging each one only floods the log.
 3. **`laragram.hook`** (`FrameHook`) — deduplicates updates via `update_id` uniqueness check (database driver only)
 4. **`laragram.throttle`** (`RateLimit`) — per-user rate limiting via Laravel `RateLimiter` (falls back to IP); returns **429** with `retry_after` on excess
 
@@ -793,7 +793,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **496 tests / 1048 assertions**
+- Current suite: **496 tests / 1046 assertions**
 
 #### Feature testing with InteractsWithBot
 
