@@ -69,11 +69,18 @@ class User extends Authenticatable
      * Pass a $chatId to scope to a single conversation (group support); a
      * private chat's id equals the user's uid. When null, the most recent
      * session across all chats is returned (backward-compatible).
+     *
+     * $threadId narrows further to one forum topic, so a member running a wizard
+     * in topic A keeps state separate from topic B. It only applies alongside a
+     * $chatId, and null there means the General topic (stored as 0), matching
+     * every private chat and non-forum group.
      */
-    public function session(?int $chatId = null): ?Session
+    public function session(?int $chatId = null, ?int $threadId = null): ?Session
     {
         return $this->sessions()
-            ->when($chatId !== null, fn ($q) => $q->where('chat_id', $chatId))
+            ->when($chatId !== null, fn ($q) => $q
+                ->where('chat_id', $chatId)
+                ->where('thread_id', $threadId ?? 0))
             ->where('last_activity', '>=', now()->subMinutes(config('laragram.auth.session.lifetime')))
             ->first();
     }

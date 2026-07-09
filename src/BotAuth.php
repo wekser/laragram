@@ -36,6 +36,9 @@ class BotAuth
     /** Chat the update originated in (group/supergroup/private/channel), or null. */
     private ?array $chat = null;
 
+    /** Forum topic the update originated in, or null outside a topic. */
+    private ?int $thread = null;
+
     private readonly AuthDriverInterface $driverInstance;
 
     /** Driver name ('database' or 'array') — kept for backward compatibility. */
@@ -82,6 +85,7 @@ class BotAuth
 
         $this->sender = $sender;
         $this->chat   = static::findChatInPayload($this->request->all());
+        $this->thread = static::findThreadInPayload($this->request->all());
 
         try {
             $this->user = $this->driverInstance->resolveUser($sender, $this->resolveLanguage($sender));
@@ -150,6 +154,17 @@ class BotAuth
     public function chatType(): ?string
     {
         return $this->chat['type'] ?? null;
+    }
+
+    /**
+     * Forum topic (message thread) the update originated in, or null.
+     *
+     * Part of the per-conversation session key alongside chatId(), and the
+     * outbound message_thread_id so replies stay inside the topic.
+     */
+    public function threadId(): ?int
+    {
+        return $this->thread;
     }
 
     /** Telegram user ID of the sender, or null if not yet authenticated. */
@@ -240,6 +255,38 @@ class BotAuth
             // callback_query carries the chat inside the attached message.
             if (isset($value['message']['chat']) && is_array($value['message']['chat'])) {
                 return $value['message']['chat'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the forum topic (message thread) an update originated in, or null.
+     *
+     * Gated on `is_topic_message`, not on the mere presence of
+     * `message_thread_id`: Telegram also sets that field on a plain reply inside
+     * a non-forum supergroup (there the "thread" is the reply chain), and using
+     * such an id as a send target makes the API reject the message. Only a real
+     * forum topic is routable, keyable, and safe to echo back on an outbound call.
+     *
+     * Messages in a forum's General topic carry neither field, so they resolve to
+     * null — the same as every private chat and non-forum group.
+     */
+    public static function findThreadInPayload(array $payload): ?int
+    {
+        foreach ($payload as $key => $value) {
+            if ($key === 'update_id' || !is_array($value)) {
+                continue;
+            }
+
+            // callback_query carries the originating message inside `message`.
+            $message = isset($value['message']) && is_array($value['message'])
+                ? $value['message']
+                : $value;
+
+            if (!empty($message['is_topic_message']) && isset($message['message_thread_id'])) {
+                return (int) $message['message_thread_id'];
             }
         }
 

@@ -338,6 +338,28 @@ class BotRequest
     }
 
     /**
+     * Get the forum topic (message thread) the update came from.
+     *
+     * Null in private chats, non-forum groups, and a forum's General topic. Note
+     * this is not simply the raw `message_thread_id` field: see
+     * BotAuth::findThreadInPayload().
+     */
+    public function threadId(): ?int
+    {
+        $id = $this->getNestedData('update.thread_id');
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * Whether the update came from inside a forum topic.
+     */
+    public function isTopicMessage(): bool
+    {
+        return $this->threadId() !== null;
+    }
+
+    /**
      * Get message information from the request.
      *
      * For message/edited_message/channel_post events the update object IS the

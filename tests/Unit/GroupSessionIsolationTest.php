@@ -46,11 +46,12 @@ class GroupSessionIsolationTest extends TestCase
             $table->id();
             $table->foreignId('user_id');
             $table->bigInteger('chat_id')->nullable();
+            $table->unsignedBigInteger('thread_id')->default(0);
             $table->unsignedBigInteger('update_id')->unique();
             $table->string('station');
             $table->json('payload');
             $table->timestamp('last_activity');
-            $table->unique(['user_id', 'chat_id']);
+            $table->unique(['user_id', 'chat_id', 'thread_id']);
         });
 
         config(['laragram.paths.route' => 'group']);

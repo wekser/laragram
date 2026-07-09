@@ -20,18 +20,22 @@ class CreateLaragramSessionsTable extends Migration
             // equals the user's uid; in a group/supergroup it is the shared chat
             // id, so each member keeps independent state per chat.
             $table->bigInteger('chat_id')->nullable();
+            // Forum topic within the chat. 0 means "no topic": every private chat,
+            // every non-forum group, and a forum's General topic. NOT NULL because
+            // SQL treats NULLs as distinct, which would defeat the unique key below.
+            $table->unsignedBigInteger('thread_id')->default(0);
             $table->unsignedBigInteger('update_id')->unique();
             $table->string('station');
             $table->json('payload');
             $table->timestamp('last_activity');
 
-            // One session row per (user, chat): the upsert key used by LogSession.
-            $table->unique(['user_id', 'chat_id']);
+            // One session row per (user, chat, topic): the upsert key used by LogSession.
+            $table->unique(['user_id', 'chat_id', 'thread_id']);
 
             // Matches User::session(): WHERE user_id = ? AND chat_id = ? AND
-            // last_activity >= ? ORDER BY last_activity DESC. Resolved on every
-            // database-driver request.
-            $table->index(['user_id', 'chat_id', 'last_activity']);
+            // thread_id = ? AND last_activity >= ? ORDER BY last_activity DESC.
+            // Resolved on every database-driver request.
+            $table->index(['user_id', 'chat_id', 'thread_id', 'last_activity']);
         });
     }
 

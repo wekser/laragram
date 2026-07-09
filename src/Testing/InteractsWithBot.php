@@ -90,7 +90,7 @@ trait InteractsWithBot
         $station    = 'start';
         $sceneState = null;
 
-        if (config('laragram.auth.driver') === 'database' && !empty($session = $user->session($auth->chatId()))) {
+        if (config('laragram.auth.driver') === 'database' && !empty($session = $user->session($auth->chatId(), $auth->threadId()))) {
             $station    = $session->station;
             $sceneState = $session->payload['scene'] ?? null;
         }
@@ -146,6 +146,25 @@ trait InteractsWithBot
             $this->sentMessages,
             'Expected no response, but bot replied with: ' .
             ($this->sentMessages[0]['method'] ?? 'unknown')
+        );
+    }
+
+    /**
+     * Assert the forum topic the first sent message was addressed to.
+     * Pass null to assert it carries no message_thread_id (General topic).
+     */
+    protected function assertBotRepliedInThread(?int $threadId): void
+    {
+        $this->assertNotEmpty($this->sentMessages, 'Bot sent no messages.');
+
+        $actual = $this->sentMessages[0]['message_thread_id'] ?? null;
+
+        $this->assertSame(
+            $threadId,
+            $actual === null ? null : (int) $actual,
+            $threadId === null
+                ? "Expected the reply to carry no thread, got topic {$actual}."
+                : "Expected the reply in topic {$threadId}, got " . ($actual ?? 'none') . '.'
         );
     }
 

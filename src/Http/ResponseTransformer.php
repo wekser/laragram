@@ -39,6 +39,15 @@ class ResponseTransformer
     ];
 
     /**
+     * Methods accepting message_thread_id that are not named send* — every
+     * sendX method takes it, and edit/delete/answer/react methods take none.
+     */
+    private const THREAD_AWARE_METHODS = [
+        'copyMessage',
+        'forwardMessage',
+    ];
+
+    /**
      * Build the full output array from the controller response.
      *
      * A controller may return a single response (BotResponse|string) or a list
@@ -151,6 +160,8 @@ class ResponseTransformer
             }
         }
 
+        $view = $this->injectThreadId($output, $view, $method);
+
         // deleteMessage / editMessageText / setMessageReaction require message_id
         // from the triggering message (or the message_reaction update object,
         // which carries message_id at its top level)
@@ -181,6 +192,38 @@ class ResponseTransformer
                 'method'    => $method,
                 'update_id' => $output['update']['id'] ?? null,
             ]);
+        }
+
+        return $view;
+    }
+
+    /**
+     * Echo the originating forum topic back onto an outbound send, so a reply to
+     * a message in a topic lands in that topic instead of the group's General.
+     *
+     * A payload that already names a thread (BotResponse::thread(42)) is left
+     * alone; BotResponse::thread(null) marks the '_no_thread' sentinel to opt out
+     * of the injection entirely and post to General. A payload that names its own
+     * chat_id is left alone too — the originating topic id is meaningless in a
+     * chat other than the one it came from.
+     *
+     * @param  array<string, mixed> $output
+     * @param  array<string, mixed> $view
+     * @return array<string, mixed>
+     */
+    private function injectThreadId(array $output, array $view, ?string $method): array
+    {
+        if (isset($view['message_thread_id']) || !empty($view['_no_thread']) || !empty($view['chat_id'])) {
+            return $view;
+        }
+
+        $acceptsThread = $method !== null
+            && (str_starts_with($method, 'send') || in_array($method, self::THREAD_AWARE_METHODS, true));
+
+        $threadId = $output['update']['thread_id'] ?? null;
+
+        if ($acceptsThread && $threadId !== null) {
+            $view['message_thread_id'] = $threadId;
         }
 
         return $view;
