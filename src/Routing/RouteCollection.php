@@ -149,6 +149,18 @@ class RouteCollection
     }
 
     /**
+     * Restrict the route to the given forum topic(s), by message_thread_id.
+     * Empty (the default) matches any topic and any non-forum chat.
+     *
+     * @param int ...$threadIds
+     */
+    public function thread(int ...$threadIds): static
+    {
+        $this->currentRoute['threads'] = array_values($threadIds);
+        return $this;
+    }
+
+    /**
      * Restrict the route to group and supergroup chats.
      */
     public function inGroups(): static
@@ -183,15 +195,17 @@ class RouteCollection
      *   - from:      pre-set station(s) for all routes in the group
      *   - roles:     pre-set role(s) for all routes in the group
      *   - chatTypes: pre-set chat type(s) for all routes in the group
+     *   - threads:   pre-set forum topic id(s) for all routes in the group
      *
-     * Individual route calls to from() / role() / chat() still override the group defaults.
+     * Individual route calls to from() / role() / chat() / thread() still override the group defaults.
      *
      * @param callable             $callback  Routes registered inside this closure inherit group defaults.
      * @param string|string[]|null $from      Station(s) to apply to every route in the group.
      * @param string|string[]|null $roles     Role(s) to apply to every route in the group.
      * @param string|string[]|null $chatTypes Chat type(s) to apply to every route in the group.
+     * @param int|int[]|null       $threads   Forum topic id(s) to apply to every route in the group.
      */
-    public function group(callable $callback, string|array|null $from = null, string|array|null $roles = null, string|array|null $chatTypes = null): static
+    public function group(callable $callback, string|array|null $from = null, string|array|null $roles = null, string|array|null $chatTypes = null, int|array|null $threads = null): static
     {
         $saved = $this->groupDefaults;
 
@@ -205,6 +219,10 @@ class RouteCollection
 
         if ($chatTypes !== null) {
             $this->groupDefaults['chat_types'] = (array) $chatTypes;
+        }
+
+        if ($threads !== null) {
+            $this->groupDefaults['threads'] = array_map('intval', (array) $threads);
         }
 
         $callback($this);

@@ -169,7 +169,7 @@ Each user has a "station" string in `laragram_sessions.station`. `BotResponse::r
 The bot works in private chats **and** in groups/supergroups. Three pieces make this work; **private (1-on-1) behaviour is unchanged** because in a private chat `chat.id == from.id`.
 
 - **Commands with `@botusername`.** In groups Telegram appends the bot's username to commands (`/start@MyBot`). `Support\Command::stripMention()` normalises the command token before `Routing\Router::matchesPattern()` compares it. Set `config('laragram.telegram.username')` (`LARAGRAM_BOT_USERNAME`, no leading `@`) so only *your* bot's mention is stripped (`/start@OtherBot` won't match); when empty, any `@suffix` is stripped (works out of the box, but matches other bots' mentions too). Param routes (`/order {id}`) already worked — `RequestTransformer::extractNamedParams()` drops the whole command token (mention included) before extracting args.
-- **Per-(user, chat) state.** The session key is the composite `(user_id, chat_id)` — each member keeps **independent** station + scene state in each chat (Alice's `/order` wizard in group A is separate from group B and from her private chat). The `chat_id` is derived **from the update payload** by `BotAuth::findChatInPayload()` (a pure static — never the request-scoped `BotAuth` singleton, which can be stale under a long-running queue worker), computed once in `Http\RequestTransformer::build()` and threaded through `output['update']['chat_id']`. `LogSession` keys the `updateOrCreate` on it; `Laragram::defineStation()` (and `PollCommand` / `InteractsWithBot`) read the session for that chat via `User::session(?int $chatId)`. Scenes inherit this for free (their state lives in the same session payload).
+- **Per-(user, chat, topic) state.** The session key is the composite `(user_id, chat_id, thread_id)` — each member keeps **independent** station + scene state in each chat, and in each forum topic within it (Alice's `/order` wizard in group A is separate from group B and from her private chat). The `chat_id` is derived **from the update payload** by `BotAuth::findChatInPayload()` (a pure static — never the request-scoped `BotAuth` singleton, which can be stale under a long-running queue worker), computed once in `Http\RequestTransformer::build()` and threaded through `output['update']['chat_id']`; `thread_id` comes from `BotAuth::findThreadInPayload()` the same way (see **Forum Topics** below). `LogSession` keys the `updateOrCreate` on both; `Laragram::defineStation()` (and `PollCommand` / `InteractsWithBot`) read the session via `User::session(?int $chatId, ?int $threadId)`. Scenes inherit this for free (their state lives in the same session payload).
 - **Outbound targeting.** `Http\ResponseTransformer::injectTelegramIds()` targets `chat.id` from the update (already correct for group replies); its fallback is now `output['update']['chat_id']` (the originating chat) instead of the sender's uid, so a reply with no explicit chat never DMs the member.
 
 **Chat-type routing & introspection.**
@@ -183,6 +183,25 @@ The bot works in private chats **and** in groups/supergroups. Three pieces make 
 - **Known limitation:** messages from anonymous group admins / on behalf of a chat carry `sender_chat` and no `from` user — they pass through as senderless and are not tied to a `User`; handle them explicitly if needed.
 
 **Testing:** `BotUpdateFactory::groupMessage(text, chatId, userId, …)` builds a group update (chat.id ≠ from.id); `message()` / `callbackQuery()` gained a `chatType` param. See `tests/Unit/GroupChatTest.php` and `tests/Unit/GroupSessionIsolationTest.php`.
+
+### Forum Topics (message_thread_id)
+
+Supergroups with topics enabled ("forums") deliver each message tagged with the
+topic it was posted in. Laragram threads that id through the whole pipeline, so a
+reply lands back in its topic, routes can be scoped to a topic, and each topic
+keeps its own state. **Private chats and non-forum groups are unaffected** — they
+resolve to "no topic" everywhere.
+
+- **Detection — `BotAuth::findThreadInPayload(array $payload): ?int`** (a pure static, mirroring `findChatInPayload()`; `callback_query` is read from its nested `message`). It is gated on **`is_topic_message`**, not on the mere presence of `message_thread_id`: Telegram also sets that field on a plain **reply** inside a *non-forum* supergroup, where the "thread" is the reply chain and the id is **not a valid send target** (the API rejects it). Only a real forum topic is routable, keyable, and safe to echo back. Messages in a forum's **General** topic carry neither field → `null`, same as every private chat. The instance accessor is `BotAuth::threadId()`.
+- **Threading through the pipeline.** `Http\RequestTransformer::build()` computes it once into `output['update']['thread_id']`. `Routing\Router::dispatch()` caches it for matching. `SceneManager` reuses both transformers, so scenes get topic support for free.
+- **Outbound targeting.** `Http\ResponseTransformer::injectThreadId()` copies the originating topic onto every outbound call whose method accepts one — any `send*` method plus `copyMessage` / `forwardMessage`. Methods that take no thread (`answer*`, `edit*`, `delete*`, `setMessageReaction`) never receive it. Skipped when the payload already names a `message_thread_id`, sets the `_no_thread` sentinel, or names its own `chat_id` (the originating topic id is meaningless in another chat).
+- **`BotResponse::thread(?int $threadId)`** — a modifier (mutating, like `keyboard()`; throws `\LogicException` before a content method). `thread(42)` sends into topic 42 regardless of where the update came from; **`thread(null)`** opts out of the injection and posts to General. The null case sets the `_no_thread` bookkeeping key, which `Support\OutboundPayload` strips like every other `_`-prefixed key.
+- **Route DSL: `->thread(int ...$ids)`** restricts a route to specific topics; empty (default) matches any topic *and* any non-forum chat. An update outside a topic never matches a constrained route. `group(..., threads: 42)` sets it for a whole group. Matched by `Router::matchesThread()`.
+- **`BotRequest`:** `threadId(): ?int` and `isTopicMessage(): bool` (both read `update.thread_id`, i.e. the gated value — not the raw field).
+- **Session isolation.** `laragram_sessions.thread_id` is **`NOT NULL DEFAULT 0`** — `0` means "no topic" (private chat, non-forum group, General). Non-nullable because SQL treats `NULL`s as distinct, which would defeat the `(user_id, chat_id, thread_id)` unique key the `LogSession` upsert depends on.
+- **Pushing unprompted notifications into a topic** (no incoming update to reply to) is a plain outbound call — `BotAPI::sendMessage(['chat_id' => …, 'message_thread_id' => 42, 'text' => …])`. `BotAPI` is a `__call()` proxy, so the param passes straight through.
+- **Setup gotchas:** the bot must be an admin with *Manage Topics* to post in a closed topic; `message_thread_id` on a `sendMessage` to a chat that is not a forum returns `400 Bad Request`.
+- **Testing:** `BotUpdateFactory::topicMessage(text, threadId, chatId, …)`; `message()` / `groupMessage()` / `callbackQuery()` gained a `threadId` param (null = not a topic message). Assertion `assertBotRepliedInThread(?int $threadId)` (null asserts the reply carries no thread). See `tests/Unit/ForumTopicTest.php`.
 
 ### Scenes (Wizards)
 
@@ -485,13 +504,13 @@ src/
 | `Routing\RouteCollection` | Fluent route builder; `require`d fresh per request |
 | `Routing\Route` | Immutable value object representing one route |
 | `Http\RequestTransformer` | Builds `BotRequest` from raw update + matched route via `build()` |
-| `Http\ResponseTransformer` | Normalizes the controller response (single `BotResponse`/string OR array of them) into `output['response']['views']`; per-view auto-injects `chat_id`, `callback_query_id` (for `answerCallbackQuery`), and `message_id` (for `deleteMessage` / `editMessageText`); resolves one `redirect` per batch (last-write-wins) |
+| `Http\ResponseTransformer` | Normalizes the controller response (single `BotResponse`/string OR array of them) into `output['response']['views']`; per-view auto-injects `chat_id`, `message_thread_id` (the originating forum topic, for `send*`/`copyMessage`/`forwardMessage`), `callback_query_id` (for `answerCallbackQuery`), and `message_id` (for `deleteMessage` / `editMessageText`); resolves one `redirect` per batch (last-write-wins) |
 | `Http\ResponseDispatcher` | `send(array $views)` — delivers each view as an outbound `BotAPI::{method}()` call, in order; stops the batch on a terminal (user-unreachable) error. Used by both `Laragram` (webhook) and `PollCommand` (polling) |
 | `BotClient` | cURL transport (token + method validation, SSL, logging) |
 | `BotAPI` | `__call()` proxy to `BotClient`; use any Telegram method directly |
 | `BotAuth` | Authenticates sender via `AuthDriverInterface` |
 | `BotRequest` | `get('field')`, `input('param')`, `query()`, `message()`, `callbackQuery()`, `validate()` |
-| `BotResponse` | `text()`, `view()`, `redirect()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
+| `BotResponse` | `text()`, `view()`, `redirect()`, `thread()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
 | `Telegram\Inline\InlineResults` | Fluent `answerInlineQuery` results builder; `article()`/`photo()`/`sticker()`/`raw()` + `cache()`/`personal()`/`nextOffset()`/`button()` |
 | `Telegram\Payments\Invoice` | Fluent `sendInvoice`/`createInvoiceLink` params builder; `stars()` shortcut for Telegram Stars |
 | `Services\Payments` | `invoiceLink()` (createInvoiceLink) + `refund()` (refundStarPayment); alias `laragram.payments` |
@@ -607,7 +626,7 @@ video($data['video_id']);
 
 Only `'database'` and `'array'` are valid driver names. Any other value throws `\InvalidArgumentException` immediately at service-provider boot — fail-fast, no silent fallback.
 
-`BotAuth::getDriver()` returns the driver name string. `BotAuth::getDriverInstance()` returns the `AuthDriverInterface` object. `BotAuth::findFromInPayload(array $payload): ?array` is a public static helper that extracts the sender `from` object from any update type — used by `CheckAuth` middleware and available standalone.
+`BotAuth::getDriver()` returns the driver name string. `BotAuth::getDriverInstance()` returns the `AuthDriverInterface` object. `BotAuth::findFromInPayload(array $payload): ?array` is a public static helper that extracts the sender `from` object from any update type — used by `CheckAuth` middleware and available standalone. Its siblings `findChatInPayload(): ?array` and `findThreadInPayload(): ?int` resolve the originating chat and forum topic the same stateless way (instance accessors: `chatId()` / `chatType()` / `threadId()`).
 
 ### Telegram Helpers
 
@@ -716,7 +735,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 ### Models & Database
 
 - `laragram_users` — `uid` (unique), `first_name`, `last_name`, `username`, `settings` (JSON cast to `AsCollection`), `role` (string, default `'user'`, indexed), `is_active` (indexed), `deactivated_at`
-- `laragram_sessions` — `user_id`, `chat_id` (nullable — the conversation the session belongs to; group support), `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); **unique `(user_id, chat_id)`** is the per-conversation upsert key, and composite index `(user_id, chat_id, last_activity)` backs `User::session(?int $chatId)`. In a private chat `chat_id == uid`. **Migration-stub changes only apply to fresh installs — existing host apps need their own migration to add `chat_id` (backfill `chat_id = uid`), swap the unique key to `(user_id, chat_id)`, and add the index.**
+- `laragram_sessions` — `user_id`, `chat_id` (nullable — the conversation the session belongs to; group support), `thread_id` (**NOT NULL default 0** — the forum topic within that chat; `0` = no topic), `station`, `update_id` (unique), `payload`, `last_activity` (no timestamps); **unique `(user_id, chat_id, thread_id)`** is the per-conversation upsert key, and composite index `(user_id, chat_id, thread_id, last_activity)` backs `User::session(?int $chatId, ?int $threadId)`. In a private chat `chat_id == uid` and `thread_id == 0`. **Migration-stub changes only apply to fresh installs — existing host apps need their own migration to add `chat_id` (backfill `chat_id = uid`) and `thread_id` (default 0), swap the unique key to `(user_id, chat_id, thread_id)`, and add the index.** Without the `thread_id` column the `LogSession` upsert fails on every update, so this migration is mandatory when upgrading.
 - `laragram_payments` (opt-in, phase-2 payments) — `user_id`/`uid` (nullable, indexed), `currency`, `total_amount`, `invoice_payload`, `telegram_payment_charge_id` (unique → idempotent), `provider_payment_charge_id`, `payload` (JSON), timestamps. Written by `Listeners\RecordPayment` only when `payments.store` is enabled; needs its published migration (`php artisan vendor:publish --tag=laragram-migrations`).
 
 **Migration publishing.** `laragram:install` writes the base `users`/`sessions`/`admins` migrations directly into `database/migrations/` **with a `Y_m_d_His` timestamp prefix** (`LaragramInstallCommand::createMigrations()`, one-second offsets to keep order). The `laragram-migrations` `vendor:publish` tag publishes **only** the opt-in `laragram_payments` migration — with a publish-time timestamp prefix computed in `LaragramServiceProvider::boot()`. The tag must never re-expose users/sessions/admins: those already exist (timestamped) after `install`, and republishing them (formerly done with fixed, un-timestamped filenames) duplicated the tables. Guarded by `tests/Unit/Console/MigrationPublishTagTest.php`.
@@ -774,7 +793,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **478 tests / 999 assertions**
+- Current suite: **495 tests / 1045 assertions**
 
 #### Feature testing with InteractsWithBot
 
@@ -799,9 +818,9 @@ class StartCommandTest extends TestCase
 }
 ```
 
-Available factory methods: `BotUpdateFactory::message()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`.
+Available factory methods: `BotUpdateFactory::message()`, `groupMessage()`, `topicMessage()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`.
 
-Available assertions: `assertBotRepliedWith(string $method)`, `assertBotRepliedText(string $expected)`, `assertResponseContains(string $key, mixed $value)` (all three inspect the **first** sent message), `assertUserRedirectedTo(string $station)`, `assertNoResponse()`, `getBotResponse(): array` (first message).
+Available assertions: `assertBotRepliedWith(string $method)`, `assertBotRepliedText(string $expected)`, `assertResponseContains(string $key, mixed $value)` (all three inspect the **first** sent message), `assertBotRepliedInThread(?int $threadId)`, `assertUserRedirectedTo(string $station)`, `assertNoResponse()`, `getBotResponse(): array` (first message).
 
 For multi-message replies: `assertBotRepliedTimes(int $count)`, `assertNthReplyWith(int $index, string $method)`, `assertNthReplyText(int $index, string $expected)`, `getBotResponses(): array` (all sent messages, 0-based).
 

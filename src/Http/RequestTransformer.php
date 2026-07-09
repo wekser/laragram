@@ -44,9 +44,13 @@ class RequestTransformer
 
         $data = [
             'update' => [
-                'id'      => $this->update['update_id'],
-                'object'  => $updateObject,
-                'chat_id' => $chat['id'] ?? null,
+                'id'        => $this->update['update_id'],
+                'object'    => $updateObject,
+                'chat_id'   => $chat['id'] ?? null,
+                // Forum topic the update came from (null outside a topic), derived
+                // the same stateless way. Narrows the session key below the chat
+                // and targets outbound sends back at the topic.
+                'thread_id' => BotAuth::findThreadInPayload($this->update),
             ],
             'route'  => [
                 'event'    => $this->type,

@@ -45,16 +45,53 @@ class BotUpdateFactory
         string $language  = 'en',
         int    $chatId    = 100,
         string $chatType  = 'private',
+        ?int   $threadId  = null,
     ): array {
         return [
             'update_id' => self::nextId(),
-            'message'   => [
+            'message'   => array_merge([
                 'message_id' => 1,
                 'from'       => self::sender($userId, $firstName, $lastName, $username, $language),
                 'chat'       => ['id' => $chatId, 'type' => $chatType],
                 'date'       => time(),
                 'text'       => $text,
-            ],
+            ], self::topicFields($threadId)),
+        ];
+    }
+
+    /**
+     * Create a text message update posted inside a forum topic of a supergroup.
+     */
+    public static function topicMessage(
+        string $text,
+        int    $threadId  = 42,
+        int    $chatId    = -1_000_000,
+        int    $userId    = 100,
+        string $firstName = 'Test',
+    ): array {
+        return self::message(
+            text: $text,
+            userId: $userId,
+            firstName: $firstName,
+            chatId: $chatId,
+            chatType: 'supergroup',
+            threadId: $threadId,
+        );
+    }
+
+    /**
+     * The pair of fields Telegram sets on a message inside a forum topic.
+     *
+     * A General-topic message carries neither, which is why $threadId = null
+     * produces an ordinary (non-topic) message.
+     *
+     * @return array<string, mixed>
+     */
+    private static function topicFields(?int $threadId): array
+    {
+        return $threadId === null ? [] : [
+            'message_thread_id' => $threadId,
+            'is_topic_message'  => true,
         ];
     }
 
@@ -70,6 +107,7 @@ class BotUpdateFactory
         int    $userId    = 100,
         string $firstName = 'Test',
         string $chatType  = 'supergroup',
+        ?int   $threadId  = null,
     ): array {
         return self::message(
             text: $text,
@@ -77,6 +115,7 @@ class BotUpdateFactory
             firstName: $firstName,
             chatId: $chatId,
             chatType: $chatType,
+            threadId: $threadId,
         );
     }
 
@@ -92,17 +131,18 @@ class BotUpdateFactory
         string $language  = 'en',
         int    $chatId    = 100,
         string $chatType  = 'private',
+        ?int   $threadId  = null,
     ): array {
         return [
             'update_id'      => self::nextId(),
             'callback_query' => [
                 'id'      => (string) random_int(100_000, 999_999),
                 'from'    => self::sender($userId, $firstName, $lastName, $username, $language),
-                'message' => [
+                'message' => array_merge([
                     'message_id' => 1,
                     'chat'       => ['id' => $chatId, 'type' => $chatType],
                     'date'       => time(),
-                ],
+                ], self::topicFields($threadId)),
                 'data' => $data,
             ],
         ];

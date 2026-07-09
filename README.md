@@ -77,11 +77,13 @@ BotRoute::fallback()->call([StartController::class, 'fallback']);
 | `->from('station')` | Only match when user is at this station |
 | `->contains('/cmd')` | Command, exact text, or `{param}` pattern |
 | `->role('admin')` | Restrict to users with a specific role |
+| `->chat('supergroup')` | Restrict to chat type(s) — `->inGroups()` / `->inPrivate()` are shortcuts |
+| `->thread(42)` | Restrict to forum topic(s) — see [Group Chats & Forum Topics](#group-chats--forum-topics) |
 | `->name('route_name')` | Assign a name (shown in `route:list`) |
 | `->call([Ctrl::class, 'method'])` | Controller action or closure |
 | `->fallback()` | Catch-all — matches anything not matched above |
 
-`->group()` applies shared station and role to multiple routes:
+`->group()` applies a shared station, role, chat type, and forum topic to multiple routes:
 
 ```php
 BotRoute::group(function ($c) {
@@ -141,6 +143,7 @@ $response->action('typing')                        // sendChatAction
 $response->invoice(Invoice::make()...)             // sendInvoice (see Payments)
 $response->inlineResults(InlineResults::make()...) // answerInlineQuery (see Inline Mode)
 $response->keyboard([...])                         // attach reply_markup (call after content)
+$response->thread(42)                              // send into a forum topic (see Group Chats)
 $response->redirect('next_station')                // move user to a new station
 ```
 
@@ -304,7 +307,7 @@ php artisan laragram:route:match message "hello" --station=ask_name
 
 ---
 
-## Group Chats
+## Group Chats & Forum Topics
 
 The bot works in private chats **and** in groups/supergroups — private (1-on-1) behaviour is unchanged.
 
@@ -325,8 +328,52 @@ public function rules(BotRequest $request): BotResponse
 ```
 
 - **Commands** like `/start` arrive as `/start@YourBot` in groups — the mention is stripped automatically. Set `LARAGRAM_BOT_USERNAME` (your bot's @username, without `@`) so only *your* bot's mention matches.
-- **State is per-(user, chat):** each member has independent station + scene state in each chat, so wizards never collide between a group and a private chat.
+- **State is per-(user, chat, topic):** each member has independent station + scene state in each chat — and in each forum topic within it — so wizards never collide between a group, a topic, and a private chat.
 - **Group privacy is ON by default** in @BotFather: the bot only sees commands aimed at it, replies to its own messages, and @mentions. To receive all group messages, disable privacy via @BotFather (`/setprivacy` → Disable) and re-add the bot.
+
+### Forum topics
+
+In a supergroup with topics enabled, **a reply is sent back to the topic it came from** — nothing to configure. Beyond that:
+
+```php
+// Restrict a route to one or more topics
+BotRoute::get('message')->contains('/deploy')->thread(42)->call([OpsController::class, 'deploy']);
+
+public function deploy(BotRequest $request): array
+{
+    $request->threadId();          // 42 — the topic, or null outside one
+    $request->isTopicMessage();
+
+    return [
+        $this->response->text('Deploying…'),                 // → back into topic 42
+        $this->response->text('Logged')->thread(7),           // → into topic 7 instead
+        $this->response->text('Announcement')->thread(null),  // → the General topic
+    ];
+}
+```
+
+To **push a notification into a topic** with no incoming update to reply to, call the API directly — `BotAPI` is a `__call()` proxy, so any parameter passes straight through:
+
+```php
+BotAPI::sendMessage(['chat_id' => -1001234567890, 'message_thread_id' => 42, 'text' => 'Build failed']);
+```
+
+- A topic is detected from `is_topic_message`, not from the bare presence of `message_thread_id` — Telegram also sets that field on plain **replies** inside a non-forum supergroup, where the id is not a valid send target. A forum's **General** topic behaves like any non-forum chat (no topic).
+- `message_thread_id` is injected only onto methods that accept it (any `send*`, plus `copyMessage` / `forwardMessage`) — never onto `answer*`, `edit*`, `delete*`, or `setMessageReaction`.
+- The bot needs the *Manage Topics* admin right to post in a closed topic.
+
+> **Upgrading?** Per-topic state adds a `thread_id` column to `laragram_sessions`. Fresh installs get it from `laragram:install`; an existing app must add it, or the session upsert will fail on every update:
+>
+> ```php
+> Schema::table('laragram_sessions', function (Blueprint $table) {
+>     $table->unsignedBigInteger('thread_id')->default(0)->after('chat_id');
+>     $table->dropUnique(['user_id', 'chat_id']);
+>     $table->unique(['user_id', 'chat_id', 'thread_id']);
+>     $table->index(['user_id', 'chat_id', 'thread_id', 'last_activity']);
+> });
+> ```
+>
+> `thread_id` is `NOT NULL DEFAULT 0` (`0` = no topic) because SQL treats `NULL`s as distinct, which would defeat the unique key.
 
 ---
 

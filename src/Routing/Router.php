@@ -37,6 +37,9 @@ class Router
     /** Chat type the update originated in (private/group/supergroup/channel), or null. */
     protected ?string $chatType = null;
 
+    /** Forum topic the update originated in, or null outside a topic. */
+    protected ?int $threadId = null;
+
     /** Configured bot @username (without @), resolved once per dispatch for command matching. */
     protected ?string $botUsername = null;
 
@@ -70,6 +73,7 @@ class Router
     {
         $this->getType($update);
         $this->chatType    = BotAuth::findChatInPayload($update)['type'] ?? null;
+        $this->threadId    = BotAuth::findThreadInPayload($update);
         $this->botUsername = config('laragram.telegram.username');
 
         return $this->runRoute($update, $this->findRoute($update, $this->station));
@@ -94,7 +98,7 @@ class Router
                 continue;
             }
 
-            if ($this->matchesEvent($route) && $this->matchesChatType($route) && $this->matchesRole($route) && $this->matchesContent($route, $object, $station)) {
+            if ($this->matchesEvent($route) && $this->matchesChatType($route) && $this->matchesThread($route) && $this->matchesRole($route) && $this->matchesContent($route, $object, $station)) {
                 return $route;
             }
         }
@@ -188,6 +192,22 @@ class Router
         }
 
         return $this->chatType !== null && in_array($this->chatType, $types, true);
+    }
+
+    /**
+     * Match the route's forum-topic constraint. Empty constraint matches any
+     * topic (and any non-forum chat); an update outside a topic never matches a
+     * constrained route.
+     */
+    private function matchesThread(array $route): bool
+    {
+        $threads = $route['threads'] ?? null;
+
+        if (empty($threads)) {
+            return true;
+        }
+
+        return $this->threadId !== null && in_array($this->threadId, $threads, true);
     }
 
     private function matchesRole(array $route): bool

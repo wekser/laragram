@@ -537,6 +537,41 @@ class BotResponse
     }
 
     /**
+     * Send this message into a specific forum topic (message_thread_id).
+     *
+     * Only needed to override the automatic behaviour: a reply to an update that
+     * arrived in a topic is already sent back to that topic. Pass null to opt out
+     * of that injection and post to the group's General topic instead.
+     *
+     * Must be chained after text(), photo(), view(), etc. Ignored by Telegram
+     * methods that take no thread (answer*, edit*, delete*).
+     *
+     * @param int|null $threadId Forum topic id, or null for the General topic.
+     * @return $this
+     * @throws \LogicException when called before a response method has been set.
+     */
+    public function thread(?int $threadId): self
+    {
+        if (empty($this->contents)) {
+            throw new \LogicException(
+                'BotResponse::thread() must be called after text(), photo(), view(), etc.'
+            );
+        }
+
+        if ($threadId === null) {
+            // A '_'-prefixed sentinel: stripped from the outbound params by
+            // OutboundPayload, read by ResponseTransformer to skip injection.
+            unset($this->contents['message_thread_id']);
+            $this->contents['_no_thread'] = true;
+        } else {
+            unset($this->contents['_no_thread']);
+            $this->contents['message_thread_id'] = $threadId;
+        }
+
+        return $this;
+    }
+
+    /**
      * Send a chat action (sendChatAction).
      * Use to indicate activity while processing a long task.
      *

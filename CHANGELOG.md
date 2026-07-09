@@ -63,6 +63,18 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - Downloads are hardened: the URL host is pinned to `api.telegram.org`, a Telegram-supplied `file_path` containing `..` or a URL scheme is rejected (no SSRF), and `downloads.max_size` caps the byte size (default 20 MB, matching Telegram's getFile limit)
 - `downloads.disk` / `downloads.max_size` / `downloads.timeout` config keys (env: `LARAGRAM_DOWNLOADS_DISK`, `LARAGRAM_DOWNLOADS_MAX_SIZE`, `LARAGRAM_DOWNLOADS_TIMEOUT`)
 
+**Group Chats & Forum Topics**
+- The bot works in groups/supergroups as well as private chats; private (1-on-1) behaviour is unchanged, because in a private chat `chat.id == from.id`
+- `Support\Command::stripMention()` — normalises the `@botusername` suffix Telegram appends to commands in groups (`/start@MyBot`) before pattern matching; `telegram.username` config (env `LARAGRAM_BOT_USERNAME`) pins it to *your* bot, and an empty value strips any `@suffix`
+- `BotAuth::findChatInPayload()` / `findThreadInPayload()` — pure statics resolving the originating chat and forum topic from any update payload (never the request-scoped `BotAuth` singleton, which can be stale under a long-running queue worker); instance accessors `chatId()`, `chatType()`, `threadId()`
+- Topic detection is gated on **`is_topic_message`**, not on the mere presence of `message_thread_id`: Telegram also sets that field on a plain reply inside a *non-forum* supergroup, where the "thread" is the reply chain and the id is not a valid send target. A forum's General topic carries neither field, so it resolves to "no topic" like every private chat
+- **Per-(user, chat, topic) session state** — the `laragram_sessions` upsert key is the composite `(user_id, chat_id, thread_id)`, so each member keeps independent station + scene state in each chat, and in each forum topic within it. `chat_id` / `thread_id` are computed once in `Http\RequestTransformer::build()` and threaded through `output['update']`; `User::session(?int $chatId, ?int $threadId)` reads them back. Scenes inherit this for free (their state lives in the same session payload)
+- **Outbound targeting** — `Http\ResponseTransformer` falls back to the originating `chat_id` (rather than the sender's uid) so a reply with no explicit chat never DMs a group member, and injects `message_thread_id` onto every outbound method that accepts one (any `send*`, plus `copyMessage` / `forwardMessage`), so a reply to a message in a topic lands back in that topic. Methods that take no thread (`answer*`, `edit*`, `delete*`, `setMessageReaction`) never receive it
+- `BotResponse::thread(?int $threadId)` — a modifier (mutating, like `keyboard()`): `thread(42)` sends into a specific topic regardless of where the update came from; `thread(null)` opts out of the injection and posts to the group's General topic. Throws `\LogicException` before a content method
+- Route DSL: `->chat(string ...$types)` restricts a route to chat types, with `->inGroups()` (group+supergroup) and `->inPrivate()` shortcuts; `->thread(int ...$ids)` restricts it to specific forum topics. Empty (the default) matches any chat type / any topic, so existing routes are unaffected. `group(..., chatTypes: 'group', threads: 42)` sets either for a whole group
+- `BotRequest`: `chatType()`, `isPrivate()`, `isGroup()` (group||supergroup), `isSupergroup()`, `isChannel()`, `threadId()`, `isTopicMessage()`; `chat()` resolves the chat from the object or the nested `message.chat` (callback_query)
+- **Known limitation:** messages from anonymous group admins / on behalf of a chat carry `sender_chat` and no `from` user — they pass through as senderless and are not tied to a `User`
+
 **Message Reactions**
 - `message_reaction` (listener `user`) and `message_reaction_count` (listener `reactions`) update types are now routable
 - `BotResponse::react(string|array $reaction, bool $big = false)` → `setMessageReaction` (clone-on-entry): accepts an emoji string, a list of emoji, raw `ReactionType` arrays (custom emoji), or `[]` to clear the bot's reaction; `ResponseTransformer` injects `chat_id` + `message_id` from the triggering message or `message_reaction` object, so it works from both reaction handlers and normal message handlers
@@ -81,7 +93,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 
 **HTTP Layer**
 - `Http\RequestTransformer` — builds `BotRequest` from the raw update and the matched route (replaces `Support\FormRequest`)
-- `Http\ResponseTransformer` — normalizes the controller response — a single `BotResponse`/string **or an array/iterable of them** — into `output['response']['views']` (a list); per-view auto-injects `chat_id`, `callback_query_id`, and `message_id`; resolves one `redirect` per batch (last-write-wins) (replaces `Support\FormResponse`)
+- `Http\ResponseTransformer` — normalizes the controller response — a single `BotResponse`/string **or an array/iterable of them** — into `output['response']['views']` (a list); per-view auto-injects `chat_id`, `message_thread_id`, `callback_query_id`, and `message_id`; resolves one `redirect` per batch (last-write-wins) (replaces `Support\FormResponse`)
 - `Http\ResponseDispatcher` — delivers each formed view as a separate outbound `BotAPI::{method}()` call, in order; stops the batch on a terminal (user-unreachable) error; bound as the `laragram.dispatcher` singleton; shared by both the webhook entry point and `laragram:poll`
 - **Multiple messages per update** — a controller or route closure may return an array of `BotResponse` (or strings) to send several messages in reply to one update
 - Log warning in `ResponseTransformer` when `chat_id` cannot be determined for an outgoing API call
@@ -132,7 +144,8 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Events\BotExceptionHandled($exception, $reportable, $terminal)` — fired by `ExceptionHandler::handle()` for **every** handled throwable, including the silenced user-unreachable ones (`$terminal = true`) that otherwise leave no trace. The observability seam for silently-handled failures (which never reach the `failed_jobs` table): bind a listener to push to metrics/alerting or to count product signals (e.g. how many users blocked the bot). Dispatch is guarded so a faulty listener can never re-throw out of `handle()`
 
 **Database**
-- Migration-stub indexes for fresh installs: `laragram_sessions (user_id, last_activity)` (backs `User::session()`), and `laragram_users.role` / `laragram_users.is_active` (back `scopeByRole()` / `scopeActive()` and admin/broadcast queries). Existing host apps must add these via their own `Schema::table()` migration
+- Migration-stub indexes for fresh installs: `laragram_sessions (user_id, chat_id, thread_id, last_activity)` (backs `User::session()`), and `laragram_users.role` / `laragram_users.is_active` (back `scopeByRole()` / `scopeActive()` and admin/broadcast queries). Existing host apps must add these via their own `Schema::table()` migration
+- `laragram_sessions.chat_id` (nullable) and `laragram_sessions.thread_id` (**NOT NULL default 0**, `0` = no topic) columns, with the unique key `(user_id, chat_id, thread_id)` that the `LogSession` upsert is keyed on. `thread_id` is non-nullable because SQL treats `NULL`s as distinct, which would defeat that unique key. **Upgrading apps must add both columns** (backfill `chat_id = uid`, `thread_id = 0`) and swap the unique key — without `thread_id` the upsert fails on every update
 - `laragram_admins` table (admin-panel login) — `name` (nullable), `username` (unique), `password` (hashed), `remember_token`, timestamps; backs `Models\Admin`, rows created by `laragram:admin:create`
 
 **BotResponse**
@@ -172,18 +185,19 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 
 **Testing**
 - `Testing\InteractsWithBot` — PHPUnit trait for feature-testing bot flows without HTTP; runs the full auth → router → session → **delivery** pipeline and captures the messages the bot actually sends
-- `Testing\BotUpdateFactory` — factory for realistic Telegram update arrays; supports `message()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`
+- `Testing\BotUpdateFactory` — factory for realistic Telegram update arrays; supports `message()`, `groupMessage()`, `topicMessage()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`. `message()` / `groupMessage()` / `callbackQuery()` take `chatType` and `threadId` params
 - `Testing\RecordingBotAPI` — a `BotAPI` test double that records outbound calls instead of hitting Telegram; used by `InteractsWithBot` to capture sent messages
 - Single-message assertions (inspect the first sent message): `assertBotRepliedWith()`, `assertBotRepliedText()`, `assertResponseContains()`, `getBotResponse()`
 - Multi-message assertions: `assertBotRepliedTimes()`, `assertNthReplyWith()`, `assertNthReplyText()`, `getBotResponses()`
 - Scene assertions: `assertInScene()`, `assertSceneStep()`, `assertSceneData()`, `assertNotInScene()`
-- Shared assertions: `assertUserRedirectedTo()`, `assertNoResponse()`
+- Shared assertions: `assertUserRedirectedTo()`, `assertNoResponse()`, `assertBotRepliedInThread(?int $threadId)` (null asserts the reply carries no forum topic)
 
 **Config**
 - `laragram.php` — new config file name (was `config.php`)
 - `auth.session.model` / `auth.session.table` — session model class and table
 - `auth.user.model` / `auth.user.table` — user model class and table
 - `bot.languages` — array of supported language codes
+- `telegram.username` — the bot's @username without `@` (env `LARAGRAM_BOT_USERNAME`); used to strip the `@botusername` suffix from commands in group chats
 - `paths.route` / `paths.scenes` — bot route and scenes file names under `routes/`; may include a subdirectory, and the default layout keeps both together in `routes/laragram/` (`laragram/routes` and `laragram/scenes`). `Support\RouteFile` resolves and validates them (rejecting `..`, backslashes, and absolute paths)
 - `scenes.cancel_commands` / `scenes.global_commands` — default cancel commands and commands that escape any scene
 - `rate.max_attempts` / `rate.decay_seconds` — rate limiting parameters

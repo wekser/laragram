@@ -147,12 +147,16 @@ class Laragram
      */
     protected function defineStation(): string
     {
-        // Resolve the per-conversation session for the chat this update came from.
-        // Derived from the payload directly (a pure, stateless lookup) so it is
-        // correct even under a long-running queue worker where the BotAuth
-        // singleton could otherwise carry a previous update's chat.
-        $chat    = \Wekser\Laragram\BotAuth::findChatInPayload($this->request->all());
-        $session = $this->user?->session(isset($chat['id']) ? (int) $chat['id'] : null);
+        // Resolve the per-conversation session for the chat (and forum topic) this
+        // update came from. Derived from the payload directly (a pure, stateless
+        // lookup) so it is correct even under a long-running queue worker where the
+        // BotAuth singleton could otherwise carry a previous update's chat.
+        $payload = $this->request->all();
+        $chat    = \Wekser\Laragram\BotAuth::findChatInPayload($payload);
+        $session = $this->user?->session(
+            isset($chat['id']) ? (int) $chat['id'] : null,
+            \Wekser\Laragram\BotAuth::findThreadInPayload($payload),
+        );
 
         if (empty($session)) {
             return 'start';
