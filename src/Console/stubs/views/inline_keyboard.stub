@@ -1,5 +1,3 @@
-<?php
-
 /*
  * Inline keyboard. Translate the visible labels with __(); keep the callback
  * data (2nd argument of button()) stable so your routes keep matching.

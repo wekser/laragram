@@ -1,5 +1,3 @@
-<?php
-
 /*
  * Reply keyboard. Unlike inline buttons, a reply button sends its label back as
  * the message text — so translating labels also changes what the route must

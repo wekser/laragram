@@ -1,4 +1,3 @@
-<?php
 /*
  * Add photos and videos to this media group (sendMediaGroup).
  * Use file_id values from $data passed to view().

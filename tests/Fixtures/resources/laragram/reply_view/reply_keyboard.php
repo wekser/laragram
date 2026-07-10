@@ -1,5 +1,3 @@
-<?php
-
 resize();
 
 reply('Option A');
