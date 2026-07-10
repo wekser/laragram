@@ -223,6 +223,66 @@ class BotResponseTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // noPreview()
+    // -------------------------------------------------------------------------
+
+    public function test_no_preview_disables_link_preview_on_text(): void
+    {
+        $response = $this->make()->text('See https://example.com')->noPreview();
+
+        $this->assertSame('sendMessage', $response->contents['method']);
+        $this->assertSame(['is_disabled' => true], $response->contents['link_preview_options']);
+    }
+
+    public function test_no_preview_disables_link_preview_on_edit(): void
+    {
+        $response = $this->make()->edit('See https://example.com')->noPreview();
+
+        $this->assertSame('editMessageText', $response->contents['method']);
+        $this->assertSame(['is_disabled' => true], $response->contents['link_preview_options']);
+    }
+
+    public function test_no_preview_returns_self_for_chaining(): void
+    {
+        $response = $this->make()->text('Hello');
+
+        $this->assertSame($response, $response->noPreview());
+    }
+
+    public function test_no_preview_throws_when_called_before_a_content_method(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/must be called after/i');
+
+        $this->make()->noPreview();
+    }
+
+    public function test_no_preview_throws_on_a_method_without_link_previews(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/sendPhoto/');
+
+        $this->make()->photo('file_id_1')->noPreview();
+    }
+
+    public function test_no_preview_works_on_a_view_with_a_keyboard(): void
+    {
+        $response = $this->make()->view('keyboard_view')->noPreview();
+
+        $this->assertSame('sendMessage', $response->contents['method']);
+        $this->assertArrayHasKey('reply_markup', $response->contents);
+        $this->assertSame(['is_disabled' => true], $response->contents['link_preview_options']);
+    }
+
+    public function test_no_preview_throws_on_a_view_with_a_media_component(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/sendPhoto/');
+
+        $this->make()->view('photo_view', ['photo_id' => 'abc123'])->noPreview();
+    }
+
+    // -------------------------------------------------------------------------
     // Chaining
     // -------------------------------------------------------------------------
 
