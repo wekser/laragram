@@ -144,13 +144,10 @@ $response->invoice(Invoice::make()...)             // sendInvoice (see Payments)
 $response->inlineResults(InlineResults::make()...) // answerInlineQuery (see Inline Mode)
 $response->keyboard([...])                         // attach reply_markup (call after content)
 $response->thread(42)                              // send into a forum topic (see Group Chats)
-$response->noPreview()                             // suppress the link preview card
 $response->redirect('next_station')                // move user to a new station
 ```
 
 Text is **auto-escaped** for the active parse mode — do not manually escape, it will double-escape. Pass `null` as the format to send pre-formatted text.
-
-`noPreview()` sets `link_preview_options.is_disabled` (Telegram deprecated `disable_web_page_preview`). Only `sendMessage` and `editMessageText` carry link previews, so calling it after `photo()`, `answer()`, `delete()`, or a media view throws `\LogicException`.
 
 ### Multiple messages
 
@@ -185,17 +182,14 @@ resources/laragram/
     └── reply_keyboard.php     ← call reply() / row() / resize() / one_time()
 ```
 
-**No component file opens with `<?php`** — not the text, not the keyboards. Write the body directly; the opening tag is still accepted for views written against older versions.
-
-**`text.php`** — write plain text plus your own HTML markup (default parse mode is `HTML`); `{{ }}` escapes a value, `{!! !!}` emits it raw, `{{-- --}}` is a comment:
+**`text.php`** — write plain text plus your own HTML markup (default parse mode is `HTML`); `{{ }}` escapes a value, `{!! !!}` emits it raw:
 
 ```
-{{-- Greeting shown right after /start --}}
 Hello, <b>{{ $first_name }}</b>!
 {!! __('laragram.welcome.body') !!}
 ```
 
-Static markup (`<b>…</b>`) renders as-is. `{{ }}` values are auto-escaped (safe for user data); `{!! !!}` values are emitted raw (use for trusted, pre-formatted content like translation strings). A `{{-- --}}` comment is stripped before sending and cannot contain its own closing delimiter. Variables from `$data` are extracted into scope, so `$name` works directly. `$user` (the authenticated `User` model) is also available.
+Static markup (`<b>…</b>`) renders as-is. `{{ }}` values are auto-escaped (safe for user data); `{!! !!}` values are emitted raw (use for trusted, pre-formatted content like translation strings). Variables from `$data` are extracted into scope, so `$name` works directly. `$user` (the authenticated `User` model) is also available.
 
 **`inline_keyboard.php`** — use global helper functions:
 

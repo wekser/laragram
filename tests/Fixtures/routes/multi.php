@@ -14,7 +14,3 @@ $collection->get('message')
         BotResponse::text('First message'),
         BotResponse::text('Second message')->redirect('done'),
     ]);
-
-$collection->get('message')
-    ->contains('/nopreview')
-    ->call(fn () => BotResponse::text('See https://example.com')->noPreview());

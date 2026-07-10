@@ -571,42 +571,6 @@ class BotResponse
         return $this;
     }
 
-    /** Telegram methods that accept link_preview_options. */
-    private const PREVIEW_AWARE_METHODS = ['sendMessage', 'editMessageText'];
-
-    /**
-     * Disable the link preview card for this message (link_preview_options.is_disabled).
-     *
-     * Must be chained after text(), view(), or edit() — only sendMessage and
-     * editMessageText carry link previews.
-     *
-     *   return BotResponse::text("See {$url}")->noPreview();
-     *
-     * @return $this
-     * @throws \LogicException when called before a response method has been set,
-     *                         or on a method that carries no link preview.
-     */
-    public function noPreview(): self
-    {
-        if (empty($this->contents)) {
-            throw new \LogicException(
-                'BotResponse::noPreview() must be called after text(), view(), edit(), etc.'
-            );
-        }
-
-        $method = $this->contents['method'] ?? null;
-
-        if (!in_array($method, self::PREVIEW_AWARE_METHODS, true)) {
-            throw new \LogicException(
-                "BotResponse::noPreview() is not supported by [{$method}] — only sendMessage and editMessageText carry link previews."
-            );
-        }
-
-        $this->contents['link_preview_options'] = ['is_disabled' => true];
-
-        return $this;
-    }
-
     /**
      * Send a chat action (sendChatAction).
      * Use to indicate activity while processing a long task.
@@ -833,12 +797,11 @@ class BotResponse
     /**
      * Evaluate a template file and capture the output via output buffering.
      *
-     * Three forms are supported:
-     *   {{ expr }}       — value is escaped for the active parse mode (use for user data)
-     *   {!! expr !!}     — value is emitted raw, unescaped (use for trusted, already
-     *                      formatted content such as translation strings containing
-     *                      *bold* / _italic_ / <b> markup)
-     *   {{-- text --}}   — comment, stripped before rendering
+     * Two interpolation forms are supported:
+     *   {{ expr }}   — value is escaped for the active parse mode (use for user data)
+     *   {!! expr !!} — value is emitted raw, unescaped (use for trusted, already
+     *                  formatted content such as translation strings containing
+     *                  *bold* / _italic_ / <b> markup)
      *
      * Static template text (the author's own markup) is always emitted verbatim,
      * so formatting written directly in the view renders as intended.
@@ -899,13 +862,8 @@ class BotResponse
 
         $source = (string) file_get_contents($path);
 
-        // Comments {{-- expr --}} first: the {{ }} pass would otherwise match one
-        // and try to echo the expression '-- expr --'. The trailing \s* swallows
-        // the newline a comment on its own line would leave behind.
-        $compiled = preg_replace('/\{\{--.*?--\}\}[ \t]*\n?/s', '', $source);
-
-        // Raw output {!! expr !!} next, so its braces aren't caught by the {{ }} pass.
-        $compiled = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $compiled);
+        // Raw output {!! expr !!} first, so its braces aren't caught by the {{ }} pass.
+        $compiled = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $source);
 
         // Escaped output {{ expr }}.
         $compiled = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $__esc($1); ?>', $compiled);
@@ -929,57 +887,14 @@ class BotResponse
      */
     protected function renderInlineKeyboardComponent(string $path): array
     {
-        return $this->renderComponent($path, new InlineKeyboardState());
-    }
-
-    /**
-     * Execute a reply_keyboard.php component and collect keys via global helpers.
-     */
-    protected function renderReplyKeyboardComponent(string $path): array
-    {
-        return $this->renderComponent($path, new ReplyKeyboardState());
-    }
-
-    /**
-     * Execute a media.php component and collect items via global helpers.
-     */
-    protected function renderMediaGroupComponent(string $path): array
-    {
-        return $this->renderComponent($path, new MediaGroupState());
-    }
-
-    /**
-     * Execute a builder component file (keyboards, media group) against the given
-     * state object, which the global helper functions write into via ComponentContext.
-     *
-     * The file is eval'd rather than included so that it needs no opening <?php tag —
-     * every component of a view is then written in the same tagless style. A leading
-     * tag is still accepted, so views written before this are unaffected.
-     *
-     * Variables available in component scope:
-     *   - each key from $data as its own variable (via extract)
-     *   - $user — the authenticated User instance
-     */
-    private function renderComponent(
-        string $path,
-        InlineKeyboardState|ReplyKeyboardState|MediaGroupState $state,
-    ): array {
-        $source = $this->componentSource($path);
-
+        $state = new InlineKeyboardState();
         ComponentContext::push($state);
 
         try {
-            // EXTR_SKIP: never overwrite $__source, $data or $user even if $data
-            // contains keys with those names.
-            (static function (string $__source, array $data, ?User $user): void {
+            (static function (string $__path, array $data, ?User $user): void {
                 extract($data, EXTR_SKIP);
-                eval($__source);
-            })($source, $this->data, $this->user);
-        } catch (\Throwable $e) {
-            // eval() turns what include() would make a fatal parse error into a
-            // catchable ParseError, so a broken component file surfaces as a
-            // normal view exception naming the file.
-            throw new ViewInvalidException($path, 0, $e);
+                include $__path;
+            })($path, $this->data, $this->user);
         } finally {
             ComponentContext::pop();
         }
@@ -988,14 +903,43 @@ class BotResponse
     }
 
     /**
-     * Read a builder component file as PHP source ready for eval().
+     * Execute a reply_keyboard.php component and collect keys via global helpers.
      */
-    private function componentSource(string $path): string
+    protected function renderReplyKeyboardComponent(string $path): array
     {
-        $source = (string) file_get_contents($path);
+        $state = new ReplyKeyboardState();
+        ComponentContext::push($state);
 
-        // The opening tag is optional; strip a leading one so eval() accepts the file.
-        return preg_replace('/\A\s*<\?php\b/', '', $source, 1) ?? $source;
+        try {
+            (static function (string $__path, array $data, ?User $user): void {
+                extract($data, EXTR_SKIP);
+                include $__path;
+            })($path, $this->data, $this->user);
+        } finally {
+            ComponentContext::pop();
+        }
+
+        return $state->toArray();
+    }
+
+    /**
+     * Execute a media.php component and collect items via global helpers.
+     */
+    protected function renderMediaGroupComponent(string $path): array
+    {
+        $state = new MediaGroupState();
+        ComponentContext::push($state);
+
+        try {
+            (static function (string $__path, array $data, ?User $user): void {
+                extract($data, EXTR_SKIP);
+                include $__path;
+            })($path, $this->data, $this->user);
+        } finally {
+            ComponentContext::pop();
+        }
+
+        return $state->toArray();
     }
 
     /**

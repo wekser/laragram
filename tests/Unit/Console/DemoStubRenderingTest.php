@@ -48,8 +48,6 @@ class DemoStubRenderingTest extends TestCase
         app('translator')->addLines($this->flatten($lines, 'laragram'), 'en');
 
         // Copy the published demo view stubs into the fixture views path.
-        $this->publishView('views/start.stub', 'start/text.php');
-        $this->publishView('views/start_keyboard.stub', 'start/inline_keyboard.php');
         $this->publishView('views/click.stub', 'click/text.php');
         $this->publishView('views/order_size.stub', 'order/size/text.php');
         $this->publishView('views/order_address.stub', 'order/address/text.php');
@@ -72,15 +70,6 @@ class DemoStubRenderingTest extends TestCase
         BotResponse::flushTemplateCache();
 
         parent::tearDown();
-    }
-
-    public function test_start_keyboard_stub_renders_without_an_opening_tag(): void
-    {
-        $contents = $this->render('start', ['first_name' => 'Ann', 'name' => 'Ann']);
-        $keyboard = $contents['reply_markup']['inline_keyboard'];
-
-        $this->assertSame('/click Foo', $keyboard[0][0]['callback_data']);
-        $this->assertArrayHasKey('url', $keyboard[1][0]);
     }
 
     public function test_order_size_prompt_renders_bold_raw(): void

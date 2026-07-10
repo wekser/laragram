@@ -1,3 +1,5 @@
+<?php
+
 button('Profile', '/profile');
 button('Help', '/help');
 row();
