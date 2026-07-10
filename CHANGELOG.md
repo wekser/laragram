@@ -113,6 +113,12 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Enums\ButtonStyle` — string-backed enum (`Primary` / `Success` / `Danger`) for the Bot API 9.4 button color; `normalize()` validates a string/enum and `decorate()` merges the `style` / `icon_custom_emoji_id` fields into a button payload
 - Optional `$style` (a `ButtonStyle` case or `'primary'` / `'success'` / `'danger'`) and `$icon` (custom emoji id) trailing arguments on every button method of **both** `InlineKeyboard` and `ReplyKeyboard` (Bot API 9.4+); an unknown style throws `\InvalidArgumentException`
 
+**Views**
+- **No view component file opens with `<?php` any more** — one style across the whole view directory. `inline_keyboard.php`, `reply_keyboard.php` and `media.php` are now `eval`'d rather than `include`d, which is what makes the tag droppable; `text.php` and the single-media files were already tagless. A leading `<?php` is still stripped and accepted, so existing views keep rendering
+- A syntax error in a keyboard/media component now raises `ViewInvalidException` naming the file instead of a fatal parse error, because `eval` turns it into a catchable `ParseError`. Trade-off: these files get no opcache entry and IDEs no longer syntax-highlight them
+- `{{-- comment --}}` — comments in `text.php` and the single-media components, stripped before sending (together with the newline they sit on). A comment cannot contain its own `--}}`. This replaces the `<?php /* … */ ?>` header the `text.php` stub used to carry purely to hide its own documentation
+- `BotResponse::renderInlineKeyboardComponent()` / `renderReplyKeyboardComponent()` / `renderMediaGroupComponent()` were three byte-identical bodies; they now delegate to one private `renderComponent()`
+
 **View Helpers**
 - Inline keyboard view helpers expanded to the full button API: `login_url()`, `switch_inline()`, `switch_inline_chosen()`, `switch_inline_chosen_chat()`, `copy_text()`, `pay()`, `callback_game()` (alongside the existing `button()`, `href()`, `web_app()`, `row()`)
 - Every inline button helper and the reply `reply()` helper accept the same optional trailing `style:` / `icon:` attributes as the fluent builders (Bot API 9.4+)
@@ -153,6 +159,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `BotResponse::edit(string $text, ?string $format)` — sends `editMessageText`
 - `BotResponse::delete()` — sends `deleteMessage`
 - `BotResponse::setUser(User $user)` — overrides the authenticated user in the response context
+- `BotResponse::noPreview()` — a modifier (mutating, like `keyboard()`) suppressing the link preview card via `link_preview_options.is_disabled` (Telegram deprecated `disable_web_page_preview`, so the modern field is written). Restricted to the two methods that carry a link preview — `sendMessage` and `editMessageText` — and throws `\LogicException` before a content method or after one that carries none (`photo()`, `answer()`, `delete()`, a media `view()`), rather than sending a parameter Telegram ignores
 - Content-entry methods (`text()`, `view()`, `photo()`, `answer()`, `edit()`, `delete()`, media methods, `action()`) return a **fresh** `BotResponse` instance (clone-on-entry), so several can be collected into an array for a multi-message reply even when built via the `BotResponse` facade (a shared singleton); modifier methods (`keyboard()`, `redirect()`, `setUser()`) still mutate and return the same instance
 - `keyboard()` guard — throws `\LogicException` when called before a content method (`text()`, `view()`, etc.)
 - Tolerates the absence of an authenticated Telegram sender — the constructor resolves the user best-effort (`null` when there is no incoming update), so broadcasts, the `laragram:broadcast` command and queue workers can build a response and name the recipient explicitly via `setUser()`

@@ -1,1 +1,11 @@
+{{--
+    A single line: a Telegram file_id or a public URL. Nothing else — the whole
+    file is the value, and it is never escaped.
+
+    $file_id comes from the data you pass to the view, e.g.
+      BotResponse::view('receipt', ['file_id' => $id])
+
+    Reuse a file_id returned by Services\MediaUploader::upload() to avoid
+    re-uploading the same file on every send.
+--}}
 {{ $file_id }}
