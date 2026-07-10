@@ -510,7 +510,7 @@ src/
 | `BotAPI` | `__call()` proxy to `BotClient`; use any Telegram method directly |
 | `BotAuth` | Authenticates sender via `AuthDriverInterface` |
 | `BotRequest` | `get('field')`, `input('param')`, `query()`, `message()`, `callbackQuery()`, `validate()` |
-| `BotResponse` | `text()`, `view()`, `redirect()`, `thread()`, `noPreview()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
+| `BotResponse` | `text()`, `view()`, `redirect()`, `thread()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
 | `Telegram\Inline\InlineResults` | Fluent `answerInlineQuery` results builder; `article()`/`photo()`/`sticker()`/`raw()` + `cache()`/`personal()`/`nextOffset()`/`button()` |
 | `Telegram\Payments\Invoice` | Fluent `sendInvoice`/`createInvoiceLink` params builder; `stars()` shortcut for Telegram Stars |
 | `Services\Payments` | `invoiceLink()` (createInvoiceLink) + `refund()` (refundStarPayment); alias `laragram.payments` |
@@ -544,17 +544,9 @@ Views are **directories** under `resources/laragram/` (dot-notation maps to subd
 
 Only one media component may be present per directory. `inline_keyboard.php` and `reply_keyboard.php` cannot coexist.
 
-**No component file opens with `<?php`.** This holds for every kind, and it is the one style rule of the view layer. Under the hood there are still two loaders, and the tagless style is what hides the seam:
-
-- *Templates* (`text.php`, `photo.php`, and the other single-media files) are compiled by `BotResponse::compileTemplate()` and run as `eval('?>' . $source)` — the file starts in output mode, like Blade.
-- *Builders* (`inline_keyboard.php`, `reply_keyboard.php`, `media.php`) are run by `BotResponse::renderComponent()` as `eval($source)` — plain PHP that calls the global helpers. **`eval`, not `include`**, precisely so the tag can be dropped; `componentSource()` strips a leading `<?php` if one is there, so views written before this still render.
-
-Two consequences of the builder `eval`: a parse error in a builder is a catchable `ParseError` and surfaces as `ViewInvalidException` naming the file (with `include` it was a fatal), and these files get no opcache and no IDE syntax highlighting. When adding a new builder component, route it through `renderComponent()` — do not reintroduce `include`.
-
 **Template syntax** in `text.php` — write plain text plus your own formatting markup; use interpolation for dynamic values:
 
 ```
-{{-- A comment: stripped, never sent --}}
 Thank you for using <b>Laragram</b>!  ← static markup renders as-is (bold)
 Hello, {{ $name }}!                   ← {{ }} value is auto-escaped (user data)
 {!! __('start.body') !!}              ← {!! !!} value is emitted raw (trusted/pre-formatted)
@@ -565,7 +557,6 @@ Variables from `$data` are extracted into scope via `extract($data, EXTR_SKIP)`,
 
 - `{{ expr }}` — value is **escaped** for the active parse mode. Use for untrusted/user data so it can't break formatting or inject markup.
 - `{!! expr !!}` — value is emitted **raw, unescaped**. Use for trusted, already-formatted content such as translation strings (`{!! __('...') !!}`) that themselves contain `<b>` / `<i>` markup.
-- `{{-- text --}}` — a comment, stripped before rendering (along with the newline it sits on). Stripped **first**, before the other two passes, since `{{ }}` would otherwise match one and try to echo `-- text --`. A comment **cannot contain its own `--}}`** — the match is non-greedy and would end early.
 - **Static template text is never escaped** — write `<b>bold</b>` / `<i>italic</i>` directly in the file and it renders.
 
 **Global view helpers** (registered in `src/View/helpers.php`) delegate to `ComponentContext` — they are only meaningful inside the matching component file:
@@ -688,14 +679,9 @@ BotResponse::edit('Updated text');
 
 // Delete the current message (deleteMessage)
 BotResponse::delete();
-
-// Send without the link preview card (link_preview_options.is_disabled)
-BotResponse::text("See {$url}")->noPreview();
 ```
 
 **`keyboard()` guard:** calling `keyboard()` before a content method (`text()`, `view()`, etc.) throws `\LogicException`. Always set the message content first.
-
-**`noPreview()`** — a modifier (mutating, like `keyboard()`) that sets `link_preview_options => ['is_disabled' => true]`. Telegram deprecated `disable_web_page_preview`, so the modern field is written instead. Only `sendMessage` and `editMessageText` carry link previews: calling it after any other content method (`photo()`, `answer()`, `delete()`, or a `view()` whose directory holds a media component) throws `\LogicException`, as does calling it before a content method.
 
 **`setUser()`** (formerly `user()`) — injects the authenticated `User` into a response context. The old `user()` name is removed.
 
@@ -807,7 +793,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **513 tests / 1085 assertions**
+- Current suite: **496 tests / 1046 assertions**
 
 #### Feature testing with InteractsWithBot
 

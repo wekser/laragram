@@ -79,17 +79,4 @@ class MultiResponseTest extends TestCase
             'Both messages share the same text — the facade singleton was not cloned per response.'
         );
     }
-
-    public function test_no_preview_reaches_the_outbound_call(): void
-    {
-        // link_preview_options is a plain API parameter, so it must survive
-        // OutboundPayload::params() and land on the real sendMessage call.
-        $this->botReceives(BotUpdateFactory::message('/nopreview'));
-
-        $this->assertBotRepliedWith('sendMessage');
-        $this->assertSame(
-            ['is_disabled' => true],
-            $this->getBotResponse()['link_preview_options'] ?? null
-        );
-    }
 }

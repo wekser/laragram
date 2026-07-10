@@ -15,21 +15,11 @@ namespace Wekser\Laragram\Tests\Unit;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Exceptions\NotExistsViewException;
-use Wekser\Laragram\Exceptions\ViewInvalidException;
 use Wekser\Laragram\Tests\TestCase;
-use Wekser\Laragram\View\ComponentContext;
 
 #[CoversClass(BotResponse::class)]
 class BotResponseTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        ComponentContext::reset();
-        BotResponse::flushTemplateCache();
-
-        parent::tearDown();
-    }
-
     private function make(): BotResponse
     {
         // BotAuth::user() is stubbed to null in TestCase::setUp()
@@ -230,49 +220,6 @@ class BotResponseTest extends TestCase
         $response = $this->make();
 
         $this->assertSame($response, $response->redirect('station'));
-    }
-
-    // -------------------------------------------------------------------------
-    // noPreview()
-    // -------------------------------------------------------------------------
-
-    public function test_no_preview_disables_link_preview_on_text(): void
-    {
-        $response = $this->make()->text('See https://example.com')->noPreview();
-
-        $this->assertSame('sendMessage', $response->contents['method']);
-        $this->assertSame(['is_disabled' => true], $response->contents['link_preview_options']);
-    }
-
-    public function test_no_preview_disables_link_preview_on_edit(): void
-    {
-        $response = $this->make()->edit('See https://example.com')->noPreview();
-
-        $this->assertSame('editMessageText', $response->contents['method']);
-        $this->assertSame(['is_disabled' => true], $response->contents['link_preview_options']);
-    }
-
-    public function test_no_preview_returns_self_for_chaining(): void
-    {
-        $response = $this->make()->text('Hello');
-
-        $this->assertSame($response, $response->noPreview());
-    }
-
-    public function test_no_preview_throws_when_called_before_a_content_method(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches('/must be called after/i');
-
-        $this->make()->noPreview();
-    }
-
-    public function test_no_preview_throws_on_a_method_without_link_previews(): void
-    {
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches('/sendPhoto/');
-
-        $this->make()->photo('file_id_1')->noPreview();
     }
 
     // -------------------------------------------------------------------------
@@ -521,58 +468,6 @@ class BotResponseTest extends TestCase
         $this->expectException(\LogicException::class);
 
         $this->make()->view('keyboard_conflict_view');
-    }
-
-    // -------------------------------------------------------------------------
-    // view() — builder components need no opening <?php tag
-    // -------------------------------------------------------------------------
-
-    public function test_builder_component_with_a_legacy_opening_tag_still_renders(): void
-    {
-        $response = $this->make()->view('legacy_keyboard_view');
-        $keyboard = $response->contents['reply_markup']['inline_keyboard'];
-
-        $this->assertSame('Legacy', $keyboard[0][0]['text']);
-    }
-
-    public function test_builder_component_with_a_syntax_error_throws_view_invalid(): void
-    {
-        $this->expectException(ViewInvalidException::class);
-
-        $this->make()->view('broken_keyboard_view');
-    }
-
-    public function test_builder_component_failure_unwinds_the_component_stack(): void
-    {
-        try {
-            $this->make()->view('broken_keyboard_view');
-        } catch (ViewInvalidException) {
-            // expected
-        }
-
-        $this->assertNull(ComponentContext::current());
-    }
-
-    // -------------------------------------------------------------------------
-    // view() — template comments
-    // -------------------------------------------------------------------------
-
-    public function test_template_comment_is_not_sent(): void
-    {
-        $response = $this->make()->view('comment_view', ['name' => 'Ann', 'body' => 'B']);
-
-        $this->assertStringNotContainsString('comment', $response->contents['text']);
-        $this->assertStringNotContainsString('never sent', $response->contents['text']);
-    }
-
-    public function test_template_comment_does_not_break_neighbouring_interpolation(): void
-    {
-        $response = $this->make()->view('comment_view', ['name' => 'Ann', 'body' => '<b>B</b>']);
-
-        // The leading comment block and its newline are gone, so the text starts
-        // at the greeting; {{ }} still escapes and {!! !!} still emits raw.
-        $this->assertStringStartsWith('Hello, Ann! Bye.', $response->contents['text']);
-        $this->assertStringContainsString('<b>B</b>', $response->contents['text']);
     }
 
     // -------------------------------------------------------------------------
