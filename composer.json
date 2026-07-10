@@ -1,6 +1,6 @@
 {
     "name": "wekser/laragram",
-    "description": "Laravel package for building Telegram bots in MVC style. .",
+    "description": "Laravel package for building Telegram bots in MVC style.",
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/wekser/laragram",

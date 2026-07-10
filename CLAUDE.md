@@ -23,9 +23,40 @@ vendor/bin/phpunit tests/Unit/BotRouterTest.php
 vendor/bin/phpunit --filter test_find_route_matches_command_without_station_requirement
 ```
 
-There is no build or lint step. Tests live under `tests/` (PSR-4: `Wekser\Laragram\Tests\`). PHPUnit is configured via `phpunit.xml` at the repo root. Coverage source includes `src/` but excludes `src/Console` and `src/Examples`.
+There is no build or lint step. Tests live under `tests/` (PSR-4: `Wekser\Laragram\Tests\`). PHPUnit is configured via `phpunit.xml` at the repo root. Coverage source includes `src/` but excludes `src/Console`.
 
 CI (`.github/workflows/tests.yml`) runs the suite on every push/PR to `master` across a matrix of PHP `8.3–8.5` × Laravel `12/13`, each against both `lowest` and `highest` Composer dependency versions — so a change must work at the advertised version floor, not just the latest patch. Framework/Testbench/PHPUnit are pinned per Laravel major (L12→framework ^12.60 + testbench ^10 + phpunit ^11, L13→framework ^13.10 + testbench ^11 + phpunit ^12). The framework floors are the security-patched releases (GHSA-5vg9-5847-vvmq) so CI never installs an affected version; `laravel/framework` is `require-dev` only.
+
+## Documentation Surfaces
+
+A user-visible behaviour change usually has to land in **three** places, not one:
+
+| Surface | What it is |
+|---|---|
+| `wiki/*.md` | Source of the [public GitHub Wiki](https://github.com/wekser/laragram/wiki) — one page per feature area (`Routing.md`, `Scenes.md`, `Payments.md`, …). It lives in a **separate** git repo (`laragram.wiki.git`) and is synced by copying `wiki/*.md` over; see `wiki/README.md`. A new page must also be linked from `wiki/Home.md` **and** the table in `wiki/README.md`. |
+| `README.md` | Landing-page overview + quickstart. Only the headline features. |
+| `CHANGELOG.md` | [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) format, SemVer. Note breaking changes explicitly. |
+
+This `CLAUDE.md` is the canonical *internal* architecture reference; the wiki is the canonical *user-facing* one. They overlap by design — when you change behaviour, update both.
+
+## Commit Convention
+
+`CONTRIBUTING.md` mandates an Angular-style commit format — follow it:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+- `<type>` ∈ `feat` · `fix` · `style` · `refactor` · `test` · `chore`
+- Subject: **imperative present tense** ("change", not "changed"/"changes"), no capitalized first letter, no trailing period
+- No line over 100 characters
+- Breaking changes and `Closes #123` go in the footer
+
+There is no automated style checker — match the surrounding code (PSR-12).
 
 ## Artisan Commands (registered by the package in host apps)
 
@@ -90,7 +121,7 @@ return [
 - **Station/redirect is one per batch**, last-write-wins: the last response that calls `redirect()` sets the next station; if none do, it falls back to the route's current station.
 - **Batch error handling:** a failed send is logged via `ExceptionHandler::handle()` and the batch continues — **unless** the error means the user is unreachable (`BotBlockedException`, `UserDeactivatedException`, `ChatNotFoundException`, `AuthenticationException` — i.e. `ExceptionHandler::isTerminal()`), in which case the remaining messages are skipped.
 - **`PollCommand` uses the same `ResponseDispatcher`**, so long-polling now delivers controller responses (previously poll mode dispatched but never sent).
-- **`BotResponse` content-entry methods return a fresh instance (clone-on-entry).** `text()`, `view()`, `photo()`, `answer()`, `edit()`, `delete()`, media methods and `action()` each return a NEW `BotResponse`, so `[BotResponse::text('a'), BotResponse::text('b')]` yields two distinct payloads even though the `BotResponse` facade resolves a shared singleton. Modifier methods (`keyboard()`, `redirect()`, `setUser()`) still mutate and return the same instance, so chaining works unchanged.
+- **`BotResponse` content-entry methods return a fresh instance (clone-on-entry).** `text()`, `view()`, `photo()`, `answer()`, `edit()`, `delete()`, media methods and `action()` each return a NEW `BotResponse`, so `[BotResponse::text('a'), BotResponse::text('b')]` yields two distinct payloads even though the `BotResponse` facade resolves a shared singleton. Modifier methods (`keyboard()`, `thread()`, `noPreview()`, `redirect()`, `setUser()`) still mutate and return the same instance, so chaining works unchanged.
 
 ### Supported Telegram Update Types
 
@@ -510,7 +541,7 @@ src/
 | `BotAPI` | `__call()` proxy to `BotClient`; use any Telegram method directly |
 | `BotAuth` | Authenticates sender via `AuthDriverInterface` |
 | `BotRequest` | `get('field')`, `input('param')`, `query()`, `message()`, `callbackQuery()`, `validate()` |
-| `BotResponse` | `text()`, `view()`, `redirect()`, `thread()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
+| `BotResponse` | `text()`, `view()`, `redirect()`, `thread()`, `noPreview()`, `answer()`, `edit()`, `delete()`, `photo()`, `document()`, `audio()`, `video()`, `voice()`, `animation()`, `sticker()`, `videoNote()`, `action()`, `invoice()`, `approveCheckout()`, `declineCheckout()`, `approveShipping()`, `declineShipping()`, `inlineResults()`, `react()` |
 | `Telegram\Inline\InlineResults` | Fluent `answerInlineQuery` results builder; `article()`/`photo()`/`sticker()`/`raw()` + `cache()`/`personal()`/`nextOffset()`/`button()` |
 | `Telegram\Payments\Invoice` | Fluent `sendInvoice`/`createInvoiceLink` params builder; `stars()` shortcut for Telegram Stars |
 | `Services\Payments` | `invoiceLink()` (createInvoiceLink) + `refund()` (refundStarPayment); alias `laragram.payments` |
@@ -679,7 +710,12 @@ BotResponse::edit('Updated text');
 
 // Delete the current message (deleteMessage)
 BotResponse::delete();
+
+// Suppress the link preview card (link_preview_options.is_disabled)
+BotResponse::text("See {$url}")->noPreview();
 ```
+
+**`noPreview()` guard:** a modifier, chained after a content method. Only `sendMessage` and `editMessageText` carry a link preview, so it is valid after `text()`, `edit()`, and a `view()` with no media component; on an empty response or any other method it throws `\LogicException` instead of sending a parameter Telegram ignores. Telegram deprecated `disable_web_page_preview` — the modern `link_preview_options` object is written, and `BotClient` JSON-encodes it like any nested param. For the other preview options (`url`, `prefer_small_media`, `show_above_text`) call `BotAPI` directly.
 
 **`keyboard()` guard:** calling `keyboard()` before a content method (`text()`, `view()`, etc.) throws `\LogicException`. Always set the message content first.
 
@@ -793,7 +829,7 @@ Exceptions in `$dontReport` (`AuthenticationException`, `BotBlockedException`, `
 - Call `BotUpdateFactory::reset()` in `setUp()` to reset the `update_id` counter between test cases
 - Call `ComponentContext::reset()` in `tearDown()` when testing view rendering — the component stack is static and leaks between tests if a previous test left it dirty
 - Call `BotResponse::flushTemplateCache()` when a test renders the **same** view path across cases with **different on-disk contents** — compiled `text.php` templates are cached in a static keyed by path (invalidated only on mtime change), so two cases writing different content to one fixture path within the same second would otherwise see the first case's compiled output
-- Current suite: **496 tests / 1046 assertions**
+- Current suite: **503 tests / 1060 assertions**
 
 #### Feature testing with InteractsWithBot
 

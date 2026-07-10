@@ -1,16 +1,16 @@
 # Contributing
 
-Thank you for considering contributing to Lumen Laragram!
+Thank you for considering contributing to Laragram!
 
 We accept contributions via pull requests on [GitHub]. Please review these guidelines before submitting any pull requests.
 
 ## Guidelines
 
-* Please follow the [PSR-2 Coding Style Guide](https://www.php-fig.org/psr/psr-2/), enforced by [StyleCI].
+* Match the code style of the surrounding code ([PSR-12]). There is no automated style checker — keep diffs clean by hand.
 * One pull request per feature (send multiple if you want to do more than one thing).
 * Add tests if you've added something new (ensure that the current tests pass).
 * Send a coherent commit history (make sure each individual commit in your pull request is meaningful).
-* Document any change in behaviour (make sure the `README.md` is kept up-to-date).
+* Document any change in behaviour. User-facing changes usually touch three places: the relevant page under [`wiki/`](wiki/README.md), the `README.md` if it affects the quickstart, and `CHANGELOG.md`.
 * Strictly follow our [Git Commit Guidelines](#git-commit-guidelines)!
 * Please remember that we follow [SemVer](http://semver.org/).
 
@@ -20,7 +20,7 @@ Just like [Angular](https://github.com/angular/material/blob/master/.github/CONT
 
 #### Commit Message Format
 
-```html
+```
 <type>(<scope>): <subject>
 <BLANK LINE>
 <body>
@@ -66,21 +66,33 @@ The footer should contain any information about **Breaking Changes** and is also
 
 ## Running Tests
 
-Before you can run the tests, you have to install the package dependencies via [Composer](https://getcomposer.org/)!
+Before you can run the tests, you have to install the package dependencies via [Composer](https://getcomposer.org/):
 
-```winbatch
+```bash
 composer install
 ```
 
 Then run PHPUnit:
 
-```winbatch
-vendor/binphpunit
+```bash
+vendor/bin/phpunit
+
+# ...or the composer alias for the same command
+composer test
 ```
 
-When you make a pull request, the tests will be automatically run again by [Travis CI](https://travis-ci.org/) on different PHP versions.
+To run a single test file, or a single test method:
 
-StyleCI is also active to automatically fix any code style issues.
+```bash
+vendor/bin/phpunit tests/Unit/BotRouterTest.php
+vendor/bin/phpunit --filter test_find_route_matches_command_without_station_requirement
+```
 
-[GitHub]: https://github.com/cyrildewit/laravel-page-view-counter/pulls
-[StyleCI]: https://styleci.io/
+When you make a pull request, the tests are automatically run again by [GitHub Actions] across a matrix
+of PHP `8.3`–`8.5` × Laravel `12`/`13`. Every combination is tested against both the `lowest` and the
+`highest` Composer dependency versions, so a change must work at the advertised version floor — not just
+the latest patch release.
+
+[GitHub]: https://github.com/wekser/laragram/pulls
+[GitHub Actions]: https://github.com/wekser/laragram/actions
+[PSR-12]: https://www.php-fig.org/psr/psr-12/

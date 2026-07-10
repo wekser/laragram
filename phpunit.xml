@@ -16,7 +16,6 @@
         </include>
         <exclude>
             <directory>src/Console</directory>
-            <directory>src/Examples</directory>
         </exclude>
     </source>
 

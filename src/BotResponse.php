@@ -526,14 +526,25 @@ class BotResponse
      */
     public function keyboard(array $markup): self
     {
-        if (empty($this->contents)) {
-            throw new \LogicException(
-                'BotResponse::keyboard() must be called after text(), photo(), edit(), etc.'
-            );
-        }
+        $this->requireContent('keyboard');
 
         $this->contents['reply_markup'] = $markup;
         return $this;
+    }
+
+    /**
+     * Assert a content method has already run, so a modifier has a payload to modify.
+     *
+     * @param string $modifier The calling modifier's name, for the error message.
+     * @throws \LogicException when called before a response method has been set.
+     */
+    private function requireContent(string $modifier): void
+    {
+        if (empty($this->contents)) {
+            throw new \LogicException(
+                "BotResponse::{$modifier}() must be called after text(), view(), photo(), edit(), etc."
+            );
+        }
     }
 
     /**
@@ -552,11 +563,7 @@ class BotResponse
      */
     public function thread(?int $threadId): self
     {
-        if (empty($this->contents)) {
-            throw new \LogicException(
-                'BotResponse::thread() must be called after text(), photo(), view(), etc.'
-            );
-        }
+        $this->requireContent('thread');
 
         if ($threadId === null) {
             // A '_'-prefixed sentinel: stripped from the outbound params by
@@ -567,6 +574,38 @@ class BotResponse
             unset($this->contents['_no_thread']);
             $this->contents['message_thread_id'] = $threadId;
         }
+
+        return $this;
+    }
+
+    /** Telegram methods that accept link_preview_options. */
+    private const PREVIEW_AWARE_METHODS = ['sendMessage', 'editMessageText'];
+
+    /**
+     * Disable the link preview card for this message (link_preview_options.is_disabled).
+     *
+     * Must be chained after text(), view(), or edit() — only sendMessage and
+     * editMessageText carry link previews.
+     *
+     *   return BotResponse::text("See {$url}")->noPreview();
+     *
+     * @return $this
+     * @throws \LogicException when called before a response method has been set,
+     *                         or on a method that carries no link preview.
+     */
+    public function noPreview(): self
+    {
+        $this->requireContent('noPreview');
+
+        $method = $this->contents['method'];
+
+        if (!in_array($method, self::PREVIEW_AWARE_METHODS, true)) {
+            throw new \LogicException(
+                "BotResponse::noPreview() is not supported by [{$method}] — only sendMessage and editMessageText carry link previews."
+            );
+        }
+
+        $this->contents['link_preview_options'] = ['is_disabled' => true];
 
         return $this;
     }
