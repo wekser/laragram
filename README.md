@@ -2,7 +2,17 @@
 
 A Laravel package for building Telegram bots in MVC style — routing, controllers, views, and a station-based state machine, all wired into the Laravel ecosystem.
 
-**Requirements:** PHP ^8.3 · Laravel ^12|^13
+[![Latest Version](https://img.shields.io/packagist/v/wekser/laragram.svg?style=flat-square)](https://packagist.org/packages/wekser/laragram)
+[![Tests](https://img.shields.io/github/actions/workflow/status/wekser/laragram/tests.yml?branch=master&label=tests&style=flat-square)](https://github.com/wekser/laragram/actions/workflows/tests.yml)
+[![Downloads](https://img.shields.io/packagist/dt/wekser/laragram.svg?style=flat-square)](https://packagist.org/packages/wekser/laragram)
+[![License](https://img.shields.io/packagist/l/wekser/laragram.svg?style=flat-square)](LICENSE)
+
+- **Requirements:** PHP ^8.3 · Laravel ^12|^13 · ext-curl
+- **Documentation:** [Wiki](https://github.com/wekser/laragram/wiki) · [Changelog](CHANGELOG.md)
+
+**What's in the box:** routing on event / station / role / chat type / forum topic · multi-step **scenes** with validation, conditional steps, back navigation and timeouts · **views** as message components on disk, with auto-escaping, keyboards and albums · **groups & forum topics** with per-(user, chat, topic) state · **payments** in Telegram Stars and fiat · **inline mode** · file **upload and download** · **reactions** · **broadcasting** with auto-pruning of unreachable users · a bundled **admin panel** with its own login · optional **queue offload** · a **testing** trait for whole bot flows without HTTP.
+
+**Contents:** [Installation](#installation) · [Upgrading from 1.x](#upgrading-from-1x) · [How It Works](#how-it-works) · [Routes](#routes) · [Controllers](#controllers) · [Views](#views) · [Keyboards](#keyboards-programmatic) · [Station](#station-state-machine) · [Groups & Topics](#group-chats--forum-topics) · [Scenes](#scenes-wizards) · [Payments](#payments-telegram-stars--fiat) · [Inline Mode](#inline-mode) · [Files](#files) · [Reactions](#message-reactions) · [Queue](#queue-optional-for-scale) · [Broadcasting](#broadcasting-mass-messaging) · [Admin Panel](#admin-panel) · [Observability](#observability) · [Testing](#testing) · [Configuration](#configuration) · [Commands](#artisan-commands)
 
 ---
 
@@ -23,6 +33,7 @@ Add your bot credentials to `.env`:
 
 ```env
 LARAGRAM_BOT_TOKEN=your-telegram-bot-token
+LARAGRAM_BOT_USERNAME=YourBot          # without @ — lets group commands like /start@YourBot match
 LARAGRAM_WEBHOOK_PREFIX=laragram
 LARAGRAM_WEBHOOK_SECRET=generated-secret
 ```
@@ -32,6 +43,72 @@ Register the webhook:
 ```bash
 php artisan laragram:webhook:set
 ```
+
+`laragram:install` leaves you with **blank** route and scene files. To start from a working bot instead, publish the runnable demo — views, lang files, demo controllers, and demo routes appended to your route file (idempotent, safe to re-run):
+
+```bash
+php artisan laragram:publish
+```
+
+**No public URL yet?** Skip the webhook and long-poll instead — same routing, same controllers:
+
+```bash
+php artisan laragram:poll
+```
+
+---
+
+## Upgrading from 1.x
+
+2.0 is a rewrite. Read the [changelog](CHANGELOG.md#v200-2026-07-31) in full before upgrading; the essentials:
+
+**Renamed classes and methods**
+
+| 1.x | 2.0 |
+|---|---|
+| `BotRouteCollection` · `BotRouter` | `Routing\RouteCollection` · `Routing\Router` |
+| `Support\FormRequest` · `Support\FormResponse` | `Http\RequestTransformer` · `Http\ResponseTransformer` |
+| `Exceptions\BotException` | `Exceptions\ExceptionHandler` (a static utility, not an exception) |
+| `BotResponse::user()` | `BotResponse::setUser()` |
+| `BotClient::sendMessage()` · `getUserStatus()` · `isUserActive()` | `Services\TelegramErrorHandler` |
+| `config/config.php` | `config/laragram.php` |
+
+**Behaviour changes to check**
+
+- **Replies are now outbound API calls.** The webhook always answers `200 OK` with an empty body; nothing rides in it. Each message costs one extra round-trip, in exchange for a single delivery path that also supports several messages per update.
+- **`BotAPI` lost its ~40 hand-written wrappers** in favour of a `__call()` proxy — every Bot API method now works, including ones added after this release.
+- **Route files moved** to `routes/laragram/routes.php` (plus `scenes.php`). Set `paths.route` if you keep yours elsewhere.
+- **Lumen support and `src/Examples/` are gone**; PHP ^8.3 and Laravel ^12 are the floor.
+
+**Database migration.** The `laragram_users` and `laragram_sessions` tables gained columns. Fresh installs get them from `laragram:install`; an existing app needs its own migration — without `thread_id` the session upsert fails on **every** update:
+
+```php
+Schema::table('laragram_users', function (Blueprint $table) {
+    $table->string('role')->default('user')->after('settings')->index();
+    $table->boolean('is_active')->default(true)->after('role')->index();
+    $table->timestamp('deactivated_at')->nullable()->after('is_active');
+});
+
+Schema::table('laragram_sessions', function (Blueprint $table) {
+    $table->bigInteger('chat_id')->nullable()->after('user_id');
+    $table->unsignedBigInteger('thread_id')->default(0)->after('chat_id');
+});
+
+// Existing rows are private chats: the chat is the user.
+DB::table('laragram_sessions')
+    ->join('laragram_users', 'laragram_users.id', '=', 'laragram_sessions.user_id')
+    ->update(['laragram_sessions.chat_id' => DB::raw('laragram_users.uid')]);
+
+Schema::table('laragram_sessions', function (Blueprint $table) {
+    $table->unique(['user_id', 'chat_id', 'thread_id']);
+    $table->index(['user_id', 'chat_id', 'thread_id', 'last_activity']);
+});
+```
+
+- `thread_id` is `NOT NULL DEFAULT 0` (`0` = no topic) because SQL treats `NULL`s as distinct, which would defeat the unique key the upsert is keyed on.
+- Also widen `laragram_users.uid` to `unsignedBigInteger` if you are still on the 1.x `integer` column — Telegram ids have outgrown 32 bits.
+- `User::isActive()` now reads the `is_active` column, not `settings.active`. The redundant `active` settings key is no longer written.
+- The opt-in `laragram_payments` table ships separately: `php artisan vendor:publish --tag=laragram-migrations`.
 
 ---
 
@@ -182,14 +259,17 @@ resources/laragram/
     └── reply_keyboard.php     ← call reply() / row() / resize() / one_time()
 ```
 
-**`text.php`** — write plain text plus your own HTML markup (default parse mode is `HTML`); `{{ }}` escapes a value, `{!! !!}` emits it raw:
+**`text.php`** — write plain text plus your own HTML markup (default parse mode is `HTML`); `{{ }}` escapes a value, `{!! !!}` emits it raw, `{{-- --}}` is a comment:
 
 ```
+{{-- Notes for the next editor. Stripped at compile time, never sent. --}}
 Hello, <b>{{ $first_name }}</b>!
 {!! __('laragram.welcome.body') !!}
 ```
 
 Static markup (`<b>…</b>`) renders as-is. `{{ }}` values are auto-escaped (safe for user data); `{!! !!}` values are emitted raw (use for trusted, pre-formatted content like translation strings). Variables from `$data` are extracted into scope, so `$name` works directly. `$user` (the authenticated `User` model) is also available.
+
+A translation *with* placeholders is mixed-trust — `__()` substitutes `:placeholder` values without escaping them — so escape each one with `e()`: `{!! __('laragram.order.placed', ['address' => e($address)]) !!}`.
 
 **`inline_keyboard.php`** — use global helper functions:
 
@@ -209,7 +289,10 @@ The full `InlineKeyboardButton` API is available as helpers: `button()`, `href()
 resize();
 reply('Option A'); reply('Option B');
 row(); reply('Help');
+remove_keyboard();   // in an else branch: clear the keyboard on screen
 ```
+
+Buttons may sit behind conditions — a keyboard component that adds none simply sends the message without a keyboard (a view with *no* content at all still throws). Since an omitted markup leaves the user's current reply keyboard in place, use `remove_keyboard()` to clear it.
 
 **`media.php`** — for `sendMediaGroup`:
 
@@ -362,18 +445,7 @@ BotAPI::sendMessage(['chat_id' => -1001234567890, 'message_thread_id' => 42, 'te
 - `message_thread_id` is injected only onto methods that accept it (any `send*`, plus `copyMessage` / `forwardMessage`) — never onto `answer*`, `edit*`, `delete*`, or `setMessageReaction`.
 - The bot needs the *Manage Topics* admin right to post in a closed topic.
 
-> **Upgrading?** Per-topic state adds a `thread_id` column to `laragram_sessions`. Fresh installs get it from `laragram:install`; an existing app must add it, or the session upsert will fail on every update:
->
-> ```php
-> Schema::table('laragram_sessions', function (Blueprint $table) {
->     $table->unsignedBigInteger('thread_id')->default(0)->after('chat_id');
->     $table->dropUnique(['user_id', 'chat_id']);
->     $table->unique(['user_id', 'chat_id', 'thread_id']);
->     $table->index(['user_id', 'chat_id', 'thread_id', 'last_activity']);
-> });
-> ```
->
-> `thread_id` is `NOT NULL DEFAULT 0` (`0` = no topic) because SQL treats `NULL`s as distinct, which would defeat the unique key.
+> **Upgrading?** Per-(user, chat, topic) state adds `chat_id` and `thread_id` columns to `laragram_sessions`. Fresh installs get them from `laragram:install`; an existing app must add them, or the session upsert fails on every update — see [Upgrading from 1.x](#upgrading-from-1x).
 
 ---
 
@@ -493,7 +565,28 @@ Result builders: `article()`, `photo()`, `gif()`, `video()`, `document()`, `cach
 
 ---
 
-## Receiving Files
+## Files
+
+### Sending a local file or URL
+
+`BotResponse` speaks JSON, so it can send media only by `file_id` or URL — it cannot upload bytes. `MediaUploader` does that in one outbound call and hands you the permanent `file_id` Telegram assigns:
+
+```php
+use Wekser\Laragram\Services\MediaUploader;
+
+public function send(MediaUploader $uploader, User $user): BotResponse
+{
+    // Uploads to $chatId and returns the file_id — cache it, then reuse it for free.
+    $fileId = $uploader->upload('photo', storage_path('app/banner.jpg'), $user->uid);
+    $fileId = $uploader->upload('document', 'https://example.com/report.pdf', $user->uid);
+
+    return $this->response->photo($fileId, caption: 'Here you go');
+}
+```
+
+Types: `photo`, `document`, `audio`, `video`, `voice`, `animation`, `video_note`, `sticker`. Telegram requires a destination chat even for an upload, so the media is delivered to `$chatId` as a side effect — use the recipient's id, or any chat the bot can reach. The source is **trusted server-side input**: a local path is read straight off disk, and only `http`/`https` URLs are accepted (`file://`, `ftp://`, … are rejected). Never pass unvalidated user input.
+
+### Receiving a file
 
 Turn a file a user **sent to the bot** into bytes or a stored file — the mirror image of `MediaUploader`:
 
@@ -674,6 +767,74 @@ Event::listen(function (BotExceptionHandled $e) {
 ```
 
 Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded, so a faulty listener can never break exception handling.
+
+---
+
+## Testing
+
+Feature-test whole bot flows in-process — no HTTP, no Telegram. `botReceives()` runs the real auth → router → session → delivery pipeline against a recording API double, so assertions inspect the messages your bot actually sends:
+
+```php
+use Wekser\Laragram\Testing\BotUpdateFactory;
+use Wekser\Laragram\Testing\InteractsWithBot;
+
+class StartCommandTest extends TestCase
+{
+    use InteractsWithBot;
+
+    public function test_start_greets_and_moves_to_home(): void
+    {
+        $this->botReceives(BotUpdateFactory::message('/start'));
+
+        $this->assertBotRepliedWith('sendMessage');
+        $this->assertBotRepliedText('Welcome');
+        $this->assertUserRedirectedTo('home');
+    }
+
+    public function test_order_wizard_collects_the_size(): void
+    {
+        $this->botReceives(BotUpdateFactory::message('/order'));
+        $this->botReceives(BotUpdateFactory::callbackQuery('Medium'));
+
+        $this->assertInScene('order');
+        $this->assertSceneData('size', 'Medium');
+        $this->assertSceneStep('address');
+    }
+}
+```
+
+- **Updates:** `message()`, `groupMessage()`, `topicMessage()`, `callbackQuery()`, `inlineQuery()`, `chosenInlineResult()`, `editedMessage()`, `channelPost()`, `preCheckoutQuery()`, `shippingQuery()`, `successfulPaymentMessage()`, `messageReaction()`.
+- **Assertions:** `assertBotRepliedWith()` / `assertBotRepliedText()` / `assertResponseContains()` (the first message), `assertBotRepliedTimes()` / `assertNthReplyWith()` / `assertNthReplyText()` (a multi-message batch), `assertBotRepliedInThread()`, `assertUserRedirectedTo()`, `assertNoResponse()`, and the scene set `assertInScene()` / `assertSceneStep()` / `assertSceneData()` / `assertNotInScene()`.
+- The webhook middleware (secret verification, dedup, throttling) is **not** run — test those as ordinary Laravel middleware.
+
+---
+
+## Configuration
+
+`laragram:install` publishes `config/laragram.php`. Everything has a working default; the keys you are most likely to touch:
+
+| Key | Default | Purpose |
+|---|---|---|
+| `auth.driver` | `database` | `database` persists users and sessions; `array` keeps a user in memory with no DB I/O |
+| `auth.session.lifetime` | `10080` | Minutes before a session (and its station) expires |
+| `telegram.username` | — | Your bot's @username, so `/cmd@YourBot` matches in groups |
+| `paths.route` · `paths.scenes` | `laragram/routes` · `laragram/scenes` | File names under `routes/`; a subdirectory is allowed |
+| `paths.views` | `laragram` | View directory under `resources/` |
+| `bot.languages` | `['en']` | Locales your views are translated into |
+| `rate.max_attempts` · `rate.decay_seconds` | `60` · `60` | Per-user inbound rate limit |
+| `security.verify_secret` | `true` | Validate the `X-Telegram-Bot-Api-Secret-Token` header |
+
+**Auth drivers.** The `database` driver is the default and the one to use: it persists the `User`, the station, and scene state, and it is **required** by scenes, broadcasting, the admin panel, roles, and update deduplication. The `array` driver skips all database I/O — useful for a stateless bot or a fast test suite, but every user is permanently at station `start`.
+
+**Roles.** The `role` column is never written by the auth drivers — assign it yourself:
+
+```bash
+php artisan laragram:set-role 123456789 admin
+```
+
+Then gate routes with `->role('admin')`, or check `$user->hasRole('admin')` / `$user->isAdmin()` in a handler.
+
+See the [Configuration wiki page](https://github.com/wekser/laragram/wiki/Configuration) for every key.
 
 ---
 

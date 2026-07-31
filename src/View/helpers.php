@@ -272,6 +272,25 @@ if (!function_exists('one_time')) {
     }
 }
 
+if (!function_exists('remove_keyboard')) {
+    /**
+     * Remove the reply keyboard currently shown to the user.
+     *
+     * A component that adds no button sends the message without a keyboard, which
+     * leaves the previous one on screen — use this in the else branch to clear it.
+     *
+     * @param bool $selective Remove it only for the users the message targets.
+     */
+    function remove_keyboard(bool $selective = false): void
+    {
+        $ctx = ComponentContext::current();
+
+        if ($ctx instanceof ReplyKeyboardState) {
+            $ctx->setRemove($selective);
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Shared helper — use inside both keyboard files
 // ---------------------------------------------------------------------------

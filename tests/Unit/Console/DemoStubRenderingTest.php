@@ -54,6 +54,12 @@ class DemoStubRenderingTest extends TestCase
         $this->publishView('views/order_placed.stub', 'order/placed/text.php');
         $this->publishView('views/payment_done.stub', 'payment/done/text.php');
         $this->publishView('views/file_saved.stub', 'file/saved/text.php');
+        $this->publishView('views/start.stub', 'start/text.php');
+        $this->publishView('views/start_keyboard.stub', 'start/inline_keyboard.php');
+
+        // The view laragram:make:view scaffolds, published verbatim — it has to
+        // render on its own, with no $data and no host-app lang file.
+        $this->publishView('views/text.stub', 'scaffold/text.php');
     }
 
     protected function tearDown(): void
@@ -66,6 +72,8 @@ class DemoStubRenderingTest extends TestCase
         @rmdir($this->viewsRoot . '/order');
         @rmdir($this->viewsRoot . '/payment');
         @rmdir($this->viewsRoot . '/file');
+        @rmdir($this->viewsRoot . '/start');
+        @rmdir($this->viewsRoot . '/scaffold');
 
         BotResponse::flushTemplateCache();
 
@@ -128,6 +136,63 @@ class DemoStubRenderingTest extends TestCase
         $this->assertSame('HTML', $contents['parse_mode']);
         $this->assertStringContainsString('<b>inbox/report.pdf</b>', $contents['text']);
         $this->assertStringNotContainsString('&lt;', $contents['text']);
+    }
+
+    public function test_start_message_renders_bold_raw_with_keyboard(): void
+    {
+        $contents = $this->render('start', ['first_name' => 'Ada']);
+
+        $this->assertSame('HTML', $contents['parse_mode']);
+        $this->assertStringContainsString('Hello, Ada!', $contents['text']);
+        $this->assertStringContainsString('<b>Laragram</b>', $contents['text']);
+        $this->assertStringNotContainsString('&lt;', $contents['text']);
+        $this->assertNotEmpty($contents['reply_markup']['inline_keyboard']);
+    }
+
+    /**
+     * The stub laragram:make:view writes is the one every host app starts from.
+     * It must render with no $data at all, and its {{-- --}} header must never
+     * reach the wire — the exact regression that shipped in e23fc83, where the
+     * whole comment block was sent to the user as the message body.
+     */
+    public function test_scaffolded_view_renders_without_data_and_leaks_no_header(): void
+    {
+        $contents = $this->render('scaffold');
+
+        $this->assertSame('HTML', $contents['parse_mode']);
+        $this->assertSame('Hello! 👋 Edit <b>text.php</b> to write your message.', $contents['text']);
+
+        foreach (['Write your message', 'interpolation', '{{', '{!!', '--}}', '<?php', '?>', 'laragram.'] as $leak) {
+            $this->assertStringNotContainsString($leak, $contents['text']);
+        }
+    }
+
+    /**
+     * __() substitutes :placeholder values without escaping them, so a scene answer
+     * carrying '<' would otherwise make Telegram reject the send with 400 "can't
+     * parse entities" — after LogSession has already cleared the scene, losing the
+     * confirmation for good. The stub escapes each substituted value with e().
+     */
+    public function test_order_placed_escapes_the_user_supplied_address(): void
+    {
+        $contents = $this->render('order.placed', [
+            'size'    => 'Large',
+            'address' => '<a href="https://evil.example">Baker St</a>',
+        ]);
+
+        // The translation's own markup survives…
+        $this->assertStringContainsString('<b>Order confirmed!</b>', $contents['text']);
+
+        // …while the user's markup is inert.
+        $this->assertStringNotContainsString('<a href', $contents['text']);
+        $this->assertStringContainsString('&lt;a href=&quot;https://evil.example&quot;&gt;Baker St&lt;/a&gt;', $contents['text']);
+    }
+
+    public function test_callback_reply_escapes_the_route_param(): void
+    {
+        $contents = $this->render('click', ['name' => '<i>Foo']);
+
+        $this->assertStringContainsString('<b>&lt;i&gt;Foo</b>', $contents['text']);
     }
 
     /** Render a demo view and return its assembled payload. */

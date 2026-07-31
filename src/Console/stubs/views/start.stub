@@ -1,3 +1,3 @@
-{{ __('laragram.start.greeting', ['name' => $first_name]) }}
+{!! __('laragram.start.greeting', ['name' => e($first_name)]) !!}
 
 {!! __('laragram.start.body') !!}

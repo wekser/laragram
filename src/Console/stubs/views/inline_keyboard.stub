@@ -1,10 +1,17 @@
 <?php
 
 /*
- * Inline keyboard. Translate the visible labels with __(); keep the callback
- * data (2nd argument of button()) stable so your routes keep matching.
+ * Inline keyboard. The 2nd argument of button() is the callback data your routes
+ * match on — keep it stable and in one language, and translate only the visible
+ * label, e.g. button(__('laragram.menu.button'), 'action').
+ *
+ * Other helpers: href(), web_app(), login_url(), switch_inline(), copy_text(),
+ * pay(), callback_game(). Each takes optional trailing style:/icon: arguments.
+ *
+ * Buttons may sit behind conditions: if none is added, the message is simply sent
+ * without a keyboard.
  */
 
-button(__('laragram.menu.button'), 'action');
+button('Button', 'action');
 row();
-href(__('laragram.menu.open_site'), 'https://example.com');
+href('Open site', 'https://example.com');

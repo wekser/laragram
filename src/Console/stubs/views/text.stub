@@ -1,17 +1,24 @@
-/*
- * Write your message text below. You can write HTML formatting markup
- * (<b>bold</b>, <i>italic</i>, etc.) directly — static text is sent verbatim.
- *
- * Two interpolation forms:
- *   {{ $variable }}   — output an ESCAPED value (use for user data)
- *   {!! $variable !!} — output a RAW, unescaped value (use for trusted,
- *                       already-formatted content like translation strings)
- * Example: view('welcome', ['name' => $user->first_name])
- *
- * For multilingual bots, pull text from lang/{locale}/laragram.php with __().
- * If the translation carries its own <b>bold</b>/<i>italic</i> markup, output it raw:
- *   {!! __('laragram.welcome.greeting', ['name' => $name]) !!}
- * The locale is already set per user, so the right language is returned.
- */
-?>
-{{ __('laragram.welcome.greeting', ['name' => $name]) }}
+{{--
+    Write your message text BELOW this block. The block itself is a template
+    comment: it is stripped at compile time and never becomes part of the message.
+
+    Static text is sent verbatim, so you can write HTML formatting markup
+    (<b>bold</b>, <i>italic</i>, <a href="https://example.com">link</a>) directly.
+
+    Two interpolation forms:
+      {{ $variable }}   — output an ESCAPED value (use for user data)
+      {!! $variable !!} — output a RAW, unescaped value (use for trusted,
+                          already-formatted content like translation strings)
+
+    Values are passed in from the controller:
+      view('welcome', ['name' => $user->first_name])
+    The authenticated user is also available directly as $user.
+
+    For multilingual bots, pull text from lang/{locale}/laragram.php with __().
+    A translation carrying its own <b>bold</b> markup has to be output raw — but
+    __() substitutes :placeholder values WITHOUT escaping them, so escape each
+    substituted value yourself with e():
+      {!! __('laragram.welcome.greeting', ['name' => e($name)]) !!}
+    The locale is already set per user, so the right language is returned.
+--}}
+Hello! 👋 Edit <b>text.php</b> to write your message.

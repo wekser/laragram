@@ -1,1 +1,13 @@
-{{ $file_id }}
+{{--
+    A single media component: this file holds ONE file_id or URL and nothing else.
+    Its presence is what selects the Telegram method (photo.php → sendPhoto,
+    video.php → sendVideo, and so on). Only one media component per view.
+
+    Pass the value in from the controller:
+      view('promo', ['file_id' => $fileId])
+
+    A file_id is returned by Services\MediaUploader when you upload a local file,
+    or read off an incoming update with BotRequest::fileId(). photo, video,
+    document, audio, voice and animation also accept a plain https:// URL.
+--}}
+{{ $file_id ?? '' }}

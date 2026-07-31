@@ -1,1 +1,1 @@
-{!! __('laragram.order.address', ['size' => $size]) !!}
+{!! __('laragram.order.address', ['size' => e($size)]) !!}

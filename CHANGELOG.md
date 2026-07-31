@@ -5,9 +5,12 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [v2.0.0] (2026-06-25)
+## [v2.0.0] (2026-07-31)
 
-This is a major release. It introduces a redesigned namespace structure, an auth driver system, a full test suite, and several breaking changes. Deprecated aliases are provided where possible to ease migration.
+A major release: a redesigned namespace structure, an auth driver system, scenes (wizards), group
+and forum-topic support, payments, inline mode, mass broadcasting, a bundled admin panel, optional
+queue offload, and a full test suite. It contains breaking changes; deprecated aliases are provided
+where possible to ease migration.
 
 ### Added
 
@@ -113,8 +116,17 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `Enums\ButtonStyle` — string-backed enum (`Primary` / `Success` / `Danger`) for the Bot API 9.4 button color; `normalize()` validates a string/enum and `decorate()` merges the `style` / `icon_custom_emoji_id` fields into a button payload
 - Optional `$style` (a `ButtonStyle` case or `'primary'` / `'success'` / `'danger'`) and `$icon` (custom emoji id) trailing arguments on every button method of **both** `InlineKeyboard` and `ReplyKeyboard` (Bot API 9.4+); an unknown style throws `\InvalidArgumentException`
 
+**Views & Templates**
+- `{{-- comment --}}` — the template language's only comment syntax. Comments are stripped by `compileTemplate()`'s first pass, before either interpolation pass, so their contents are never compiled *and* never emitted; a comment may safely hold `{{ }}` / `{!! !!}` examples, as the scaffolded stubs' guidance headers do. A `<?php /* … */ ?>` header is not equivalent — the compiler rewrites interpolations inside PHP comments too, and the injected `?>` escapes a `//`-style comment
+- Only `{{ }}` interpolated values are escaped for the active parse mode; static template text and `{!! !!}` output are emitted verbatim, so a view author writes `<b>bold</b>` directly while user data stays safe. A translation's `:placeholder` substitutions are **not** escaped by `__()` (it substitutes with a plain `strtr`), so escape them at the call site — `{!! __('key', ['name' => e($name)]) !!}` — as every published demo view does. An unescaped `<` in a user-supplied value otherwise makes Telegram reject the whole send with `can't parse entities`
+- Fail-fast rendering: `renderDirectory()` throws `LogicException` when `text.php` or a single-media component (`photo.php`, `video.php`, …) renders empty, and when the finished payload carries no content at all (`sendMessage` with no `text` — e.g. a view whose only component is a keyboard). An unedited scaffold now fails with a legible message instead of reaching Telegram as `400 message text is empty`
+- **A keyboard component that renders no buttons is not an error.** `inline_keyboard.php` / `reply_keyboard.php` are ordinary PHP, so buttons routinely sit behind conditions; when no branch fires, the component contributes no `reply_markup` and the message is sent keyboard-less rather than failing (which, under the per-recipient `BroadcastRenderer`, would silently drop the send for exactly the recipients whose branch was false). `BotResponse::keyboard()` applies the same rule to the programmatic path — a builder result with no buttons attaches nothing, while `ForceReply` and `ReplyKeyboard::remove()` markups carry no button key and always attach
+- Component files (`inline_keyboard.php`, `reply_keyboard.php`, `media.php`) run through `BotResponse::runComponent()`, which buffers and discards their output — stray bytes before a component's `<?php` would otherwise land in the webhook's HTTP response body — and wraps any throwable, including a `ParseError`, in `ViewInvalidException`. `renderTemplate()` records the output-buffer depth and unwinds to it on both paths, so a template that opens or closes buffers of its own cannot leak a level into a long-running worker or capture the caller's buffer
+- A PCRE failure during template compilation (e.g. `PREG_BACKTRACK_LIMIT_ERROR`) throws `ViewInvalidException` instead of silently producing — and caching — an empty compile for the rest of the process
+
 **View Helpers**
 - Inline keyboard view helpers expanded to the full button API: `login_url()`, `switch_inline()`, `switch_inline_chosen()`, `switch_inline_chosen_chat()`, `copy_text()`, `pay()`, `callback_game()` (alongside the existing `button()`, `href()`, `web_app()`, `row()`)
+- `remove_keyboard(bool $selective = false)` for `reply_keyboard.php`, backed by `View\ReplyKeyboardState::setRemove()` and emitting the same markup as `ReplyKeyboard::remove()`. An omitted `reply_markup` leaves the keyboard already on the user's screen in place, so a component whose buttons are conditional clears it from the else branch; an explicit removal wins over any button the same component added
 - Every inline button helper and the reply `reply()` helper accept the same optional trailing `style:` / `icon:` attributes as the fluent builders (Bot API 9.4+)
 
 **Services**
@@ -180,7 +192,7 @@ This is a major release. It introduces a redesigned namespace structure, an auth
 - `laragram:admin:create {username?}` — creates (or resets the password of) an admin-panel login account (`--name`, `--password`, min 8 chars, prompted if omitted; password auto-hashed)
 - `laragram:admin:delete {username}` — deletes an admin-panel login account
 - `laragram:make:controller` — scaffolds a new bot controller
-- `laragram:make:view` — scaffolds a new bot view
+- `laragram:make:view` — scaffolds a new bot view (`--with=` adds a keyboard or media component); every scaffolded stub renders standalone, depending on no `$data` key and no host-app lang file, and its guidance header is a `{{-- --}}` comment that cannot reach the wire by construction
 - `laragram:make:scene {name} [--steps=a,b]` — appends a scene (wizard) skeleton to the scenes file, creating it with the required imports if absent
 - `laragram:scene:list` — lists all registered scenes with their steps and options
 

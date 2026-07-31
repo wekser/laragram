@@ -1,1 +1,1 @@
-{!! __('laragram.donate.thanks', ['amount' => $amount]) !!}
+{!! __('laragram.donate.thanks', ['amount' => e($amount)]) !!}

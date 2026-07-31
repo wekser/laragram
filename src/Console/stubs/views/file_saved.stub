@@ -1,1 +1,1 @@
-{!! __('laragram.file.saved', ['path' => $path]) !!}
+{!! __('laragram.file.saved', ['path' => e($path)]) !!}

@@ -520,6 +520,9 @@ class BotResponse
      * Attach a reply keyboard or inline keyboard to the current response.
      * Must be chained after text(), photo(), document(), etc.
      *
+     * A markup with no buttons — a builder whose every button sat behind a false
+     * condition — attaches nothing, mirroring the keyboard view components.
+     *
      * @param array $markup ReplyKeyboard, InlineKeyboard, ForceReply, or ReplyKeyboardRemove array.
      * @return $this
      * @throws \LogicException when called before a response method has been set.
@@ -528,8 +531,32 @@ class BotResponse
     {
         $this->requireContent('keyboard');
 
-        $this->contents['reply_markup'] = $markup;
+        if (!$this->isEmptyMarkup($markup)) {
+            $this->contents['reply_markup'] = $markup;
+        }
+
         return $this;
+    }
+
+    /**
+     * Does this reply_markup carry nothing worth sending?
+     *
+     * True only for a button-less keyboard. ForceReply and ReplyKeyboardRemove
+     * markups carry neither button key, so they are never treated as empty.
+     */
+    private function isEmptyMarkup(array $markup): bool
+    {
+        if ($markup === []) {
+            return true;
+        }
+
+        foreach (['inline_keyboard', 'keyboard'] as $key) {
+            if (array_key_exists($key, $markup)) {
+                return $markup[$key] === [];
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -732,7 +759,12 @@ class BotResponse
             // Interpolated {{ }} values are escaped during rendering; the static
             // template text (the author's own *bold* / _italic_ markup) is left
             // intact. Do NOT re-escape the assembled string here.
-            $raw     = trim($this->renderTemplate($textFile, $format));
+            $raw = trim($this->renderTemplate($textFile, $format));
+
+            if ($raw === '') {
+                throw new \LogicException("View [{$dirPath}]: text.php produced no text. Write the message text, or delete the file if this view has none.");
+            }
+
             $isMedia = $method !== 'sendMessage' && $method !== 'sendMediaGroup';
 
             $payload[$isMedia ? 'caption' : 'text'] = $raw;
@@ -750,7 +782,13 @@ class BotResponse
 
             if (file_exists($mediaFile)) {
                 // file_id / URL — never escape (null disables interpolation escaping).
-                $payload[$type] = trim($this->renderTemplate($mediaFile, null));
+                $value = trim($this->renderTemplate($mediaFile, null));
+
+                if ($value === '') {
+                    throw new \LogicException("View [{$dirPath}]: {$type}.php produced no file_id or URL.");
+                }
+
+                $payload[$type] = $value;
                 break;
             }
         }
@@ -765,8 +803,10 @@ class BotResponse
                 throw new \LogicException("View [{$dirPath}]: media.php produced no items. Call photo() or video() at least once.");
             }
 
-            // Escape captions inside each media item — sanitizeContents() only
-            // handles top-level fields and does not walk nested media arrays.
+            // Escape captions inside each media item. renderTemplate() escapes the
+            // {{ }} values inside a component's own text, but a media item's caption
+            // is assembled here from the photo()/video() helper arguments, so it is
+            // escaped at this level instead.
             $payload['media'] = array_map(function (array $item) use ($format): array {
                 if (isset($item['caption'])) {
                     $item['caption'] = $this->escapeText($item['caption'], $format);
@@ -787,22 +827,28 @@ class BotResponse
             );
         }
 
+        // A keyboard component is ordinary PHP, so its buttons are routinely put
+        // behind conditions. When no branch fires the component renders empty —
+        // that is a keyboard-less message, not an error, so nothing is attached.
         if ($hasInlineFile) {
             $markup = $this->renderInlineKeyboardComponent($inlineFile);
 
-            if (empty($markup['inline_keyboard'])) {
-                throw new \LogicException("View [{$dirPath}]: inline_keyboard.php produced no buttons. Call button() or href() at least once.");
+            if (!$this->isEmptyMarkup($markup)) {
+                $payload['reply_markup'] = $markup;
             }
-
-            $payload['reply_markup'] = $markup;
         } elseif ($hasReplyFile) {
             $markup = $this->renderReplyKeyboardComponent($replyFile);
 
-            if (empty($markup['keyboard'])) {
-                throw new \LogicException("View [{$dirPath}]: reply_keyboard.php produced no keys. Call reply() at least once.");
+            if (!$this->isEmptyMarkup($markup)) {
+                $payload['reply_markup'] = $markup;
             }
+        }
 
-            $payload['reply_markup'] = $markup;
+        // The whole-payload guard the keyboard guards above used to stand in for.
+        // sendMessage is the only method that can reach here with nothing to send:
+        // every media method has its file checked above, sendMediaGroup its items.
+        if ($method === 'sendMessage' && !isset($payload['text'])) {
+            throw new \LogicException("View [{$dirPath}] produced no content. Add a text.php, or a media component.");
         }
 
         $payload['method'] = $method;
@@ -861,6 +907,10 @@ class BotResponse
         // Escaper for {{ }} values; static markup and {!! !!} are never passed through it.
         $escaper = fn (mixed $value): string => $this->escapeText((string) $value, $format);
 
+        // Remember the buffer depth so a template that opens (or closes) buffers of
+        // its own can never leak a level into the pipeline or steal the caller's.
+        $level = ob_get_level();
+
         ob_start();
 
         try {
@@ -871,11 +921,24 @@ class BotResponse
                 eval('?>' . $__template);
             })($compiled, $this->data, $this->user, $escaper);
         } catch (\Throwable $e) {
-            ob_end_clean();
+            $this->unwindBuffers($level);
             throw new ViewInvalidException($path, 0, $e);
         }
 
-        return (string) ob_get_clean();
+        // Discard any buffer the template opened and left unclosed, then take ours.
+        $this->unwindBuffers($level + 1);
+
+        return ob_get_level() > $level ? (string) ob_get_clean() : '';
+    }
+
+    /**
+     * Close output buffers until the depth is back to $level.
+     */
+    private function unwindBuffers(int $level): void
+    {
+        while (ob_get_level() > $level) {
+            ob_end_clean();
+        }
     }
 
     /**
@@ -887,8 +950,9 @@ class BotResponse
     private static array $templateCache = [];
 
     /**
-     * Read a template file and compile its {{ }} / {!! !!} interpolations into
-     * executable PHP, caching the result per path until the file's mtime changes.
+     * Read a template file and compile its {{-- --}} comments and {{ }} / {!! !!}
+     * interpolations into executable PHP, caching the result per path until the
+     * file's mtime changes.
      */
     private function compileTemplate(string $path): string
     {
@@ -901,15 +965,43 @@ class BotResponse
 
         $source = (string) file_get_contents($path);
 
-        // Raw output {!! expr !!} first, so its braces aren't caught by the {{ }} pass.
-        $compiled = preg_replace('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $source);
+        // Comments {{-- ... --}} are stripped FIRST, so their contents are never
+        // compiled and never emitted — a comment may itself contain {{ }} / {!! !!}
+        // examples, which must stay inert.
+        $compiled = $this->replacePattern('/\{\{--.*?--\}\}/s', '', $source, $path);
+
+        // Raw output {!! expr !!} next, so its braces aren't caught by the {{ }} pass.
+        $compiled = $this->replacePattern('/\{!!\s*(.+?)\s*!!\}/s', '<?php echo $1; ?>', $compiled, $path);
 
         // Escaped output {{ expr }}.
-        $compiled = preg_replace('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $__esc($1); ?>', $compiled);
+        $compiled = $this->replacePattern('/\{\{\s*(.+?)\s*\}\}/s', '<?php echo $__esc($1); ?>', $compiled, $path);
 
         self::$templateCache[$path] = ['mtime' => $mtime, 'compiled' => $compiled];
 
         return $compiled;
+    }
+
+    /**
+     * Run one compilation pass, converting a PCRE failure into a view error.
+     *
+     * preg_replace() returns null on failure (e.g. PREG_BACKTRACK_LIMIT_ERROR on a
+     * pathological template). Feeding that null into the next pass would silently
+     * yield an empty string — and compileTemplate() would then cache the empty
+     * compile for the rest of the process. Fail loudly instead.
+     */
+    private function replacePattern(string $pattern, string $replacement, string $subject, string $path): string
+    {
+        $result = preg_replace($pattern, $replacement, $subject);
+
+        if ($result === null) {
+            throw new ViewInvalidException(
+                $path,
+                0,
+                new \RuntimeException('Template compilation failed: ' . preg_last_error_msg())
+            );
+        }
+
+        return $result;
     }
 
     /**
@@ -926,19 +1018,7 @@ class BotResponse
      */
     protected function renderInlineKeyboardComponent(string $path): array
     {
-        $state = new InlineKeyboardState();
-        ComponentContext::push($state);
-
-        try {
-            (static function (string $__path, array $data, ?User $user): void {
-                extract($data, EXTR_SKIP);
-                include $__path;
-            })($path, $this->data, $this->user);
-        } finally {
-            ComponentContext::pop();
-        }
-
-        return $state->toArray();
+        return $this->runComponent($path, new InlineKeyboardState());
     }
 
     /**
@@ -946,19 +1026,7 @@ class BotResponse
      */
     protected function renderReplyKeyboardComponent(string $path): array
     {
-        $state = new ReplyKeyboardState();
-        ComponentContext::push($state);
-
-        try {
-            (static function (string $__path, array $data, ?User $user): void {
-                extract($data, EXTR_SKIP);
-                include $__path;
-            })($path, $this->data, $this->user);
-        } finally {
-            ComponentContext::pop();
-        }
-
-        return $state->toArray();
+        return $this->runComponent($path, new ReplyKeyboardState());
     }
 
     /**
@@ -966,15 +1034,39 @@ class BotResponse
      */
     protected function renderMediaGroupComponent(string $path): array
     {
-        $state = new MediaGroupState();
+        return $this->runComponent($path, new MediaGroupState());
+    }
+
+    /**
+     * Include a component file with the given collector pushed onto the context.
+     *
+     * A component builds its payload through the global helpers, so it should emit
+     * nothing. Output is buffered and discarded anyway: without it, stray bytes
+     * before the file's <?php (or an echo in the file) would land in the ambient
+     * output stream — i.e. the webhook's HTTP response body — instead of the
+     * message. Errors are wrapped so callers see the same ViewInvalidException
+     * contract renderTemplate() provides.
+     *
+     * @return array The payload the collector assembled.
+     */
+    protected function runComponent(
+        string $path,
+        InlineKeyboardState|ReplyKeyboardState|MediaGroupState $state
+    ): array {
+        $level = ob_get_level();
+
         ComponentContext::push($state);
+        ob_start();
 
         try {
             (static function (string $__path, array $data, ?User $user): void {
                 extract($data, EXTR_SKIP);
                 include $__path;
             })($path, $this->data, $this->user);
+        } catch (\Throwable $e) {
+            throw new ViewInvalidException($path, 0, $e);
         } finally {
+            $this->unwindBuffers($level);
             ComponentContext::pop();
         }
 
@@ -987,29 +1079,5 @@ class BotResponse
     protected function setData(?array $data): void
     {
         $this->data = empty($data) ? [] : $data;
-    }
-
-    /**
-     * Sanitize resulting contents from views by escaping user-facing fields.
-     * Skips escaping when content is already marked with '_escaped'.
-     */
-    protected function sanitizeContents(array $contents): array
-    {
-        if (!empty($contents['_escaped'])) {
-            unset($contents['_escaped']);
-            return $contents;
-        }
-
-        $mode = $contents['parse_mode'] ?? 'HTML';
-
-        if (isset($contents['text']) && is_string($contents['text'])) {
-            $contents['text'] = $this->escapeText($contents['text'], $mode);
-        }
-
-        if (isset($contents['caption']) && is_string($contents['caption'])) {
-            $contents['caption'] = $this->escapeText($contents['caption'], $mode);
-        }
-
-        return $contents;
     }
 }

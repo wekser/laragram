@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\View;
 
 use Wekser\Laragram\Enums\ButtonStyle;
+use Wekser\Laragram\Telegram\Keyboards\ReplyKeyboard;
 
 /**
  * Accumulates buttons during the evaluation of a reply_keyboard.php component.
@@ -23,6 +24,8 @@ final class ReplyKeyboardState
     private array $currentRow = [];
     private bool $resize = false;
     private bool $oneTime = false;
+    private bool $remove = false;
+    private bool $removeSelective = false;
 
     public function addButton(string $text, ButtonStyle|string|null $style = null, ?string $icon = null): void
     {
@@ -47,8 +50,25 @@ final class ReplyKeyboardState
         $this->oneTime = true;
     }
 
+    /**
+     * Clear the reply keyboard currently shown to the user.
+     *
+     * Omitting the markup leaves the keyboard on screen, so a component whose
+     * buttons are conditional needs this in its else branch. An explicit removal
+     * wins over any buttons the same component added.
+     */
+    public function setRemove(bool $selective = false): void
+    {
+        $this->remove = true;
+        $this->removeSelective = $selective;
+    }
+
     public function toArray(): array
     {
+        if ($this->remove) {
+            return ReplyKeyboard::remove($this->removeSelective);
+        }
+
         $rows = $this->rows;
 
         if (!empty($this->currentRow)) {

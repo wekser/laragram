@@ -81,10 +81,15 @@ class ExtrasController extends Controller
      *
      * InlineResults builds the answerInlineQuery payload; each article sends its
      * text when the user picks it. The inline_query_id is injected automatically.
+     *
+     * Article text is sent with parse_mode = HTML and passed through verbatim, and
+     * __() substitutes :placeholder values without escaping them — so the raw query
+     * is escaped with e() before it goes into the translation. Without that, a query
+     * containing '<' makes Telegram reject the whole answer.
      */
     public function inline(BotRequest $request): BotResponse
     {
-        $query = $request->query() ?: '…';
+        $query = e($request->query() ?: '…');
 
         return $this->response->inlineResults(
             InlineResults::make()

@@ -125,6 +125,7 @@ class InlineKeyboardTest extends TestCase
         button('cb', 'data');
         pay('pay');
         callback_game('play');
+        remove_keyboard();
 
         $this->assertNull(ComponentContext::current());
     }

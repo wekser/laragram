@@ -15,6 +15,9 @@ namespace Wekser\Laragram\Tests\Unit;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Wekser\Laragram\BotResponse;
 use Wekser\Laragram\Exceptions\NotExistsViewException;
+use Wekser\Laragram\Telegram\Keyboards\ForceReply;
+use Wekser\Laragram\Telegram\Keyboards\InlineKeyboard;
+use Wekser\Laragram\Telegram\Keyboards\ReplyKeyboard;
 use Wekser\Laragram\Tests\TestCase;
 
 #[CoversClass(BotResponse::class)]
@@ -487,6 +490,44 @@ class BotResponseTest extends TestCase
         $this->assertCount(2, $keyboard[0]);
         // Second row: Back (after row() call)
         $this->assertSame('Back', $keyboard[1][0]['text']);
+    }
+
+    // -------------------------------------------------------------------------
+    // keyboard() — empty markup
+    // -------------------------------------------------------------------------
+
+    /**
+     * The programmatic twin of a conditional keyboard component: a builder whose
+     * every button sat behind a false condition attaches nothing, rather than
+     * sending an empty reply_markup.
+     */
+    public function test_keyboard_ignores_a_builder_that_produced_no_buttons(): void
+    {
+        $response = $this->make()->text('Hi')->keyboard(InlineKeyboard::make()->toArray());
+
+        $this->assertArrayNotHasKey('reply_markup', $response->contents);
+    }
+
+    public function test_keyboard_ignores_an_empty_reply_builder(): void
+    {
+        $response = $this->make()->text('Hi')->keyboard(ReplyKeyboard::make()->toArray());
+
+        $this->assertArrayNotHasKey('reply_markup', $response->contents);
+    }
+
+    /** A removal markup carries no buttons by design — it must still attach. */
+    public function test_keyboard_still_attaches_a_remove_markup(): void
+    {
+        $response = $this->make()->text('Hi')->keyboard(ReplyKeyboard::remove());
+
+        $this->assertSame(['remove_keyboard' => true], $response->contents['reply_markup']);
+    }
+
+    public function test_keyboard_still_attaches_a_force_reply_markup(): void
+    {
+        $response = $this->make()->text('Hi')->keyboard(ForceReply::make()->toArray());
+
+        $this->assertSame(['force_reply' => true], $response->contents['reply_markup']);
     }
 
     // -------------------------------------------------------------------------
