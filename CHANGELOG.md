@@ -7,10 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [v2.0.0] (2026-07-31)
 
-A major release: a redesigned namespace structure, an auth driver system, scenes (wizards), group
-and forum-topic support, payments, inline mode, mass broadcasting, a bundled admin panel, optional
-queue offload, and a full test suite. It contains breaking changes; deprecated aliases are provided
-where possible to ease migration.
+A major release: a redesigned namespace structure, an auth driver system, scenes (wizards), group and forum-topic support, payments, inline mode, mass broadcasting, a bundled admin panel, optional queue offload, and a full test suite. It contains breaking changes; deprecated aliases are provided where possible to ease migration.
 
 ### Added
 
