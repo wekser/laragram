@@ -149,7 +149,7 @@ class LaragramServiceProvider extends ServiceProvider
                 );
             }
 
-            return new BotAPI($token);
+            return new BotAPI($token, (array) $this->config('telegram'));
         });
     }
 

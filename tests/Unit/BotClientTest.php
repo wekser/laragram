@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Wekser\Laragram\BotClient;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
+use Wekser\Laragram\Exceptions\TransportException;
 
 #[CoversClass(BotClient::class)]
 class BotClientTest extends TestCase
@@ -246,10 +247,327 @@ class BotClientTest extends TestCase
         $this->assertSame(3, $options[CURLOPT_MAXREDIRS]);
     }
 
+    // -------------------------------------------------------------------------
+    // Transport tuning setters
+    // -------------------------------------------------------------------------
+
+    public function test_set_retries_returns_same_instance(): void
+    {
+        $client = new BotClient(self::VALID_TOKEN);
+
+        $this->assertSame($client, $client->setRetries(3));
+    }
+
+    public function test_set_retries_throws_when_negative(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new BotClient(self::VALID_TOKEN))->setRetries(-1);
+    }
+
+    public function test_set_retries_throws_when_above_max(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new BotClient(self::VALID_TOKEN))->setRetries(6);
+    }
+
+    public function test_set_retry_delay_throws_when_negative(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new BotClient(self::VALID_TOKEN))->setRetryDelay(-1);
+    }
+
+    public function test_set_retry_delay_throws_when_above_max(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new BotClient(self::VALID_TOKEN))->setRetryDelay(10001);
+    }
+
+    public function test_set_ip_version_throws_on_unsupported_value(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new BotClient(self::VALID_TOKEN))->setIpVersion(5);
+    }
+
+    public function test_set_ip_version_accepts_null(): void
+    {
+        $client = new BotClient(self::VALID_TOKEN);
+
+        $this->assertSame($client, $client->setIpVersion(null));
+    }
+
+    // -------------------------------------------------------------------------
+    // buildCurlOptions — IP version & proxy
+    // -------------------------------------------------------------------------
+
+    public function test_build_curl_options_omits_ip_resolve_by_default(): void
+    {
+        $options = $this->buildCurlOptions(new BotClient(self::VALID_TOKEN), 'https://api.telegram.org/botX/getMe', []);
+
+        $this->assertArrayNotHasKey(CURLOPT_IPRESOLVE, $options);
+        $this->assertArrayNotHasKey(CURLOPT_PROXY, $options);
+    }
+
+    public function test_build_curl_options_pins_ipv4_when_configured(): void
+    {
+        $client = (new BotClient(self::VALID_TOKEN))->setIpVersion(4);
+
+        $options = $this->buildCurlOptions($client, 'https://api.telegram.org/botX/getMe', []);
+
+        $this->assertSame(CURL_IPRESOLVE_V4, $options[CURLOPT_IPRESOLVE]);
+    }
+
+    public function test_build_curl_options_sets_proxy_when_configured(): void
+    {
+        $client = (new BotClient(self::VALID_TOKEN))->setProxy('http://proxy.local:3128');
+
+        $options = $this->buildCurlOptions($client, 'https://api.telegram.org/botX/getMe', []);
+
+        $this->assertSame('http://proxy.local:3128', $options[CURLOPT_PROXY]);
+    }
+
+    public function test_build_curl_options_treats_empty_proxy_as_disabled(): void
+    {
+        $client = (new BotClient(self::VALID_TOKEN))->setProxy('');
+
+        $options = $this->buildCurlOptions($client, 'https://api.telegram.org/botX/getMe', []);
+
+        $this->assertArrayNotHasKey(CURLOPT_PROXY, $options);
+    }
+
+    // -------------------------------------------------------------------------
+    // Transport retries
+    // -------------------------------------------------------------------------
+
+    public function test_retries_a_connect_failure_and_returns_the_successful_body(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(2)->setRetryDelay(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(7, 'Failed to connect'),
+            RetryingClientDouble::success('{"ok":true}'),
+        ];
+
+        $this->assertSame('{"ok":true}', $this->makeCurlRequest($client));
+        $this->assertSame(2, $client->attempts);
+    }
+
+    public function test_gives_up_after_the_configured_number_of_retries(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(2)->setRetryDelay(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(35, 'SSL connect error'),
+            RetryingClientDouble::failure(35, 'SSL connect error'),
+            RetryingClientDouble::failure(35, 'SSL connect error'),
+        ];
+
+        try {
+            $this->makeCurlRequest($client);
+            $this->fail('Expected a TransportException.');
+        } catch (TransportException $exception) {
+            $this->assertSame(35, $exception->getCode());
+            $this->assertSame(3, $exception->attempts);
+        }
+
+        $this->assertSame(3, $client->attempts);
+    }
+
+    /**
+     * The reported production failure: cURL 28 raised during the TLS handshake.
+     * Nothing was sent, so repeating it cannot duplicate a message.
+     */
+    public function test_retries_a_timeout_that_happened_before_anything_was_sent(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(1)->setRetryDelay(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(28, 'SSL connection timeout', pretransferTime: 0.0),
+            RetryingClientDouble::success('{"ok":true}'),
+        ];
+
+        $this->assertSame('{"ok":true}', $this->makeCurlRequest($client));
+        $this->assertSame(2, $client->attempts);
+    }
+
+    /**
+     * Idempotency guard: the same errno raised AFTER the request body went out
+     * must not be repeated — Telegram may well have delivered the message, and
+     * a retry would send it twice.
+     */
+    public function test_does_not_retry_a_timeout_that_happened_after_the_request_was_sent(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(3)->setRetryDelay(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(28, 'Operation timed out', pretransferTime: 0.42),
+        ];
+
+        $this->expectException(TransportException::class);
+
+        try {
+            $this->makeCurlRequest($client);
+        } finally {
+            $this->assertSame(1, $client->attempts);
+        }
+    }
+
+    public function test_does_not_retry_a_non_transport_curl_error(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(3)->setRetryDelay(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(43, 'A libcurl function was given a bad argument'),
+        ];
+
+        $this->expectException(TransportException::class);
+
+        try {
+            $this->makeCurlRequest($client);
+        } finally {
+            $this->assertSame(1, $client->attempts);
+        }
+    }
+
+    public function test_does_not_retry_when_retries_are_disabled(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(7, 'Failed to connect'),
+        ];
+
+        $this->expectException(TransportException::class);
+
+        try {
+            $this->makeCurlRequest($client);
+        } finally {
+            $this->assertSame(1, $client->attempts);
+        }
+    }
+
+    /**
+     * A connection dropped mid-flight (52/55/56) is deliberately NOT retried:
+     * the request body is already on the wire by then, so Telegram may have
+     * acted on it and a retry would deliver the same message twice.
+     */
+    public function test_does_not_retry_a_connection_dropped_mid_flight(): void
+    {
+        foreach ([52, 55, 56] as $errno) {
+            $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetries(3)->setRetryDelay(0);
+            $client->outcomes = [
+                RetryingClientDouble::failure($errno, 'Connection lost', pretransferTime: 0.2),
+            ];
+
+            try {
+                $this->makeCurlRequest($client);
+                $this->fail("Expected a TransportException for cURL errno {$errno}.");
+            } catch (TransportException) {
+                $this->assertSame(1, $client->attempts, "cURL errno {$errno} must not be retried.");
+            }
+        }
+    }
+
+    /**
+     * The documented default has to hold without any config: mergeConfigFrom()
+     * merges at the top level only, so an app that published config/laragram.php
+     * before these keys existed passes none of them through.
+     */
+    public function test_retries_are_enabled_by_default(): void
+    {
+        $client = (new RetryingClientDouble(self::VALID_TOKEN))->setRetryDelay(0);
+        $client->outcomes = [
+            RetryingClientDouble::failure(7, 'Failed to connect'),
+            RetryingClientDouble::failure(7, 'Failed to connect'),
+            RetryingClientDouble::success('{"ok":true}'),
+        ];
+
+        $this->assertSame('{"ok":true}', $this->makeCurlRequest($client));
+        $this->assertSame(3, $client->attempts);
+    }
+
+    /**
+     * A connect budget above the total budget would let CURLOPT_TIMEOUT fire
+     * first, so every handshake failure would cost a full timeout and the retry
+     * chain would run (retries + 1) x timeout instead of x connect_timeout.
+     */
+    public function test_build_curl_options_clamps_connect_timeout_to_the_total_timeout(): void
+    {
+        $client = (new BotClient(self::VALID_TOKEN))->setConnectTimeout(60)->setTimeout(30);
+
+        $options = $this->buildCurlOptions($client, 'https://api.telegram.org/botX/getMe', []);
+
+        $this->assertSame(30, $options[CURLOPT_TIMEOUT]);
+        $this->assertSame(30, $options[CURLOPT_CONNECTTIMEOUT]);
+    }
+
+    public function test_build_curl_options_keeps_a_connect_timeout_below_the_total_timeout(): void
+    {
+        $client = (new BotClient(self::VALID_TOKEN))->setConnectTimeout(5)->setTimeout(30);
+
+        $options = $this->buildCurlOptions($client, 'https://api.telegram.org/botX/getMe', []);
+
+        $this->assertSame(5, $options[CURLOPT_CONNECTTIMEOUT]);
+    }
+
+    private function makeCurlRequest(BotClient $client): string
+    {
+        $method = new \ReflectionMethod(BotClient::class, 'makeCurlRequest');
+
+        return $method->invoke($client, 'https://api.telegram.org/botX/sendMessage', ['text' => 'hi']);
+    }
+
     private function buildCurlOptions(BotClient $client, string $url, array $data): array
     {
         $method = new \ReflectionMethod(BotClient::class, 'buildCurlOptions');
 
         return $method->invoke($client, $url, $data);
+    }
+}
+
+/**
+ * Replaces the network with a scripted list of cURL outcomes so the retry loop
+ * can be driven deterministically. Running out of scripted outcomes throws, so
+ * a runaway loop fails the test instead of hanging the suite.
+ */
+class RetryingClientDouble extends BotClient
+{
+    /** @var array<int, array<string, mixed>> */
+    public array $outcomes = [];
+
+    public int $attempts = 0;
+
+    public static function success(string $body, int $httpCode = 200): array
+    {
+        return [
+            'result'          => $body,
+            'httpCode'        => $httpCode,
+            'error'           => '',
+            'errorCode'       => 0,
+            'pretransferTime' => 0.1,
+        ];
+    }
+
+    public static function failure(int $errorCode, string $error, float $pretransferTime = 0.0): array
+    {
+        return [
+            'result'          => false,
+            'httpCode'        => 0,
+            'error'           => $error,
+            'errorCode'       => $errorCode,
+            'pretransferTime' => $pretransferTime,
+        ];
+    }
+
+    protected function executeCurl(string $url, array $data): array
+    {
+        $this->attempts++;
+
+        // Running past the script means the retry loop attempted more calls than
+        // the test expected. Fail loudly: falling back to the last outcome would
+        // let a runaway loop pass as a success.
+        if (!isset($this->outcomes[$this->attempts - 1])) {
+            throw new \LogicException("No scripted cURL outcome for attempt {$this->attempts}.");
+        }
+
+        return $this->outcomes[$this->attempts - 1];
     }
 }

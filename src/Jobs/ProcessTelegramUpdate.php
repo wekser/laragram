@@ -60,7 +60,7 @@ class ProcessTelegramUpdate implements ShouldQueue, ShouldBeEncrypted
      * This is safe from poison-job loops because handle() catches every Throwable
      * (delivery errors are logged, never rethrown), so the only thing that ever
      * re-queues this job is benign, self-clearing back-pressure: the overlap lock
-     * expires after 30s and the rate limiter drains as load falls.
+     * expires (see OVERLAP_LOCK_TTL) and the rate limiter drains as load falls.
      *
      * @var int
      */
@@ -69,13 +69,26 @@ class ProcessTelegramUpdate implements ShouldQueue, ShouldBeEncrypted
     /**
      * Hard cap on how long one update may take on a worker.
      *
-     * BotClient already caps each outbound call (CURLOPT_TIMEOUT = 30s), so a
-     * single send can't hang a worker; this bounds a whole multi-message batch
-     * as a safety net and releases the per-sender overlap lock promptly.
+     * BotClient bounds a single send at (retries + 1) x connect_timeout for a
+     * failure that never connects, and at timeout for one that hangs mid-call —
+     * roughly 31s and 30s with the shipped defaults. This bounds a whole
+     * multi-message batch on top of that. Raise it if you configure a larger
+     * telegram.timeout or telegram.retries, and keep OVERLAP_LOCK_TTL above it.
      *
      * @var int
      */
     public int $timeout = 60;
+
+    /**
+     * How long the per-sender overlap lock is held before it is considered stale.
+     *
+     * It MUST outlive $timeout. The lock exists to stop two updates from one user
+     * running at once; if it expired while the job was still running — which a
+     * single slow batch is enough to do — another worker would pick up that
+     * user's next update and race it on the same session row, which is precisely
+     * what the lock is there to prevent.
+     */
+    private const OVERLAP_LOCK_TTL = 90;
 
     /**
      * @param array<string, mixed> $update The raw Telegram update payload.
@@ -107,7 +120,7 @@ class ProcessTelegramUpdate implements ShouldQueue, ShouldBeEncrypted
             ?? uniqid('laragram_', true);
 
         return [
-            (new WithoutOverlapping((string) $key))->releaseAfter(5)->expireAfter(30),
+            (new WithoutOverlapping((string) $key))->releaseAfter(5)->expireAfter(self::OVERLAP_LOCK_TTL),
             new RateLimited('laragram'),
         ];
     }

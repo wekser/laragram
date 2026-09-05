@@ -129,11 +129,70 @@ class BotAPI
     protected BotClient $client;
 
     /**
-     * @param string $token
+     * @param string $token   The bot token
+     * @param array  $options Transport options from config('laragram.telegram'):
+     *                        timeout, connect_timeout, retries, retry_delay,
+     *                        ip_version, proxy. Unknown keys are ignored.
      */
-    public function __construct(string $token)
+    public function __construct(string $token, array $options = [])
     {
         $this->client = new BotClient($token);
+
+        $this->configureTransport($options);
+    }
+
+    /**
+     * Apply the configured transport options to the underlying client.
+     *
+     * Only keys that carry an actual value are applied, so an unset entry leaves
+     * the client's own default in place. A blank one counts as unset: these
+     * values come from env(), where a bare "LARAGRAM_API_TIMEOUT=" line yields
+     * an empty string rather than null — casting that to 0 and handing it to a
+     * setter would throw out of the container binding and take down every
+     * outbound call over what reads like a commented-out setting.
+     *
+     * A value that is present but invalid still throws: a misconfigured timeout
+     * is a deployment error, not something to swallow.
+     */
+    protected function configureTransport(array $options): void
+    {
+        if (($timeout = $this->option($options, 'timeout')) !== null) {
+            $this->client->setTimeout((int) $timeout);
+        }
+
+        if (($connectTimeout = $this->option($options, 'connect_timeout')) !== null) {
+            $this->client->setConnectTimeout((int) $connectTimeout);
+        }
+
+        if (($retries = $this->option($options, 'retries')) !== null) {
+            $this->client->setRetries((int) $retries);
+        }
+
+        if (($retryDelay = $this->option($options, 'retry_delay')) !== null) {
+            $this->client->setRetryDelay((int) $retryDelay);
+        }
+
+        if (($ipVersion = $this->option($options, 'ip_version')) !== null) {
+            $this->client->setIpVersion((int) $ipVersion);
+        }
+
+        if (($proxy = $this->option($options, 'proxy')) !== null) {
+            $this->client->setProxy((string) $proxy);
+        }
+    }
+
+    /**
+     * Read one transport option, treating null and a blank string as absent.
+     */
+    private function option(array $options, string $key): mixed
+    {
+        $value = $options[$key] ?? null;
+
+        if ($value === null || (is_string($value) && trim($value) === '')) {
+            return null;
+        }
+
+        return $value;
     }
 
     /**

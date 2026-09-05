@@ -114,7 +114,10 @@ class MediaDownloader
 
         // Bound the request so a stalled file server cannot hang the worker
         // (mirrors BotClient's timeout hardening).
-        $response = Http::timeout($this->timeout())->connectTimeout(10)->get($url);
+        $response = Http::timeout($this->timeout())
+            ->connectTimeout($this->connectTimeout())
+            ->withOptions($this->transportOptions())
+            ->get($url);
 
         if ($response->failed()) {
             throw new \RuntimeException("Failed to download file (HTTP {$response->status()}).");
@@ -157,6 +160,54 @@ class MediaDownloader
     private function timeout(): int
     {
         return max(1, (int) config('laragram.downloads.timeout', 30));
+    }
+
+    /**
+     * Connect budget for the download, shared with the Bot API client.
+     *
+     * Downloads go to the same host as every other call, so a host that needs a
+     * larger handshake budget (or the IPv4 pin / proxy below) to reach
+     * api.telegram.org needs it here too — otherwise sends recover and incoming
+     * files keep failing. Never larger than the whole-request budget.
+     */
+    private function connectTimeout(): int
+    {
+        $configured = config('laragram.telegram.connect_timeout');
+
+        $connect = ($configured === null || $configured === '')
+            ? 10
+            : max(1, (int) $configured);
+
+        return min($connect, $this->timeout());
+    }
+
+    /**
+     * Guzzle options carrying the shared transport config: the IP version pin
+     * and the outgoing proxy.
+     *
+     * @return array<string, mixed>
+     */
+    private function transportOptions(): array
+    {
+        $options = [];
+
+        $ipVersion = config('laragram.telegram.ip_version');
+
+        if ($ipVersion !== null && $ipVersion !== '') {
+            $options['curl'] = [
+                CURLOPT_IPRESOLVE => ((int) $ipVersion) === 6
+                    ? CURL_IPRESOLVE_V6
+                    : CURL_IPRESOLVE_V4,
+            ];
+        }
+
+        $proxy = config('laragram.telegram.proxy');
+
+        if ($proxy !== null && $proxy !== '') {
+            $options['proxy'] = (string) $proxy;
+        }
+
+        return $options;
     }
 
     private function token(): string

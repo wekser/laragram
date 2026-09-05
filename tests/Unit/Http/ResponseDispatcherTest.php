@@ -14,6 +14,7 @@ namespace Wekser\Laragram\Tests\Unit\Http;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Wekser\Laragram\Exceptions\BotBlockedException;
+use Wekser\Laragram\Exceptions\TransportException;
 use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Testing\RecordingBotAPI;
 use Wekser\Laragram\Tests\TestCase;
@@ -74,6 +75,26 @@ class ResponseDispatcherTest extends TestCase
 
         // Both were attempted; the second still went through.
         $this->assertSame(['sendMessage', 'sendPhoto'], array_column($api->calls, 'method'));
+    }
+
+    /**
+     * A transport failure means the network to Telegram is down right now —
+     * BotClient has already retried it. Pushing the rest of the batch would burn
+     * a connect timeout per message and risk the webhook itself timing out.
+     */
+    public function test_stops_after_transport_error(): void
+    {
+        $api = new RecordingBotAPI(
+            throwOn: 'sendMessage',
+            exception: new TransportException('cURL error: SSL connection timeout', 28, 3)
+        );
+
+        (new ResponseDispatcher($api))->send([
+            ['method' => 'sendMessage', 'chat_id' => 1, 'text' => 'times out'],
+            ['method' => 'sendPhoto', 'chat_id' => 1, 'photo' => 'abc'],
+        ]);
+
+        $this->assertSame(['sendMessage'], array_column($api->calls, 'method'));
     }
 
     public function test_stops_after_terminal_error(): void

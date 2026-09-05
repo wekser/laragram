@@ -39,8 +39,9 @@ class ResponseDispatcher
      *
      * Delivery is best-effort and resilient: a failure on one message is logged
      * via ExceptionHandler and the batch continues — unless the failure means the
-     * user is unreachable (blocked, deactivated, chat gone), in which case the
-     * remaining messages are skipped.
+     * user is unreachable (blocked, deactivated, chat gone) or the network to
+     * Telegram is down (TransportException, already retried by BotClient), in
+     * which case the remaining messages are skipped.
      *
      * @param array<int, array<string, mixed>> $views
      */
@@ -60,7 +61,7 @@ class ResponseDispatcher
             } catch (\Throwable $exception) {
                 ExceptionHandler::handle($exception);
 
-                if (ExceptionHandler::isTerminal($exception)) {
+                if (ExceptionHandler::isTerminal($exception) || ExceptionHandler::isTransport($exception)) {
                     break;
                 }
             }

@@ -14,6 +14,7 @@ namespace Wekser\Laragram;
 
 use Illuminate\Support\Arr;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
+use Wekser\Laragram\Exceptions\TransportException;
 use Wekser\Laragram\Services\TelegramErrorHandler;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -35,6 +36,44 @@ class BotClient
      * caller accidentally setting a value that hangs the worker indefinitely.
      */
     private const MAX_TIMEOUT = 300;
+
+    /**
+     * Upper bound for the retry count a caller may configure.
+     */
+    private const MAX_RETRIES = 5;
+
+    /**
+     * Upper bound (milliseconds) for the base retry delay.
+     */
+    private const MAX_RETRY_DELAY = 10000;
+
+    /**
+     * cURL error numbers worth retrying: these mean the call failed on the
+     * network, not on Telegram's side, so another attempt has a real chance.
+     *
+     * A Telegram API error (ok: false) is never in here — it is deterministic
+     * and repeating it would only waste a round-trip. Neither are the codes for
+     * a connection lost mid-flight (52 GOT_NOTHING, 55 SEND_ERROR, 56
+     * RECV_ERROR): by the time they can fire the request body is already on the
+     * wire, so Telegram may well have acted on it and a retry would deliver the
+     * same message twice. Without an idempotency key that is not a trade worth
+     * making — those surface as a TransportException on the first attempt.
+     */
+    private const RETRYABLE_CURL_ERRORS = [
+        5,  // CURLE_COULDNT_RESOLVE_PROXY
+        6,  // CURLE_COULDNT_RESOLVE_HOST
+        7,  // CURLE_COULDNT_CONNECT
+        28, // CURLE_OPERATION_TIMEDOUT — includes "SSL connection timeout"
+        35, // CURLE_SSL_CONNECT_ERROR
+    ];
+
+    /**
+     * The subset of RETRYABLE_CURL_ERRORS that can only fire before a byte of
+     * the request body has left the machine, so a retry can never duplicate a
+     * message. Only errno 28 is left out: a timeout can land either side of the
+     * send, so it needs the runtime check in isSafeToRetry().
+     */
+    private const CONNECT_PHASE_CURL_ERRORS = [5, 6, 7, 35];
 
     /**
      * Default cURL options.
@@ -81,6 +120,31 @@ class BotClient
      * Connection timeout in seconds.
      */
     private int $connectTimeout = 10;
+
+    /**
+     * Extra attempts made after a transport-level failure (0 = no retry).
+     *
+     * This mirrors the config default on purpose. Laravel's mergeConfigFrom()
+     * merges only at the top level, so a host app that published config/laragram.php
+     * before these keys existed replaces the whole 'telegram' block and passes
+     * none of them — the client must still behave as documented.
+     */
+    private int $retries = 2;
+
+    /**
+     * Base delay between retries in milliseconds; doubled on every attempt.
+     */
+    private int $retryDelay = 300;
+
+    /**
+     * Force an IP version for outgoing requests: 4, 6, or null for automatic.
+     */
+    private ?int $ipVersion = null;
+
+    /**
+     * Outgoing proxy for API calls, e.g. "http://user:pass@host:3128".
+     */
+    private ?string $proxy = null;
 
     /**
      * BotClient Constructor
@@ -186,6 +250,75 @@ class BotClient
     }
 
     /**
+     * Set how many extra attempts are made after a transport-level failure.
+     *
+     * @param int $retries Number of retries (0 disables retrying)
+     * @return $this
+     */
+    public function setRetries(int $retries): self
+    {
+        if ($retries < 0 || $retries > self::MAX_RETRIES) {
+            throw new \InvalidArgumentException(
+                sprintf('Retries must be between 0 and %d.', self::MAX_RETRIES)
+            );
+        }
+
+        $this->retries = $retries;
+        return $this;
+    }
+
+    /**
+     * Set the base delay between retries. The delay doubles on each attempt,
+     * so 300ms yields 300ms, 600ms, 1200ms, …
+     *
+     * @param int $milliseconds Base delay (0 retries immediately)
+     * @return $this
+     */
+    public function setRetryDelay(int $milliseconds): self
+    {
+        if ($milliseconds < 0 || $milliseconds > self::MAX_RETRY_DELAY) {
+            throw new \InvalidArgumentException(
+                sprintf('Retry delay must be between 0 and %d milliseconds.', self::MAX_RETRY_DELAY)
+            );
+        }
+
+        $this->retryDelay = $milliseconds;
+        return $this;
+    }
+
+    /**
+     * Pin outgoing requests to an IP version.
+     *
+     * Hosts with broken or blackholed IPv6 routing to api.telegram.org stall in
+     * the TLS handshake until the connect timeout expires; forcing 4 skips the
+     * AAAA record entirely.
+     *
+     * @param int|null $version 4, 6, or null for automatic
+     * @return $this
+     */
+    public function setIpVersion(?int $version): self
+    {
+        if ($version !== null && $version !== 4 && $version !== 6) {
+            throw new \InvalidArgumentException('IP version must be 4, 6 or null.');
+        }
+
+        $this->ipVersion = $version;
+        return $this;
+    }
+
+    /**
+     * Route API calls through a proxy (null or an empty string disables it).
+     *
+     * @param string|null $proxy Proxy URL accepted by CURLOPT_PROXY
+     * @return $this
+     */
+    public function setProxy(?string $proxy): self
+    {
+        $this->proxy = ($proxy === null || $proxy === '') ? null : $proxy;
+        return $this;
+    }
+
+    /**
      * Get the bot token (masked for security).
      *
      * @return string Masked token
@@ -276,53 +409,148 @@ class BotClient
     }
 
     /**
-     * Make a cURL request to the API.
+     * Make a cURL request to the API, retrying transport-level failures.
+     *
+     * A failure that never reached Telegram (DNS, connect, TLS handshake,
+     * timeout, dropped connection) is repeated up to $retries times, but only
+     * when isSafeToRetry() can prove the request body never went out — see
+     * there for why that matters.
      *
      * @param string $url The request URL
      * @param array $data Request data
      * @return string Response body
+     * @throws TransportException When the transport failed and no retry is left
      * @throws ClientResponseInvalidException
      */
     private function makeCurlRequest(string $url, array $data): string
     {
+        $attempt = 0;
+
+        while (true) {
+            $attempt++;
+
+            $outcome = $this->executeCurl($url, $data);
+
+            if ($outcome['result'] !== false) {
+                // Telegram returns JSON error bodies for 4xx/5xx — let processResponse()
+                // parse them and dispatch to TelegramErrorHandler for typed exceptions.
+                // Only throw here for transport-level failures (no body at all).
+                if ($outcome['httpCode'] >= 400 && empty($outcome['result'])) {
+                    throw new ClientResponseInvalidException(
+                        "HTTP error {$outcome['httpCode']} with empty response body",
+                        $outcome['httpCode']
+                    );
+                }
+
+                return (string) $outcome['result'];
+            }
+
+            $canRetry = $attempt <= $this->retries
+                && $this->isSafeToRetry($outcome['errorCode'], $outcome['pretransferTime']);
+
+            if (!$canRetry) {
+                throw new TransportException(
+                    "cURL error: {$outcome['error']}",
+                    $outcome['errorCode'],
+                    $attempt
+                );
+            }
+
+            $this->logger->warning('Retrying Telegram API request after a transport failure', [
+                'attempt' => $attempt,
+                'error'   => $outcome['error'],
+                'code'    => $outcome['errorCode'],
+            ]);
+
+            $this->sleepBeforeRetry($attempt);
+        }
+    }
+
+    /**
+     * Perform a single cURL attempt.
+     *
+     * Returns the raw outcome instead of throwing so makeCurlRequest() can decide
+     * whether the failure is worth another attempt. 'pretransferTime' is what the
+     * idempotency check is built on: cURL only sets it once the connection is
+     * established and it is about to push the request body, so a zero means
+     * nothing was ever sent.
+     *
+     * Protected rather than private so a test double can simulate a transport
+     * outcome without a network.
+     *
+     * @return array{result: string|bool, httpCode: int, error: string, errorCode: int, pretransferTime: float}
+     * @throws ClientResponseInvalidException
+     */
+    protected function executeCurl(string $url, array $data): array
+    {
         $ch = curl_init();
-        
+
         if ($ch === false) {
             throw new ClientResponseInvalidException('Failed to initialize cURL');
         }
 
         $options = $this->buildCurlOptions($url, $data);
-        
+
         if (!curl_setopt_array($ch, $options)) {
             curl_close($ch);
             throw new ClientResponseInvalidException('Failed to set cURL options');
         }
 
-        $result = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
+        $result    = curl_exec($ch);
+        $httpCode  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $preTime   = (float) curl_getinfo($ch, CURLINFO_PRETRANSFER_TIME);
+        $error     = curl_error($ch);
         $errorCode = curl_errno($ch);
-        
+
         curl_close($ch);
 
-        if ($result === false) {
-            throw new ClientResponseInvalidException(
-                "cURL error: {$error}",
-                $errorCode
-            );
+        return [
+            'result'          => $result,
+            'httpCode'        => $httpCode,
+            'error'           => $error,
+            'errorCode'       => $errorCode,
+            'pretransferTime' => $preTime,
+        ];
+    }
+
+    /**
+     * Decide whether a failed attempt may be repeated.
+     *
+     * Telegram has no idempotency key, so replaying a sendMessage that actually
+     * reached the API would deliver the message twice. Connect-phase errors are
+     * unconditionally safe — the connection never came up. The remaining codes
+     * (timeout, dropped connection) can fire either side of the send, so they
+     * are only repeated when cURL never got as far as writing the body.
+     */
+    private function isSafeToRetry(int $errorCode, float $pretransferTime): bool
+    {
+        if (!in_array($errorCode, self::RETRYABLE_CURL_ERRORS, true)) {
+            return false;
         }
 
-        // Telegram returns JSON error bodies for 4xx/5xx — let processResponse()
-        // parse them and dispatch to TelegramErrorHandler for typed exceptions.
-        // Only throw here for transport-level failures (no body at all).
-        if ($httpCode >= 400 && empty($result)) {
-            throw new ClientResponseInvalidException(
-                "HTTP error {$httpCode} with empty response body",
-                $httpCode
-            );
+        if (in_array($errorCode, self::CONNECT_PHASE_CURL_ERRORS, true)) {
+            return true;
         }
 
-        return $result;
+        return $pretransferTime <= 0.0;
+    }
+
+    /**
+     * Wait before the next attempt, doubling the base delay each time.
+     *
+     * The delay is jittered down by up to half. Without it every worker that hit
+     * the same outage retries in lockstep and hammers the endpoint hardest at the
+     * moment it recovers.
+     */
+    private function sleepBeforeRetry(int $attempt): void
+    {
+        if ($this->retryDelay <= 0) {
+            return;
+        }
+
+        $delay = $this->retryDelay * 1000 * (2 ** ($attempt - 1));
+
+        usleep((int) ($delay * random_int(50, 100) / 100));
     }
 
     /**
@@ -339,7 +567,26 @@ class BotClient
         $options[CURLOPT_URL] = $url;
         $options[CURLOPT_POSTFIELDS] = $data;
         $options[CURLOPT_TIMEOUT] = $this->timeout;
-        $options[CURLOPT_CONNECTTIMEOUT] = $this->connectTimeout;
+
+        // A connect budget larger than the whole-call budget is meaningless:
+        // CURLOPT_TIMEOUT would fire first, so every handshake failure would cost
+        // a full timeout instead of a connect timeout and the retry chain would
+        // run (retries + 1) x timeout. Clamped rather than rejected in the
+        // setters, which are independent and would otherwise reject a valid pair
+        // depending on the order they are called in.
+        $options[CURLOPT_CONNECTTIMEOUT] = min($this->connectTimeout, $this->timeout);
+
+        // Transport tuning wins over setCurlOptions(): both come from the host
+        // app, and the explicit setter is the documented knob.
+        if ($this->ipVersion !== null) {
+            $options[CURLOPT_IPRESOLVE] = $this->ipVersion === 4
+                ? CURL_IPRESOLVE_V4
+                : CURL_IPRESOLVE_V6;
+        }
+
+        if ($this->proxy !== null) {
+            $options[CURLOPT_PROXY] = $this->proxy;
+        }
 
         // Security-critical: user-supplied curlOptions must never be able to
         // weaken TLS verification or open unbounded redirects (SSRF). Re-apply

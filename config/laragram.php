@@ -30,6 +30,42 @@ return [
         // "@botusername" suffix Telegram appends to commands in group chats
         // ("/start@MyBot"). When empty, any "@suffix" on a command is stripped.
         'username' => env('LARAGRAM_BOT_USERNAME'),
+
+        // Transport tuning for every outgoing call to api.telegram.org.
+        //
+        // "timeout" is the total cURL time budget for one call and
+        // "connect_timeout" the budget for DNS + TCP + TLS handshake alone
+        // (both in seconds, 1..300).
+        //
+        // "retries" is how many EXTRA attempts are made when a call fails
+        // before it reaches Telegram — DNS, connect, TLS handshake, or a
+        // timeout during the handshake. Telegram API errors (ok: false) are
+        // never retried, and neither is a connection lost mid-flight: Telegram
+        // has no idempotency key, so an attempt is only repeated when the
+        // request body demonstrably never left the machine and a retry cannot
+        // deliver the same message twice. "retry_delay" is the base pause in
+        // milliseconds; it doubles on every attempt (300, 600, 1200…) with a
+        // little jitter so many workers don't retry in lockstep.
+        //
+        // Budget accordingly: a call that never connects costs up to
+        // (retries + 1) x connect_timeout. Raise Jobs\ProcessTelegramUpdate's
+        // $timeout (and its OVERLAP_LOCK_TTL above it) if you raise either.
+        //
+        // "ip_version" pins outgoing requests to 4 or 6 (null = automatic). Set
+        // it to 4 on hosts whose IPv6 route to Telegram blackholes — the symptom
+        // is a "cURL error: SSL connection timeout" (errno 28) on every send.
+        //
+        // "proxy" routes API calls through a proxy (CURLOPT_PROXY syntax),
+        // for hosting whose network path to Telegram is blocked or throttled.
+        //
+        // connect_timeout, ip_version and proxy also apply to file downloads
+        // (Services\MediaDownloader) — they hit the same host.
+        'timeout'         => env('LARAGRAM_API_TIMEOUT', 30),
+        'connect_timeout' => env('LARAGRAM_API_CONNECT_TIMEOUT', 10),
+        'retries'         => env('LARAGRAM_API_RETRIES', 2),
+        'retry_delay'     => env('LARAGRAM_API_RETRY_DELAY', 300),
+        'ip_version'      => env('LARAGRAM_API_IP_VERSION'),
+        'proxy'           => env('LARAGRAM_API_PROXY'),
     ],
 
     /*

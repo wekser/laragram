@@ -96,6 +96,22 @@ class ExceptionHandler
     }
 
     /**
+     * Whether the exception is a transport-level failure — the call never
+     * reached Telegram (DNS, connect, TLS handshake, timeout, dropped
+     * connection). BotClient has already retried it as far as its config and
+     * idempotency guard allow, so the network is, right now, unusable.
+     *
+     * ResponseDispatcher stops the batch on one of these: every remaining
+     * message would burn its own connect timeout on the same dead path, and a
+     * webhook that keeps the HTTP worker busy long enough gets the update
+     * redelivered by Telegram.
+     */
+    public static function isTransport(\Throwable $exception): bool
+    {
+        return $exception instanceof TransportException;
+    }
+
+    /**
      * Log the exception.
      */
     protected static function report(\Throwable $exception): void

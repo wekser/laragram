@@ -768,6 +768,10 @@ Event::listen(function (BotExceptionHandled $e) {
 
 Listening is optional (no listener = near-zero-cost no-op); dispatch is guarded, so a faulty listener can never break exception handling.
 
+**Network failures are retried.** A call that fails before reaching Telegram — DNS, connect, TLS handshake, or a timeout during the handshake — is retried with a jittered exponential back-off (`telegram.retries`, default 2). Telegram API errors are never retried, and neither is an attempt whose request body already went out, so a retry can never deliver the same message twice. When the retries run out you get a `TransportException`; the rest of that message batch is skipped rather than burning a connect timeout each.
+
+A recurring `cURL error: SSL connection timeout` (cURL errno 28) is a network problem on your server, not a bot bug — most often a blackholed IPv6 route to `api.telegram.org`. Compare `curl -4 -o /dev/null -w '%{time_appconnect}\n' https://api.telegram.org/` with the same command without `-4`; if `-4` is healthy, set `LARAGRAM_API_IP_VERSION=4`. If the hosting blocks Telegram outright, `LARAGRAM_API_PROXY` routes calls through a proxy.
+
 ---
 
 ## Testing
@@ -823,6 +827,9 @@ class StartCommandTest extends TestCase
 | `bot.languages` | `['en']` | Locales your views are translated into |
 | `rate.max_attempts` · `rate.decay_seconds` | `60` · `60` | Per-user inbound rate limit |
 | `security.verify_secret` | `true` | Validate the `X-Telegram-Bot-Api-Secret-Token` header |
+| `telegram.retries` · `telegram.retry_delay` | `2` · `300` | Retries on a network-level failure talking to Telegram, and the base back-off in ms |
+| `telegram.timeout` · `telegram.connect_timeout` | `30` · `10` | Seconds for a whole API call, and for the connect + TLS handshake alone |
+| `telegram.ip_version` | — | Pin outgoing calls to `4` or `6`; set `4` when the host's IPv6 route to Telegram blackholes |
 
 **Auth drivers.** The `database` driver is the default and the one to use: it persists the `User`, the station, and scene state, and it is **required** by scenes, broadcasting, the admin panel, roles, and update deduplication. The `array` driver skips all database I/O — useful for a stateless bot or a fast test suite, but every user is permanently at station `start`.
 

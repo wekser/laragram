@@ -20,12 +20,40 @@ use Wekser\Laragram\Exceptions\AuthenticationException;
 use Wekser\Laragram\Exceptions\BotBlockedException;
 use Wekser\Laragram\Exceptions\ChatNotFoundException;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
+use Wekser\Laragram\Exceptions\TransportException;
 use Wekser\Laragram\Exceptions\UserDeactivatedException;
 use Wekser\Laragram\Tests\TestCase;
 
 #[CoversClass(ExceptionHandler::class)]
 class ExceptionHandlerTest extends TestCase
 {
+    // -------------------------------------------------------------------------
+    // isTransport()
+    // -------------------------------------------------------------------------
+
+    public function test_is_transport_returns_true_for_transport_exception(): void
+    {
+        $this->assertTrue(ExceptionHandler::isTransport(new TransportException('cURL error: SSL connection timeout', 28)));
+    }
+
+    public function test_is_transport_returns_false_for_api_level_exception(): void
+    {
+        $this->assertFalse(ExceptionHandler::isTransport(new BotBlockedException(123)));
+        $this->assertFalse(ExceptionHandler::isTransport(new RuntimeException('boom')));
+    }
+
+    /**
+     * A transport failure is a real fault, not a user-unreachable condition:
+     * it must be logged, and it must not trigger user auto-deactivation.
+     */
+    public function test_transport_exception_is_reportable_and_not_terminal(): void
+    {
+        $exception = new TransportException('cURL error: SSL connection timeout', 28);
+
+        $this->assertTrue(ExceptionHandler::shouldReport($exception));
+        $this->assertFalse(ExceptionHandler::isTerminal($exception));
+    }
+
     // -------------------------------------------------------------------------
     // shouldReport()
     // -------------------------------------------------------------------------

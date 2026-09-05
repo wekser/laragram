@@ -5,6 +5,32 @@ All notable changes to `Laragram` will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**Outgoing API transport**
+- `BotClient` retries a call that fails before reaching Telegram — DNS, TCP connect, TLS handshake, or a timeout during the handshake — with a jittered exponential back-off. Telegram API errors (`ok: false`) are never retried; they are deterministic
+- Idempotency guard: because Telegram has no idempotency key, an attempt is only repeated when the request body demonstrably never left the machine (connect-phase failures always, a timeout only when cURL never got past the handshake). A call that timed out *after* the request was sent, or a connection dropped mid-flight, is reported rather than repeated
+- `Exceptions\TransportException` — raised once the retries are exhausted; extends `ClientResponseInvalidException` (existing catch blocks keep working), carries the cURL errno as its code and the attempt count as `$e->attempts`
+- `ExceptionHandler::isTransport()` — identifies the above. Transport failures stay reportable and non-terminal, so they never trigger broadcast auto-deactivation
+- `BotClient::setRetries()`, `setRetryDelay()`, `setIpVersion()` and `setProxy()`
+- New `telegram.*` config keys, all env-driven: `timeout` (`LARAGRAM_API_TIMEOUT`, 30), `connect_timeout` (`LARAGRAM_API_CONNECT_TIMEOUT`, 10), `retries` (`LARAGRAM_API_RETRIES`, 2), `retry_delay` (`LARAGRAM_API_RETRY_DELAY`, 300 ms), `ip_version` (`LARAGRAM_API_IP_VERSION`) and `proxy` (`LARAGRAM_API_PROXY`). Previously the client's timeouts were hardcoded and unreachable from a host app
+- `ip_version=4` pins outgoing calls to IPv4 — the fix for hosts whose IPv6 route to `api.telegram.org` blackholes, whose symptom is `cURL error: SSL connection timeout` (errno 28) on every send
+- `Services\MediaDownloader` reads the same `connect_timeout`, `ip_version` and `proxy` keys — file downloads hit the same host as sends, so a transport fix has to cover both
+
+### Changed
+
+- `BotAPI::__construct()` takes an optional second `array $options` argument (the `telegram` config block) and applies it to the underlying client. The service provider passes it automatically
+- `Http\ResponseDispatcher::send()` stops the remaining messages in a batch on a `TransportException`, as it already did for an unreachable user. With the network down each remaining message would only burn another connect timeout, and a webhook that keeps its HTTP worker busy long enough gets the update redelivered by Telegram
+- `BotClient` throws `TransportException` instead of a bare `ClientResponseInvalidException` for cURL-level failures. Not breaking — the new class extends the old one
+- `CURLOPT_CONNECTTIMEOUT` is clamped to `min(connect_timeout, timeout)`. A connect budget above the total budget would let `CURLOPT_TIMEOUT` fire first, turning every handshake failure into a full-timeout attempt
+- `Jobs\ProcessTelegramUpdate`: the per-sender `WithoutOverlapping` lock now expires after `OVERLAP_LOCK_TTL` (90s) instead of 30s. The lock must outlive the job's own `$timeout` (60s) — a lock that expired mid-job let a second worker pick up the same user's next update and race it on the same session row, which is what the lock exists to prevent. A slow multi-message batch was already enough to trigger this before retries existed
+
+### Upgrade notes
+
+- `mergeConfigFrom()` merges only at the **top** level, so an app that published `config/laragram.php` before this release replaces the whole `telegram` block and receives none of the new keys. `BotClient`'s own defaults match the documented ones, so retries work regardless — but to set `ip_version` or `proxy` you must add the keys to your published config by hand
+
 ## [v2.0.0] (2026-07-31)
 
 A major release: a redesigned namespace structure, an auth driver system, scenes (wizards), group and forum-topic support, payments, inline mode, mass broadcasting, a bundled admin panel, optional queue offload, and a full test suite. It contains breaking changes; deprecated aliases are provided where possible to ease migration.
