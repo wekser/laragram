@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `BotClient` throws `TransportException` instead of a bare `ClientResponseInvalidException` for cURL-level failures. Not breaking — the new class extends the old one
 - `CURLOPT_CONNECTTIMEOUT` is clamped to `min(connect_timeout, timeout)`. A connect budget above the total budget would let `CURLOPT_TIMEOUT` fire first, turning every handshake failure into a full-timeout attempt
 - `Jobs\ProcessTelegramUpdate`: the per-sender `WithoutOverlapping` lock now expires after `OVERLAP_LOCK_TTL` (90s) instead of 30s. The lock must outlive the job's own `$timeout` (60s) — a lock that expired mid-job let a second worker pick up the same user's next update and race it on the same session row, which is what the lock exists to prevent. A slow multi-message batch was already enough to trigger this before retries existed
+- `Jobs\SendBroadcastMessage::$timeout` is 60s instead of 30s. With retries the worst case of a single send is ~31s, so the old budget was below it: the job was killed by a signal outside `handle()`'s `try/catch`, and because it sets `$tries = 0` Laravel never marked it failed — it was re-reserved and killed again, indefinitely, for every recipient of a broadcast started while the network to Telegram was down
+- `Jobs\ProcessTelegramUpdate::OVERLAP_LOCK_TTL` is `protected` instead of `private` (and read via `static::`), so a host app that raises the job's `$timeout` in a subclass can raise the lock TTL with it, as the docs instruct
 
 ### Upgrade notes
 

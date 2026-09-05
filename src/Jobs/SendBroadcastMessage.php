@@ -52,11 +52,19 @@ class SendBroadcastMessage implements ShouldQueue, ShouldBeEncrypted
     public int $tries = 0;
 
     /**
-     * Safety net bounding one send; BotClient already caps each call at 30s.
+     * Safety net bounding one send.
+     *
+     * It MUST stay above BotClient's own worst case, which is no longer a single
+     * call: a send that never connects costs (retries + 1) x connect_timeout plus
+     * the retry back-off — roughly 31s with the shipped defaults — and a send that
+     * hangs mid-call costs telegram.timeout. A job killed by this timeout is
+     * terminated by a signal, outside handle()'s try/catch, so with $tries = 0 it
+     * is never failed and simply re-reserved forever. Raise it (and keep it above
+     * that budget) if you configure a larger telegram.timeout or telegram.retries.
      *
      * @var int
      */
-    public int $timeout = 30;
+    public int $timeout = 60;
 
     /**
      * @param int                  $userId  Primary key of the recipient User.

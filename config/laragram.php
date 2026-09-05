@@ -47,9 +47,22 @@ return [
         // milliseconds; it doubles on every attempt (300, 600, 1200…) with a
         // little jitter so many workers don't retry in lockstep.
         //
+        // Valid ranges — a value outside them is a hard error, see below:
+        // timeout and connect_timeout 1..300 (seconds), retries 0..5,
+        // retry_delay 0..10000 (milliseconds), ip_version 4, 6 or null.
+        //
         // Budget accordingly: a call that never connects costs up to
-        // (retries + 1) x connect_timeout. Raise Jobs\ProcessTelegramUpdate's
-        // $timeout (and its OVERLAP_LOCK_TTL above it) if you raise either.
+        // (retries + 1) x connect_timeout PLUS the back-off between attempts,
+        // which is retry_delay x (2^retries - 1) at worst (~0.9s with the
+        // defaults, but 310s at retries = 5 with retry_delay = 10000). Raise
+        // Jobs\ProcessTelegramUpdate's and Jobs\SendBroadcastMessage's $timeout
+        // (and OVERLAP_LOCK_TTL above the former) if you raise either.
+        //
+        // These are validated when the "laragram.api" binding is resolved, which
+        // happens on the first outbound call — an out-of-range value therefore
+        // surfaces as a 500 from the webhook (which Telegram then redelivers in
+        // a loop), not as a boot-time error. Treat them as deploy-time settings
+        // and keep them inside the ranges above.
         //
         // "ip_version" pins outgoing requests to 4 or 6 (null = automatic). Set
         // it to 4 on hosts whose IPv6 route to Telegram blackholes — the symptom

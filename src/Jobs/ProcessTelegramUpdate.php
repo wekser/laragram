@@ -87,8 +87,12 @@ class ProcessTelegramUpdate implements ShouldQueue, ShouldBeEncrypted
      * single slow batch is enough to do — another worker would pick up that
      * user's next update and race it on the same session row, which is precisely
      * what the lock is there to prevent.
+     *
+     * Protected (and read via static::) so a host app that raises $timeout can
+     * raise this with it from a subclass — the guidance above is otherwise
+     * impossible to follow.
      */
-    private const OVERLAP_LOCK_TTL = 90;
+    protected const OVERLAP_LOCK_TTL = 90;
 
     /**
      * @param array<string, mixed> $update The raw Telegram update payload.
@@ -120,7 +124,7 @@ class ProcessTelegramUpdate implements ShouldQueue, ShouldBeEncrypted
             ?? uniqid('laragram_', true);
 
         return [
-            (new WithoutOverlapping((string) $key))->releaseAfter(5)->expireAfter(self::OVERLAP_LOCK_TTL),
+            (new WithoutOverlapping((string) $key))->releaseAfter(5)->expireAfter(static::OVERLAP_LOCK_TTL),
             new RateLimited('laragram'),
         ];
     }
