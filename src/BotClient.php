@@ -16,6 +16,7 @@ use Illuminate\Support\Arr;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
 use Wekser\Laragram\Exceptions\TransportException;
 use Wekser\Laragram\Services\TelegramErrorHandler;
+use Wekser\Laragram\Support\ReplyMarkup;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -171,7 +172,9 @@ class BotClient
     public function request(string $method, array $data = []): mixed
     {
         $this->validateMethod($method);
-        
+
+        $data = $this->sanitizeReplyMarkup($method, $data);
+
         $url = $this->buildUrl($method);
         $preparedData = $this->prepareData($data);
         
@@ -607,6 +610,67 @@ class BotClient
     private function buildUrl(string $method): string
     {
         return self::API_BASE_URL . $this->token . '/' . $method;
+    }
+
+    /**
+     * Drop inline keyboard buttons Telegram would refuse, keeping the message.
+     *
+     * A button with a label but no action field — a url or callback_data that
+     * came out null or empty — makes the API reject the *whole* request with
+     * "can't parse InlineKeyboardButton: Text buttons are not allowed in the
+     * inline keyboard", so a cosmetic bug in one button silently costs the user
+     * the entire message. The builders refuse to create such a button, but a
+     * hand-built reply_markup array reaches the client unchecked; here it loses
+     * the broken button (and any row left empty) and the message still goes out,
+     * with a warning naming what was dropped.
+     *
+     * ReplyKeyboard / ForceReply / ReplyKeyboardRemove markups are untouched —
+     * a reply-keyboard button legitimately carries nothing but its text.
+     *
+     * @param string $method The API method being called
+     * @param array $data Request data
+     * @return array Request data with an unusable button removed
+     */
+    private function sanitizeReplyMarkup(string $method, array $data): array
+    {
+        $markup = $data['reply_markup'] ?? null;
+
+        if ($markup === null) {
+            return $data;
+        }
+
+        // A caller may pass the markup pre-encoded; keep whichever shape it came in.
+        $wasJson = is_string($markup);
+
+        if ($wasJson) {
+            $markup = json_decode($markup, true);
+        }
+
+        if (!is_array($markup) || !isset($markup['inline_keyboard'])) {
+            return $data;
+        }
+
+        $dropped = [];
+        $sanitized = ReplyMarkup::sanitize($markup, $dropped);
+
+        if ($dropped === []) {
+            return $data;
+        }
+
+        $this->logger->warning('Dropped unusable inline keyboard buttons before sending', [
+            'method'  => $method,
+            'chat_id' => $data['chat_id'] ?? null,
+            'buttons' => $dropped,
+            'reason'  => 'A button had no action field (callback_data, url, web_app, …) or no text. '
+                . 'Telegram would have rejected the whole request with '
+                . '"Text buttons are not allowed in the inline keyboard".',
+        ]);
+
+        $data['reply_markup'] = $wasJson
+            ? json_encode($sanitized, JSON_UNESCAPED_UNICODE)
+            : $sanitized;
+
+        return $data;
     }
 
     /**

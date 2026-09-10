@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\Telegram\Keyboards;
 
 use Wekser\Laragram\Enums\ButtonStyle;
+use Wekser\Laragram\Support\ReplyMarkup;
 
 /**
  * Fluent builder for Telegram InlineKeyboardMarkup.
@@ -165,18 +166,30 @@ class InlineKeyboard
 
     /**
      * Add a raw button array (for advanced cases).
+     *
+     * @throws \InvalidArgumentException When the button carries no label or no action field.
      */
     public function raw(array $button): static
     {
+        ReplyMarkup::assertUsableInlineButton($button);
+
         $this->currentRow[] = $button;
         return $this;
     }
 
     /**
      * Append a button to the current row, merging optional style / custom-emoji fields.
+     *
+     * The button is validated here rather than left to Telegram: a label with no
+     * action field (an empty url or callback_data) makes the API reject the
+     * whole message, so it is reported at the line that built it.
+     *
+     * @throws \InvalidArgumentException When the button carries no label or no action field.
      */
     private function push(array $button, ButtonStyle|string|null $style = null, ?string $icon = null): static
     {
+        ReplyMarkup::assertUsableInlineButton($button);
+
         $this->currentRow[] = ButtonStyle::decorate($button, $style, $icon);
         return $this;
     }

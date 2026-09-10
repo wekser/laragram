@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\View;
 
 use Wekser\Laragram\Enums\ButtonStyle;
+use Wekser\Laragram\Support\ReplyMarkup;
 
 /**
  * Accumulates buttons during the evaluation of an inline_keyboard.php component.
@@ -99,8 +100,13 @@ final class InlineKeyboardState
         $this->push(['text' => $text, 'callback_game' => (object) []], $style, $icon);
     }
 
+    /**
+     * @throws \InvalidArgumentException When the button carries no label or no action field.
+     */
     private function push(array $button, ButtonStyle|string|null $style, ?string $icon): void
     {
+        ReplyMarkup::assertUsableInlineButton($button);
+
         $this->currentRow[] = ButtonStyle::decorate($button, $style, $icon);
     }
 

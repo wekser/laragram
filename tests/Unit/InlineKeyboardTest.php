@@ -188,4 +188,52 @@ class InlineKeyboardTest extends TestCase
         $this->assertSame('success', $button['style']);
         $this->assertSame('123', $button['icon_custom_emoji_id']);
     }
+
+    // -------------------------------------------------------------------------
+    // Button validity — a text-only button makes Telegram reject the message
+    // -------------------------------------------------------------------------
+
+    public function test_builder_rejects_a_button_whose_url_is_empty(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/"Open site".*carries no action/s');
+
+        InlineKeyboard::make()->href('Open site', '');
+    }
+
+    public function test_builder_rejects_a_button_whose_callback_data_is_empty(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        InlineKeyboard::make()->button('Details', '');
+    }
+
+    public function test_builder_rejects_a_raw_button_with_no_action(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        InlineKeyboard::make()->raw(['text' => 'Just a label']);
+    }
+
+    public function test_builder_rejects_an_empty_label(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/non-empty text label/');
+
+        InlineKeyboard::make()->button('', 'data');
+    }
+
+    public function test_view_helper_rejects_a_button_with_no_action(): void
+    {
+        $state = new InlineKeyboardState();
+        ComponentContext::push($state);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+
+            href('Open site', '');
+        } finally {
+            ComponentContext::pop();
+        }
+    }
 }

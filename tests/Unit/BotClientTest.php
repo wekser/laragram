@@ -14,6 +14,7 @@ namespace Wekser\Laragram\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 use Wekser\Laragram\BotClient;
 use Wekser\Laragram\Exceptions\ClientResponseInvalidException;
 use Wekser\Laragram\Exceptions\TransportException;
@@ -521,6 +522,83 @@ class BotClientTest extends TestCase
 
         return $method->invoke($client, $url, $data);
     }
+
+    // -------------------------------------------------------------------------
+    // Reply markup sanitizing — the last line of defence for a hand-built array
+    // -------------------------------------------------------------------------
+
+    public function test_request_drops_an_inline_button_that_has_no_action(): void
+    {
+        $logger = new RecordingLogger();
+        $client = new RetryingClientDouble(self::VALID_TOKEN, $logger);
+        $client->outcomes = [RetryingClientDouble::success('{"ok":true,"result":true}')];
+
+        $client->request('sendMessage', [
+            'chat_id'      => 42,
+            'text'         => 'A new application',
+            'reply_markup' => [
+                'inline_keyboard' => [[
+                    ['text' => 'Open', 'url' => null],
+                    ['text' => 'Details', 'callback_data' => 'details'],
+                ]],
+            ],
+        ]);
+
+        $this->assertSame(
+            json_encode(['inline_keyboard' => [[['text' => 'Details', 'callback_data' => 'details']]]]),
+            $client->requests[0]['reply_markup'],
+        );
+        $this->assertNotEmpty($logger->matching('warning', 'Dropped unusable inline keyboard'));
+    }
+
+    public function test_request_sanitizes_a_pre_encoded_markup_and_keeps_it_a_string(): void
+    {
+        $client = new RetryingClientDouble(self::VALID_TOKEN);
+        $client->outcomes = [RetryingClientDouble::success('{"ok":true,"result":true}')];
+
+        $client->request('sendMessage', [
+            'chat_id'      => 42,
+            'text'         => 'Hi',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [['text' => 'Broken', 'url' => '']],
+                    [['text' => 'Fine', 'callback_data' => 'ok']],
+                ],
+            ]),
+        ]);
+
+        $this->assertSame(
+            json_encode(['inline_keyboard' => [[['text' => 'Fine', 'callback_data' => 'ok']]]]),
+            $client->requests[0]['reply_markup'],
+        );
+    }
+
+    public function test_request_leaves_a_valid_markup_untouched_and_logs_no_warning(): void
+    {
+        $logger = new RecordingLogger();
+        $client = new RetryingClientDouble(self::VALID_TOKEN, $logger);
+        $client->outcomes = [RetryingClientDouble::success('{"ok":true,"result":true}')];
+
+        $markup = ['inline_keyboard' => [[['text' => 'Fine', 'callback_data' => 'ok']]]];
+
+        $client->request('sendMessage', ['chat_id' => 42, 'text' => 'Hi', 'reply_markup' => $markup]);
+
+        $this->assertSame(json_encode($markup), $client->requests[0]['reply_markup']);
+        $this->assertSame([], $logger->matching('warning', 'Dropped unusable inline keyboard'));
+    }
+
+    public function test_request_leaves_a_reply_keyboard_untouched(): void
+    {
+        $client = new RetryingClientDouble(self::VALID_TOKEN);
+        $client->outcomes = [RetryingClientDouble::success('{"ok":true,"result":true}')];
+
+        // Text-only buttons are exactly what a ReplyKeyboard is made of.
+        $markup = ['keyboard' => [[['text' => 'Share']]], 'resize_keyboard' => true];
+
+        $client->request('sendMessage', ['chat_id' => 42, 'text' => 'Hi', 'reply_markup' => $markup]);
+
+        $this->assertSame(json_encode($markup), $client->requests[0]['reply_markup']);
+    }
 }
 
 /**
@@ -532,6 +610,9 @@ class RetryingClientDouble extends BotClient
 {
     /** @var array<int, array<string, mixed>> */
     public array $outcomes = [];
+
+    /** @var array<int, array<string, mixed>>  Data as it was handed to cURL. */
+    public array $requests = [];
 
     public int $attempts = 0;
 
@@ -560,6 +641,7 @@ class RetryingClientDouble extends BotClient
     protected function executeCurl(string $url, array $data): array
     {
         $this->attempts++;
+        $this->requests[] = $data;
 
         // Running past the script means the retry loop attempted more calls than
         // the test expected. Fail loudly: falling back to the last outcome would
@@ -569,5 +651,32 @@ class RetryingClientDouble extends BotClient
         }
 
         return $this->outcomes[$this->attempts - 1];
+    }
+}
+
+/**
+ * Keeps every log record so a test can assert what the client reported.
+ */
+class RecordingLogger extends AbstractLogger
+{
+    /** @var array<int, array{level: string, message: string, context: array}> */
+    public array $records = [];
+
+    public function log($level, string|\Stringable $message, array $context = []): void
+    {
+        $this->records[] = ['level' => (string) $level, 'message' => (string) $message, 'context' => $context];
+    }
+
+    /**
+     * Records of the given level whose message contains $needle.
+     *
+     * @return array<int, array{level: string, message: string, context: array}>
+     */
+    public function matching(string $level, string $needle): array
+    {
+        return array_values(array_filter(
+            $this->records,
+            fn (array $record): bool => $record['level'] === $level && str_contains($record['message'], $needle),
+        ));
     }
 }
