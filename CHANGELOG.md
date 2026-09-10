@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v2.2.0] (2026-09-10)
+
+A fix release for a single Telegram rejection that cost whole messages: an inline keyboard button that carried a label but no action field. The keyboard builders now refuse to create one, and the API client drops one that reached it anyway rather than losing the message. No breaking changes.
+
 ### Added
 
 - `Support\ReplyMarkup` — the single definition of what makes an `InlineKeyboardButton` usable (a non-blank label plus one action field), shared by the keyboard builders and the API client
@@ -16,6 +20,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - A single inline button with no action field — the usual cause being a `url` or `callback_data` that came out `null` or an empty string — made Telegram reject the **whole** request with `can't parse InlineKeyboardButton: Text buttons are not allowed in the inline keyboard`, so a cosmetic bug in one button silently cost the entire message. Two layers now prevent it:
   - `InlineKeyboard` (`->button()`, `->href()`, `->raw()`, …) and the `inline_keyboard.php` view helpers throw `InvalidArgumentException` naming the offending label at the line that built the button, instead of deferring the failure to Telegram. An empty `switch_inline_query` stays valid — it inserts just the bot's username
   - `BotClient::request()` drops unusable buttons (and any row left empty) from `reply_markup` before sending — array or pre-encoded JSON — and logs one `warning` listing them, so a hand-built markup passed straight to `BotAPI::sendMessage()` costs a button rather than the message. Reply keyboards, `ForceReply` and `ReplyKeyboardRemove` are untouched
+
+### Upgrade notes
+
+- Nothing to run — `composer update` is enough
+- If your code builds a button from a value that can be empty (`->href($label, $model->url)`), you now get an `InvalidArgumentException` at that line instead of a Telegram `400` on the whole message. Put the button behind the condition rather than passing a possibly-empty value
 
 ## [v2.1.0] (2026-09-05)
 
