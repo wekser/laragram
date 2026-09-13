@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 use Wekser\Laragram\Enums\TelegramErrorCode;
 use Wekser\Laragram\Exceptions\BotBlockedException;
 use Wekser\Laragram\Exceptions\ChatNotFoundException;
+use Wekser\Laragram\Exceptions\MessageNotModifiedException;
 use Wekser\Laragram\Exceptions\TelegramApiException;
 use Wekser\Laragram\Exceptions\UserDeactivatedException;
 use Wekser\Laragram\Services\TelegramErrorHandler;
@@ -88,6 +89,18 @@ class TelegramErrorHandlerTest extends TestCase
 
         $this->assertInstanceOf(ChatNotFoundException::class, $exception);
         $this->assertSame('55', $exception->getChatId());
+    }
+
+    public function test_maps_message_not_modified_to_message_not_modified_exception(): void
+    {
+        $description = 'Bad Request: message is not modified: specified new message content and reply markup'
+            . ' are exactly the same as a current content and reply markup of the message';
+
+        $exception = $this->handler->handleError($this->error(400, $description), ['user_id' => 1]);
+
+        $this->assertInstanceOf(MessageNotModifiedException::class, $exception);
+        $this->assertSame(TelegramErrorCode::BAD_REQUEST, $exception->getErrorCode());
+        $this->assertSame($description, $exception->getTelegramDescription());
     }
 
     public function test_description_matching_is_case_insensitive(): void

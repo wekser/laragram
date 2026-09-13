@@ -23,9 +23,11 @@ namespace Wekser\Laragram\Events;
  * push to your metrics/alerting (Sentry, StatsD, Horizon tags, …).
  *
  * - $reportable mirrors ExceptionHandler::shouldReport() — false for the
- *   user-unreachable conditions (blocked, deactivated, chat gone, unauthenticated).
- * - $terminal is the inverse: true when the user cannot receive messages, which
- *   is itself a useful product metric (e.g. how many users blocked the bot).
+ *   user-unreachable conditions (blocked, deactivated, chat gone, unauthenticated)
+ *   and for benign outcomes such as an edit that left the message unchanged.
+ * - $terminal mirrors ExceptionHandler::isTerminal(): true when the user cannot
+ *   receive messages, which is itself a useful product metric (e.g. how many
+ *   users blocked the bot). A benign outcome is neither reportable nor terminal.
  *
  * Listening is optional — with no listener bound this is a near-zero-cost no-op.
  */

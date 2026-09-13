@@ -14,6 +14,7 @@ namespace Wekser\Laragram\Tests\Unit\Http;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use Wekser\Laragram\Exceptions\BotBlockedException;
+use Wekser\Laragram\Exceptions\MessageNotModifiedException;
 use Wekser\Laragram\Exceptions\TransportException;
 use Wekser\Laragram\Http\ResponseDispatcher;
 use Wekser\Laragram\Testing\RecordingBotAPI;
@@ -75,6 +76,36 @@ class ResponseDispatcherTest extends TestCase
 
         // Both were attempted; the second still went through.
         $this->assertSame(['sendMessage', 'sendPhoto'], array_column($api->calls, 'method'));
+    }
+
+    /**
+     * A no-op edit (double-tapped button) is a benign outcome: it is not logged
+     * and the rest of the batch still goes out.
+     */
+    public function test_no_op_edit_is_silenced_and_batch_continues(): void
+    {
+        $logged = false;
+
+        $this->app->singleton('log', function () use (&$logged) {
+            return new class($logged) {
+                public function __construct(private bool &$logged) {}
+
+                public function error(mixed $message, array $context = []): void
+                {
+                    $this->logged = true;
+                }
+            };
+        });
+
+        $api = new RecordingBotAPI(throwOn: 'editMessageText', exception: new MessageNotModifiedException());
+
+        (new ResponseDispatcher($api))->send([
+            ['method' => 'editMessageText', 'chat_id' => 1, 'message_id' => 5, 'text' => 'same'],
+            ['method' => 'answerCallbackQuery', 'callback_query_id' => 'abc'],
+        ]);
+
+        $this->assertSame(['editMessageText', 'answerCallbackQuery'], array_column($api->calls, 'method'));
+        $this->assertFalse($logged, 'A no-op edit must not be logged');
     }
 
     /**

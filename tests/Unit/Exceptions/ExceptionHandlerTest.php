@@ -20,6 +20,7 @@ use Wekser\Laragram\Exceptions\AuthenticationException;
 use Wekser\Laragram\Exceptions\BotBlockedException;
 use Wekser\Laragram\Exceptions\ChatNotFoundException;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
+use Wekser\Laragram\Exceptions\MessageNotModifiedException;
 use Wekser\Laragram\Exceptions\TransportException;
 use Wekser\Laragram\Exceptions\UserDeactivatedException;
 use Wekser\Laragram\Tests\TestCase;
@@ -52,6 +53,30 @@ class ExceptionHandlerTest extends TestCase
 
         $this->assertTrue(ExceptionHandler::shouldReport($exception));
         $this->assertFalse(ExceptionHandler::isTerminal($exception));
+    }
+
+    // -------------------------------------------------------------------------
+    // isIgnorable()
+    // -------------------------------------------------------------------------
+
+    /**
+     * An edit that changes nothing leaves the message in the requested state:
+     * not worth a log line, and the user is reachable — so it must neither stop
+     * a batch nor trigger user auto-deactivation.
+     */
+    public function test_message_not_modified_is_ignorable_not_reportable_and_not_terminal(): void
+    {
+        $exception = new MessageNotModifiedException();
+
+        $this->assertTrue(ExceptionHandler::isIgnorable($exception));
+        $this->assertFalse(ExceptionHandler::shouldReport($exception));
+        $this->assertFalse(ExceptionHandler::isTerminal($exception));
+    }
+
+    public function test_is_ignorable_returns_false_for_other_exceptions(): void
+    {
+        $this->assertFalse(ExceptionHandler::isIgnorable(new BotBlockedException(123)));
+        $this->assertFalse(ExceptionHandler::isIgnorable(new RuntimeException('boom')));
     }
 
     // -------------------------------------------------------------------------
@@ -207,6 +232,18 @@ class ExceptionHandlerTest extends TestCase
         Event::assertDispatched(
             BotExceptionHandled::class,
             static fn (BotExceptionHandled $e): bool => $e->reportable === false && $e->terminal === true
+        );
+    }
+
+    public function test_handle_emits_non_terminal_silenced_event_for_ignorable_exception(): void
+    {
+        Event::fake();
+
+        ExceptionHandler::handle(new MessageNotModifiedException());
+
+        Event::assertDispatched(
+            BotExceptionHandled::class,
+            static fn (BotExceptionHandled $e): bool => $e->reportable === false && $e->terminal === false
         );
     }
 

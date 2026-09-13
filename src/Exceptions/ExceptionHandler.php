@@ -34,6 +34,17 @@ class ExceptionHandler
     ];
 
     /**
+     * Exception types that are benign outcomes rather than failures: not
+     * logged, and — unlike $dontReport — not terminal, so the rest of a
+     * batch is still delivered and the user is never deactivated.
+     *
+     * @var array<class-string<\Throwable>>
+     */
+    protected static array $ignore = [
+        MessageNotModifiedException::class,
+    ];
+
+    /**
      * Handle a throwable: log it if reportable.
      *
      * Does NOT send an HTTP response — the caller (Laragram::back()) returns
@@ -62,7 +73,7 @@ class ExceptionHandler
     protected static function notify(\Throwable $exception, bool $reportable): void
     {
         try {
-            event(new BotExceptionHandled($exception, $reportable, !$reportable));
+            event(new BotExceptionHandled($exception, $reportable, static::isTerminal($exception)));
         } catch (\Throwable) {
             // An observability hook must never turn a handled error into a fatal one.
         }
@@ -73,12 +84,17 @@ class ExceptionHandler
      */
     public static function shouldReport(\Throwable $exception): bool
     {
-        foreach (static::$dontReport as $class) {
-            if ($exception instanceof $class) {
-                return false;
-            }
-        }
-        return true;
+        return !static::isTerminal($exception) && !static::isIgnorable($exception);
+    }
+
+    /**
+     * Whether the exception is a benign outcome ($ignore) — e.g. an edit that
+     * would leave the message unchanged. Silenced from the log, but the user
+     * is reachable, so it is neither terminal nor a reason to stop a batch.
+     */
+    public static function isIgnorable(\Throwable $exception): bool
+    {
+        return static::matchesAny($exception, static::$ignore);
     }
 
     /**
@@ -88,11 +104,25 @@ class ExceptionHandler
      * there is no point delivering the rest to a user who cannot receive them.
      *
      * These are exactly the $dontReport types: an unreachable user is also a
-     * non-reportable condition.
+     * non-reportable condition. The $ignore types are silenced too, but are
+     * deliberately not terminal.
      */
     public static function isTerminal(\Throwable $exception): bool
     {
-        return !static::shouldReport($exception);
+        return static::matchesAny($exception, static::$dontReport);
+    }
+
+    /**
+     * @param array<class-string<\Throwable>> $classes
+     */
+    protected static function matchesAny(\Throwable $exception, array $classes): bool
+    {
+        foreach ($classes as $class) {
+            if ($exception instanceof $class) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

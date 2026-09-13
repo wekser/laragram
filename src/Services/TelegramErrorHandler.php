@@ -15,6 +15,7 @@ namespace Wekser\Laragram\Services;
 use Wekser\Laragram\Enums\TelegramErrorCode;
 use Wekser\Laragram\Exceptions\BotBlockedException;
 use Wekser\Laragram\Exceptions\ChatNotFoundException;
+use Wekser\Laragram\Exceptions\MessageNotModifiedException;
 use Wekser\Laragram\Exceptions\TelegramApiException;
 use Wekser\Laragram\Exceptions\UserDeactivatedException;
 use Wekser\Laragram\Models\User;
@@ -36,6 +37,7 @@ class TelegramErrorHandler
         'bot was kicked from'         => 'bot_blocked',
         'user is deactivated'         => 'user_deactivated',
         'chat not found'              => 'chat_not_found',
+        'message is not modified'     => 'message_not_modified',
     ];
 
     /**
@@ -130,10 +132,11 @@ class TelegramErrorHandler
         $chatId = isset($context['chat_id']) ? (string) $context['chat_id'] : (string) $userId;
 
         return match ($type) {
-            'bot_blocked'      => new BotBlockedException($userId, $description),
-            'user_deactivated' => new UserDeactivatedException($userId, $description),
-            'chat_not_found'   => new ChatNotFoundException($chatId, $description),
-            default            => new TelegramApiException(TelegramErrorCode::FORBIDDEN, $description),
+            'bot_blocked'          => new BotBlockedException($userId, $description),
+            'user_deactivated'     => new UserDeactivatedException($userId, $description),
+            'chat_not_found'       => new ChatNotFoundException($chatId, $description),
+            'message_not_modified' => new MessageNotModifiedException($description),
+            default                => new TelegramApiException(TelegramErrorCode::FORBIDDEN, $description),
         };
     }
 

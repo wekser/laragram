@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- `Exceptions\MessageNotModifiedException` — Telegram's `400 Bad Request: message is not modified` (an edit whose content and reply markup match the current message), mapped by `TelegramErrorHandler`; extends `TelegramApiException`, so existing catch blocks keep working
+- `ExceptionHandler::isIgnorable()` and the `$ignore` list — benign outcomes that are silenced from the log but, unlike `$dontReport`, are not terminal
+
+### Fixed
+
+- A no-op edit — typically a double-tapped inline button, or a "refresh" that found nothing new — was logged as a production `ERROR` with a full stack trace, although the message was already in the requested state. It is now silenced; the rest of the batch is still delivered and the user is never deactivated
+
+### Changed
+
+- `BotExceptionHandled::$terminal` now mirrors `ExceptionHandler::isTerminal()` instead of being the inverse of `$reportable`. It differs only for the new benign outcomes, which arrive as `reportable: false, terminal: false`
+
 ## [v2.2.0] (2026-09-10)
 
 A fix release for a single Telegram rejection that cost whole messages: an inline keyboard button that carried a label but no action field. The keyboard builders now refuse to create one, and the API client drops one that reached it anyway rather than losing the message. No breaking changes.
