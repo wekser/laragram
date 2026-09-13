@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v2.3.0] (2026-09-13)
+
+A fix release for log noise: Telegram's `400 message is not modified`, returned when an edit would leave a message exactly as it is (typically a double-tapped inline button), is no longer logged as a production `ERROR`. No breaking changes.
+
 ### Added
 
 - `Exceptions\MessageNotModifiedException` — Telegram's `400 Bad Request: message is not modified` (an edit whose content and reply markup match the current message), mapped by `TelegramErrorHandler`; extends `TelegramApiException`, so existing catch blocks keep working
@@ -19,6 +23,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - `BotExceptionHandled::$terminal` now mirrors `ExceptionHandler::isTerminal()` instead of being the inverse of `$reportable`. It differs only for the new benign outcomes, which arrive as `reportable: false, terminal: false`
+
+### Upgrade notes
+
+- Nothing to run — `composer update` is enough
+- If a `BotExceptionHandled` listener treats `!$event->reportable` as "the user is unreachable", switch it to `$event->terminal` — a no-op edit is now silenced without being terminal
 
 ## [v2.2.0] (2026-09-10)
 
