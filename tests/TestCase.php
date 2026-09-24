@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Tests;
 
+use Illuminate\Support\Sleep;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
 use Wekser\Laragram\Models\Session;
 use Wekser\Laragram\Models\User;
@@ -73,6 +74,10 @@ abstract class TestCase extends OrchestraTestCase
         // BotAuth::authenticate() normally requires a live Telegram request,
         // which is not available in tests.
         $this->bindAuthStub();
+
+        // Record sleeps instead of performing them (e.g. the sync broadcast
+        // throttle); assert on them with Sleep::assertSequence() and friends.
+        Sleep::fake();
     }
 
     /**

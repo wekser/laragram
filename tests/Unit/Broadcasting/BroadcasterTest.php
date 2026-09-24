@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Wekser\Laragram\Tests\Unit\Broadcasting;
 
+use Illuminate\Support\Sleep;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Wekser\Laragram\Broadcasting\Broadcaster;
 use Wekser\Laragram\Broadcasting\BroadcastRenderer;
@@ -83,6 +84,31 @@ class BroadcasterTest extends TestCase
         BotBroadcast::text('Everyone')->includeInactive()->send();
 
         $this->assertCount(2, $this->api->calls);
+    }
+
+    public function test_sync_send_pauses_after_each_recipient(): void
+    {
+        config(['laragram.broadcast.sync_delay_ms' => 40]);
+        $this->makeUser();
+        $this->makeUser();
+
+        BotBroadcast::text('Hello')->send();
+
+        Sleep::assertSequence([
+            Sleep::usleep(40_000),
+            Sleep::usleep(40_000),
+        ]);
+    }
+
+    public function test_zero_sync_delay_disables_the_pause(): void
+    {
+        config(['laragram.broadcast.sync_delay_ms' => 0]);
+        $this->makeUser();
+
+        BotBroadcast::text('Hello')->send();
+
+        $this->assertCount(1, $this->api->calls);
+        Sleep::assertNeverSlept();
     }
 
     public function test_count_reflects_filters_without_sending(): void
