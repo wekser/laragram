@@ -57,6 +57,11 @@ abstract class TestCase extends OrchestraTestCase
         $app['config']->set('laragram.rate.max_attempts', 60);
         $app['config']->set('laragram.rate.decay_seconds', 60);
         $app['config']->set('laragram.security.verify_secret', false);
+
+        // Cheap bcrypt and no failed-login timebox: production-grade values cost ~60ms per hash
+        // and a 200ms sleep on every rejected SessionGuard::attempt().
+        $app['config']->set('hashing.bcrypt.rounds', 4);
+        $app['config']->set('auth.timebox_duration', 0);
     }
 
     protected function setUp(): void
