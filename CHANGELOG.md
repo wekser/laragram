@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v2.3.1] (2026-09-24)
+
+A maintenance release: the pause between synchronous broadcast sends now goes through Laravel's `Sleep` helper, so an application's tests can fake it. Runtime behaviour is unchanged. No breaking changes.
+
+### Changed
+
+- `PendingBroadcast::sendSync()` waits `broadcast.sync_delay_ms` between recipients with `Illuminate\Support\Sleep::usleep()` instead of a bare `usleep()`. In production the wait is the same; under `Sleep::fake()` it is recorded instead of performed, and can be asserted with `Sleep::assertSequence()`
+
+### Upgrade notes
+
+- Nothing to run — `composer update` is enough
+- A test suite that calls `Sleep::fake()` no longer waits 40 ms per recipient on a synchronous broadcast; one that asserts on recorded sleeps now also sees one sleep per recipient
+
 ## [v2.3.0] (2026-09-13)
 
 A fix release for log noise: Telegram's `400 message is not modified`, returned when an edit would leave a message exactly as it is (typically a double-tapped inline button), is no longer logged as a production `ERROR`. No breaking changes.
