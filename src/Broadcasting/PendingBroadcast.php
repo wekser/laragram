@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Wekser\Laragram\Broadcasting;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Sleep;
 use Wekser\Laragram\Exceptions\ExceptionHandler;
 use Wekser\Laragram\Jobs\SendBroadcastMessage;
 use Wekser\Laragram\Support\OutboundPayload;
@@ -167,7 +168,7 @@ class PendingBroadcast
                 }
 
                 if ($delayMicros > 0) {
-                    usleep($delayMicros);
+                    Sleep::usleep($delayMicros);
                 }
             }
         });
